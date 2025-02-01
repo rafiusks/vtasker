@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "vTasker Configuration Schema",
+  "type": "object",
+  "required": ["project", "tasks", "boards", "ai"],
+  "properties": {
+    "project": {
+      "type": "object",
+      "required": ["name", "version", "description"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "description": {
+          "type": "string"
+        },
+        "repository": {
+          "type": "string"
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "required": ["directory", "naming", "templates"],
+      "properties": {
+        "directory": {
+          "type": "string",
+          "default": ".vtask/tasks"
+        },
+        "naming": {
+          "type": "object",
+          "required": ["pattern", "counter_digits"],
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "default": "task-{number}"
+            },
+            "counter_digits": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 3
+            },
+            "subtask_separator": {
+              "type": "string",
+              "default": "-"
+            }
+          }
+        },
+        "templates": {
+          "type": "object",
+          "required": ["directory", "default"],
+          "properties": {
+            "directory": {
+              "type": "string",
+              "default": ".vtask/templates"
+            },
+            "default": {
+              "type": "string",
+              "default": "task.template.md"
+            }
+          }
+        },
+        "statuses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["backlog", "in-progress", "review", "done"]
+          },
+          "default": ["backlog", "in-progress", "review", "done"]
+        }
+      }
+    },
+    "boards": {
+      "type": "object",
+      "required": ["directory", "default_settings"],
+      "properties": {
+        "directory": {
+          "type": "string",
+          "default": ".vtask/boards"
+        },
+        "default_settings": {
+          "type": "object",
+          "required": ["wip_limits", "auto_archive"],
+          "properties": {
+            "wip_limits": {
+              "type": "object",
+              "properties": {
+                "in_progress": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 3
+                },
+                "review": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 2
+                }
+              }
+            },
+            "auto_archive": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "after_days": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "default": 30
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "ai": {
+      "type": "object",
+      "required": ["default_settings"],
+      "properties": {
+        "default_settings": {
+          "type": "object",
+          "required": ["automation_level", "task_creation", "task_assignment"],
+          "properties": {
+            "automation_level": {
+              "type": "string",
+              "enum": ["minimal", "moderate", "full"],
+              "default": "moderate"
+            },
+            "task_creation": {
+              "type": "string",
+              "enum": ["manual", "ai-assisted", "ai-automated"],
+              "default": "ai-assisted"
+            },
+            "task_assignment": {
+              "type": "string",
+              "enum": ["manual", "ai-suggested", "ai-automated"],
+              "default": "ai-suggested"
+            },
+            "analysis_frequency": {
+              "type": "string",
+              "enum": ["on-change", "hourly", "daily"],
+              "default": "on-change"
+            }
+          }
+        }
+      }
+    }
+  }
+} 

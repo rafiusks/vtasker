@@ -3,7 +3,7 @@
 This task involves implementing the basic file structure for the project management tool.
 
 - 📥 **File Structure**:
-  - `.pm/` directory for all project management files
+  - `.vtask/` directory for all project management files
   - `boards/` for kanban boards
   - `tasks/` for individual task files
   - `docs/` for documentation
@@ -11,10 +11,11 @@ This task involves implementing the basic file structure for the project managem
   - `config.yaml` for configuration
 
 ## Acceptance Criteria
-- [ ] Create directory structure
-- [ ] Implement file naming conventions
-- [ ] Set up validation schemas
-- [ ] Add basic templates
+- [x] Create directory structure
+- [x] Implement file naming conventions
+- [x] Set up validation schemas
+- [x] Add basic templates
 
 **Priority**: high
-**Type**: feature 
+**Type**: feature
+**Status**: review 
