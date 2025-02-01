@@ -1,6 +1,4 @@
 import { z } from 'zod';
-import type { Task, TaskContent, Board, BoardColumn } from '../types/index.ts';
-import type { TaskStatus, TaskPriority, TaskType, BoardType, BoardStatus } from '../types/index.ts';
 
 // Task Schemas
 export const taskStatusSchema = z.enum(['backlog', 'in-progress', 'review', 'done'] as const);

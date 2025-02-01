@@ -1,5 +1,5 @@
 import { assertEquals } from 'std/assert/mod.ts';
-import { Application, Router } from 'oak';
+import { Application } from 'oak';
 import { createApiRouter } from './router.ts';
 import { FileSystemAdapter } from '../storage/fs-adapter.ts';
 import { createToken } from './middleware/auth.ts';

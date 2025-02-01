@@ -1,5 +1,5 @@
 import { assertEquals } from 'https://deno.land/std/testing/asserts.ts';
-import { parseTaskFile, formatTaskFile, writeTask } from './file.ts';
+import { parseTaskFile, writeTask } from './file.ts';
 
 Deno.test('Task file write and read', async () => {
   // Test data

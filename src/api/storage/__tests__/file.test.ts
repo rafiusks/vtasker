@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { readFileSync, writeFileSync, unlinkSync } from 'fs';
-import { join } from 'path';
+import { describe, it, expect, afterEach } from 'vitest';
+import { readFileSync, writeFileSync, unlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Task } from '../../../types';
 
 describe('Task File Storage', () => {
@@ -34,7 +34,7 @@ describe('Task File Storage', () => {
   afterEach(() => {
     try {
       unlinkSync(testFilePath);
-    } catch (e) {
+    } catch (_e) {
       // Ignore if file doesn't exist
     }
   });

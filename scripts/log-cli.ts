@@ -3,7 +3,7 @@
 import { Command } from 'commander';
 import { LogManager } from './log-utils';
 import { writeFile } from 'node:fs/promises';
-import { format } from 'date-fns';
+import process from "node:process";
 
 const program = new Command();
 const logManager = new LogManager();

@@ -3,7 +3,6 @@ import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useDrop } from 'react-dnd'
 import { PlusIcon } from '@heroicons/react/20/solid'
-import { TaskCard } from './components/TaskCard'
 import { TaskForm } from './components/TaskForm'
 import { TaskColumn } from './components/TaskColumn'
 import { Select, type Option } from './components/Select'
@@ -71,7 +70,7 @@ export function App() {
 
   // Load filters from URL on mount
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(globalThis.location.search);
     const urlFilters: Partial<FilterState> = {};
 
     // Parse array parameters
@@ -114,10 +113,10 @@ export function App() {
     }
 
     const newUrl = params.toString()
-      ? `${window.location.pathname}?${params.toString()}`
-      : window.location.pathname;
+      ? `${globalThis.location.pathname}?${params.toString()}`
+      : globalThis.location.pathname;
       
-    window.history.replaceState({}, '', newUrl);
+    globalThis.history.replaceState({}, '', newUrl);
   }, [filters, filtersLoading]);
 
   useEffect(() => {
@@ -352,7 +351,7 @@ export function App() {
     }
   };
 
-  const ColumnDropZone = ({ 
+  const _ColumnDropZone = ({ 
     status, 
     tasks, 
     onDrop,

@@ -43,7 +43,7 @@ export function getNextValidStatuses(currentStatus: TaskStatus): TaskStatus[] {
   const currentIndex = statusOrder.indexOf(currentStatus);
   
   // Can move to the next status or any previous status
-  return statusOrder.filter((status, index) => {
+  return statusOrder.filter((_status, index) => {
     // Allow moving to the next status
     if (index === currentIndex + 1) return true;
     // Allow moving to any previous status

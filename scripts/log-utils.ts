@@ -1,5 +1,4 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { format } from 'date-fns';
 
 interface LogEntry {

@@ -8,22 +8,18 @@ export type Option = {
 }
 
 interface SelectProps {
-  id?: string
   label: string
   value: string
   onChange: (value: string) => void
   options: Option[]
-  className?: string
   isIconOnly?: boolean
 }
 
 export function Select({
-  id,
   label,
   value,
   onChange,
   options,
-  className = '',
   isIconOnly = false,
 }: SelectProps) {
   if (isIconOnly) {

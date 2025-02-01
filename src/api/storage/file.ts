@@ -21,7 +21,7 @@ export function parseTaskFile(content: string): Task {
   };
 
   let currentSection = '';
-  let descriptionLines: string[] = [];
+  const descriptionLines: string[] = [];
 
   for (const line of lines) {
     if (line.startsWith('# ')) {

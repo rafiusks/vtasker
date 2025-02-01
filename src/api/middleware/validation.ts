@@ -1,5 +1,5 @@
-import { Context, RouterContext } from 'oak';
-import { z } from 'zod';
+import type { RouterContext } from 'oak';
+import type { z } from 'zod';
 import { taskSchema, taskUpdateSchema, taskQuerySchema, boardSchema, boardQuerySchema } from '../../schemas/validation.ts';
 
 type ValidationTarget = 'body' | 'query' | 'params';

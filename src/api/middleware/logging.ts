@@ -1,5 +1,4 @@
-import { Context } from 'oak';
-import { Task } from '../../types.ts';
+import type { Context } from 'oak';
 
 type OperationType = 'create' | 'read' | 'update' | 'delete';
 type LogEntry = {
@@ -14,7 +13,6 @@ const logs: LogEntry[] = [];
 
 export function logOperation(operation: OperationType) {
   return async (ctx: Context, next: () => Promise<unknown>) => {
-    const startTime = Date.now();
     let taskId: string | undefined;
 
     try {

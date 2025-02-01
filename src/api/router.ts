@@ -1,5 +1,6 @@
-import { Router, RouterContext } from 'oak';
-import type { StorageAdapter, TaskQuery, BoardQuery, Task } from '../types/index.ts';
+import { Router } from 'oak';
+import type { RouterContext } from 'oak';
+import type { StorageAdapter, TaskQuery, BoardQuery } from '../types/index.ts';
 import { authenticate } from './middleware/auth.ts';
 import { validateTaskCreate, validateTaskUpdate, validateTaskQuery, validateBoardCreate, validateBoardUpdate, validateBoardQuery } from './middleware/validation.ts';
 import { logOperation } from './middleware/logging.ts';

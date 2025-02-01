@@ -39,12 +39,6 @@ export function TaskCard({ task, index, onEdit, onDelete, allTasks = [] }: TaskC
     setIsDeleteDialogOpen(false)
   }
 
-  const priorityColors = {
-    low: 'bg-blue-50 text-blue-700',
-    medium: 'bg-yellow-50 text-yellow-700',
-    high: 'bg-red-50 text-red-700',
-  }
-
   return (
     <>
       <div
