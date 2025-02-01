@@ -5,7 +5,6 @@ Design and implement the initial database schema for the application.
 
 **Status**: backlog
 **Priority**: low
-**Labels**: infrastructure
 
 ## Notes
 - Use PostgreSQL
