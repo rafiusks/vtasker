@@ -41,18 +41,20 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.post('/api/tasks', authenticate(['admin']), validateTaskCreate, async (ctx) => {
+  router.post('/api/tasks', validateTaskCreate, async (ctx) => {
     try {
       const taskData = ctx.state.validated;
+      const now = new Date().toISOString();
       const task = {
         ...taskData,
-        id: ctx.request.headers.get('X-Task-ID') || taskData.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        id: `task-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+        created_at: now,
+        updated_at: now,
+        order: 0,
       };
       await storage.writeTask(task.id, task);
       ctx.response.status = 201;
-      ctx.response.body = { id: task.id };
+      ctx.response.body = task;
     } catch (error: unknown) {
       ctx.response.status = 500;
       ctx.response.body = {

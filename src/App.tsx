@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
 import { useDrop } from 'react-dnd'
+import { PlusIcon } from '@heroicons/react/20/solid'
 import { TaskCard } from './components/TaskCard'
+import { TaskForm } from './components/TaskForm'
 import { Select, type Option } from './components/Select'
 import type { Task } from './types'
 
@@ -51,6 +53,7 @@ export function App() {
   const [loading, setLoading] = useState(true)
   const [filtersLoading, setFiltersLoading] = useState(true)
   const [filters, setFilters] = useState<FilterState>(defaultFilters)
+  const [isTaskFormOpen, setIsTaskFormOpen] = useState(false)
 
   // Load filters from URL on mount
   useEffect(() => {
@@ -110,7 +113,11 @@ export function App() {
   const loadTasks = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/tasks')
+      const response = await fetch('http://localhost:8000/api/tasks', {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
@@ -174,7 +181,7 @@ export function App() {
         updates.order = newIndex
       }
 
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      const response = await fetch(`http://localhost:8000/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -219,6 +226,29 @@ export function App() {
     } catch (err) {
       console.error('Failed to move task:', err)
       // TODO: Show error toast/notification
+    }
+  }
+
+  const handleCreateTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'updated_at' | 'order'>) => {
+    try {
+      const response = await fetch('http://localhost:8000/api/tasks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(taskData),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const newTask = await response.json()
+      setTasks(prev => [...prev, newTask])
+      setIsTaskFormOpen(false)
+    } catch (err) {
+      console.error('Failed to create task:', err)
+      setError(err instanceof Error ? err.message : 'Failed to create task')
     }
   }
 
@@ -334,8 +364,20 @@ export function App() {
     <DndProvider backend={HTML5Backend}>
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <header className="max-w-7xl mx-auto mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">vTask Board</h1>
-          <p className="text-lg text-gray-600">Manage your tasks with ease</p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">vTask Board</h1>
+              <p className="text-lg text-gray-600">Manage your tasks with ease</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsTaskFormOpen(true)}
+              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+            >
+              <PlusIcon className="h-5 w-5" aria-hidden="true" />
+              New Task
+            </button>
+          </div>
         </header>
 
         {/* Filter Controls */}
@@ -443,6 +485,12 @@ export function App() {
             ))}
           </div>
         </main>
+
+        <TaskForm
+          isOpen={isTaskFormOpen}
+          onClose={() => setIsTaskFormOpen(false)}
+          onSubmit={handleCreateTask}
+        />
       </div>
     </DndProvider>
   )
