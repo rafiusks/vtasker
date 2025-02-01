@@ -1,0 +1,321 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Board Template Schema",
+  "type": "object",
+  "required": ["title", "description", "board_configuration", "ai_configuration", "lanes"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 100
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10
+    },
+    "board_configuration": {
+      "type": "object",
+      "required": ["created", "updated", "type", "status"],
+      "properties": {
+        "created": {
+          "type": "string",
+          "format": "date"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["project", "team", "personal"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "archived"]
+        }
+      }
+    },
+    "ai_configuration": {
+      "type": "object",
+      "required": ["automation_level", "task_creation", "task_assignment", "priority_management"],
+      "properties": {
+        "automation_level": {
+          "type": "string",
+          "enum": ["minimal", "moderate", "full"]
+        },
+        "task_creation": {
+          "type": "string",
+          "enum": ["manual", "ai-assisted", "ai-automated"]
+        },
+        "task_assignment": {
+          "type": "string",
+          "enum": ["manual", "ai-suggested", "ai-automated"]
+        },
+        "priority_management": {
+          "type": "string",
+          "enum": ["manual", "ai-assisted", "ai-automated"]
+        }
+      }
+    },
+    "automation_rules": {
+      "type": "object",
+      "properties": {
+        "task_movement": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["when", "action", "to"],
+            "properties": {
+              "when": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string",
+                "enum": ["move_task", "update_status", "notify"]
+              },
+              "to": {
+                "type": "string"
+              },
+              "additional": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "task_updates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["when", "action", "fields", "values"],
+            "properties": {
+              "when": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string",
+                "enum": ["update_field", "add_comment", "notify"]
+              },
+              "fields": {
+                "type": "string"
+              },
+              "values": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "notifications": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["when", "notify", "via", "template"],
+            "properties": {
+              "when": {
+                "type": "string"
+              },
+              "notify": {
+                "type": "string"
+              },
+              "via": {
+                "type": "string"
+              },
+              "template": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "ai_workflow_preferences": {
+      "type": "object",
+      "properties": {
+        "task_analysis": {
+          "type": "object",
+          "properties": {
+            "frequency": {
+              "type": "string",
+              "enum": ["hourly", "daily", "on-change"]
+            },
+            "depth": {
+              "type": "string",
+              "enum": ["basic", "detailed"]
+            },
+            "focus": {
+              "type": "string"
+            }
+          }
+        },
+        "progress_tracking": {
+          "type": "object",
+          "properties": {
+            "metrics": {
+              "type": "string"
+            },
+            "reports": {
+              "type": "string",
+              "enum": ["daily", "weekly", "monthly"]
+            },
+            "alerts": {
+              "type": "string"
+            }
+          }
+        },
+        "resource_management": {
+          "type": "object",
+          "properties": {
+            "load_balancing": {
+              "type": "string",
+              "enum": ["enabled", "disabled"]
+            },
+            "capacity_planning": {
+              "type": "string",
+              "enum": ["manual", "ai-assisted"]
+            },
+            "skill_matching": {
+              "type": "string",
+              "enum": ["enabled", "disabled"]
+            }
+          }
+        }
+      }
+    },
+    "lanes": {
+      "type": "object",
+      "required": ["backlog", "in_progress", "review", "done"],
+      "properties": {
+        "backlog": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\[\\[task-\\d{3}(-\\d{1,2})?\\]\\].*$"
+          }
+        },
+        "in_progress": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\[\\[task-\\d{3}(-\\d{1,2})?\\]\\].*$"
+          }
+        },
+        "review": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\[\\[task-\\d{3}(-\\d{1,2})?\\]\\].*$"
+          }
+        },
+        "done": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\[\\[task-\\d{3}(-\\d{1,2})?\\]\\].*$"
+          }
+        }
+      }
+    },
+    "board_settings": {
+      "type": "object",
+      "required": ["wip_limits", "auto_archive", "archive_after"],
+      "properties": {
+        "wip_limits": {
+          "type": "object",
+          "properties": {
+            "in_progress": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "review": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        },
+        "auto_archive": {
+          "type": "boolean"
+        },
+        "archive_after": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "filters": {
+      "type": "object",
+      "properties": {
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "priority": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          }
+        }
+      }
+    },
+    "ai_insights": {
+      "type": "object",
+      "properties": {
+        "last_analysis": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "board_health": {
+          "type": "string",
+          "enum": ["healthy", "attention-needed", "critical"]
+        },
+        "current_bottlenecks": {
+          "type": "string"
+        },
+        "suggested_actions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "performance_metrics": {
+          "type": "object",
+          "properties": {
+            "velocity": {
+              "type": "string"
+            },
+            "cycle_time": {
+              "type": "string"
+            },
+            "quality_score": {
+              "type": "string"
+            }
+          }
+        },
+        "predictions": {
+          "type": "object",
+          "properties": {
+            "completion_trends": {
+              "type": "string"
+            },
+            "risk_areas": {
+              "type": "string"
+            },
+            "resource_needs": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+} 

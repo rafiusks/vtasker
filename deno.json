@@ -1,0 +1,28 @@
+{
+  "tasks": {
+    "dev": "deno run -A --node-modules-dir --unstable-detect-cjs npm:vite",
+    "build": "deno run -A --node-modules-dir --unstable-detect-cjs npm:vite build",
+    "preview": "deno run -A --node-modules-dir --unstable-detect-cjs npm:vite preview",
+    "serve": "deno run --allow-read --allow-net server.ts",
+    "start": "deno run -A server.ts & deno run -A --node-modules-dir --unstable-detect-cjs npm:vite"
+  },
+  "imports": {
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "react/jsx-runtime": "https://esm.sh/react@18.2.0/jsx-runtime",
+    "vite": "npm:vite",
+    "@vitejs/plugin-react": "npm:@vitejs/plugin-react"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "target": "esnext",
+    "strict": true,
+    "moduleResolution": "bundler",
+    "isolatedModules": true,
+    "skipLibCheck": true
+  }
+}

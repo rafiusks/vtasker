@@ -1,0 +1,283 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Documentation Template Schema",
+  "type": "object",
+  "required": ["title", "description", "document_information", "ai_metadata"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "minLength": 5,
+      "maxLength": 100
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10
+    },
+    "overview": {
+      "type": "string",
+      "minLength": 20
+    },
+    "document_information": {
+      "type": "object",
+      "required": ["type", "created", "updated", "status", "version"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["guide", "reference", "tutorial", "architecture", "api"]
+        },
+        "created": {
+          "type": "string",
+          "format": "date"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["draft", "review", "published"]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        }
+      }
+    },
+    "ai_metadata": {
+      "type": "object",
+      "required": ["document_purpose", "technical_level", "target_audience", "update_frequency", "content_type"],
+      "properties": {
+        "document_purpose": {
+          "type": "string",
+          "enum": ["implementation", "explanation", "reference", "tutorial"]
+        },
+        "technical_level": {
+          "type": "string",
+          "enum": ["beginner", "intermediate", "advanced"]
+        },
+        "target_audience": {
+          "type": "string",
+          "enum": ["developers", "users", "admins", "all"]
+        },
+        "update_frequency": {
+          "type": "string",
+          "enum": ["static", "occasional", "frequent"]
+        },
+        "content_type": {
+          "type": "string",
+          "enum": ["conceptual", "technical", "procedural", "reference"]
+        }
+      }
+    },
+    "context_links": {
+      "type": "object",
+      "properties": {
+        "related_code": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "purpose"],
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "purpose": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["doc", "relationship"],
+            "properties": {
+              "doc": {
+                "type": "string"
+              },
+              "relationship": {
+                "type": "string",
+                "enum": ["prerequisite", "reference", "extension"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "ai_maintenance": {
+      "type": "object",
+      "properties": {
+        "update_triggers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["when", "sections", "actions"],
+            "properties": {
+              "when": {
+                "type": "string",
+                "enum": ["code_change", "api_change", "feature_addition"]
+              },
+              "sections": {
+                "type": "string"
+              },
+              "actions": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "validation_rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["rule", "scope", "check"],
+            "properties": {
+              "rule": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string"
+              },
+              "check": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "auto_update_settings": {
+          "type": "object",
+          "required": ["enabled", "frequency", "scope"],
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "frequency": {
+              "type": "string",
+              "enum": ["on-change", "daily", "weekly"]
+            },
+            "scope": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "sections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title", "content"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "related_documents": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "references": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ai_analysis": {
+      "type": "object",
+      "properties": {
+        "last_scan": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "content_health": {
+          "type": "string",
+          "enum": ["up-to-date", "needs-review", "outdated"]
+        },
+        "consistency_score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10
+        },
+        "content_analysis": {
+          "type": "object",
+          "properties": {
+            "completeness": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "clarity": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "technical_accuracy": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "code_alignment": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10
+            }
+          }
+        },
+        "suggested_improvements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "usage_patterns": {
+          "type": "object",
+          "properties": {
+            "most_referenced_by": {
+              "type": "string"
+            },
+            "common_user_queries": {
+              "type": "string"
+            },
+            "pain_points": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "change_history": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["date", "author", "changes"],
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date"
+          },
+          "author": {
+            "type": "string"
+          },
+          "changes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    },
+    "ai_review_status": {
+      "type": "string",
+      "enum": ["automated-review-passed", "needs-human-review"]
+    }
+  }
+} 

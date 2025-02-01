@@ -1,0 +1,210 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AI Agent Guide Schema",
+  "type": "object",
+  "required": ["title", "description", "general_principles", "template_interpretations", "best_practices", "scenarios", "error_recovery", "continuous_improvement"],
+  "properties": {
+    "title": {
+      "type": "string",
+      "const": "AI Agent Guide for vTasker Templates"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10
+    },
+    "general_principles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["title", "points"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "template_interpretations": {
+      "type": "object",
+      "required": ["task", "board", "documentation"],
+      "properties": {
+        "task": {
+          "type": "object",
+          "required": ["metadata", "instructions", "progress_tracking"],
+          "properties": {
+            "metadata": {
+              "type": "object",
+              "required": ["complexity", "required_skills", "context_needed", "task_nature"],
+              "properties": {
+                "complexity": {
+                  "type": "object",
+                  "required": ["description", "levels"],
+                  "properties": {
+                    "description": {
+                      "type": "string"
+                    },
+                    "levels": {
+                      "type": "object",
+                      "required": ["low", "medium", "high"],
+                      "properties": {
+                        "low": {
+                          "type": "string"
+                        },
+                        "medium": {
+                          "type": "string"
+                        },
+                        "high": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "board": {
+          "type": "object",
+          "required": ["configuration", "automation_rules", "workflow_preferences", "insights"],
+          "properties": {
+            "configuration": {
+              "type": "object",
+              "required": ["automation_levels"],
+              "properties": {
+                "automation_levels": {
+                  "type": "object",
+                  "required": ["minimal", "moderate", "full"],
+                  "properties": {
+                    "minimal": {
+                      "type": "string"
+                    },
+                    "moderate": {
+                      "type": "string"
+                    },
+                    "full": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "documentation": {
+          "type": "object",
+          "required": ["metadata", "context_links", "maintenance", "analysis"],
+          "properties": {
+            "metadata": {
+              "type": "object",
+              "required": ["document_purpose", "update_frequency"],
+              "properties": {
+                "document_purpose": {
+                  "type": "object",
+                  "required": ["implementation", "explanation", "reference", "tutorial"],
+                  "properties": {
+                    "implementation": {
+                      "type": "string"
+                    },
+                    "explanation": {
+                      "type": "string"
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "tutorial": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "best_practices": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["title", "points"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["title", "steps"],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "error_recovery": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["error_type", "steps"],
+        "properties": {
+          "error_type": {
+            "type": "string"
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "continuous_improvement": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["area", "actions"],
+        "properties": {
+          "area": {
+            "type": "string"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+} 
