@@ -4,12 +4,18 @@ import type { Task } from '../types'
 
 interface TaskCardProps {
   task: Task
+  index: number
 }
 
-export function TaskCard({ task }: TaskCardProps) {
+export function TaskCard({ task, index }: TaskCardProps) {
   const [{ isDragging }, dragRef] = useDrag({
     type: 'TASK',
-    item: { id: task.id },
+    item: { 
+      id: task.id,
+      status: task.status,
+      index,
+      type: 'TASK'
+    },
     collect: (monitor) => ({
       isDragging: monitor.isDragging(),
     }),

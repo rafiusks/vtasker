@@ -144,10 +144,10 @@ export function App() {
   });
 
   const columns = {
-    backlog: filteredTasks.filter(t => t.status === 'backlog'),
-    'in-progress': filteredTasks.filter(t => t.status === 'in-progress'),
-    review: filteredTasks.filter(t => t.status === 'review'),
-    done: filteredTasks.filter(t => t.status === 'done'),
+    backlog: filteredTasks.filter(t => t.status === 'backlog').sort((a, b) => a.order - b.order),
+    'in-progress': filteredTasks.filter(t => t.status === 'in-progress').sort((a, b) => a.order - b.order),
+    review: filteredTasks.filter(t => t.status === 'review').sort((a, b) => a.order - b.order),
+    done: filteredTasks.filter(t => t.status === 'done').sort((a, b) => a.order - b.order),
   }
 
   const allLabels = Array.from(new Set(tasks.flatMap(t => t.labels)));
@@ -162,14 +162,24 @@ export function App() {
 
   const activeFilterCount = filters.status.length + filters.priority.length + filters.labels.length;
 
-  const handleTaskMove = async (taskId: string, newStatus: 'backlog' | 'in-progress' | 'review' | 'done') => {
+  const handleTaskMove = async (taskId: string, newStatus: 'backlog' | 'in-progress' | 'review' | 'done', newIndex?: number) => {
     try {
+      const updates: { status?: string, order?: number } = {}
+      
+      if (newStatus) {
+        updates.status = newStatus
+      }
+      
+      if (typeof newIndex === 'number') {
+        updates.order = newIndex
+      }
+
       const response = await fetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(updates),
       })
       
       if (!response.ok) {
@@ -177,9 +187,35 @@ export function App() {
       }
       
       // Optimistically update the UI
-      setTasks(prev => prev.map(task => 
-        task.id === taskId ? { ...task, status: newStatus } : task
-      ))
+      setTasks(prev => {
+        const updatedTasks = [...prev]
+        const taskIndex = updatedTasks.findIndex(t => t.id === taskId)
+        
+        if (taskIndex === -1) return prev
+        
+        const task = { ...updatedTasks[taskIndex] }
+        
+        if (newStatus) {
+          task.status = newStatus
+        }
+        
+        if (typeof newIndex === 'number') {
+          // Remove task from its current position
+          updatedTasks.splice(taskIndex, 1)
+          // Insert it at the new position
+          updatedTasks.splice(newIndex, 0, task)
+          
+          // Update order for all tasks in the column
+          const columnTasks = updatedTasks.filter(t => t.status === task.status)
+          columnTasks.forEach((t, i) => {
+            t.order = i
+          })
+        } else {
+          updatedTasks[taskIndex] = task
+        }
+        
+        return updatedTasks
+      })
     } catch (err) {
       console.error('Failed to move task:', err)
       // TODO: Show error toast/notification
@@ -193,13 +229,19 @@ export function App() {
   }: { 
     status: 'backlog' | 'in-progress' | 'review' | 'done'
     tasks: Task[]
-    onDrop: (taskId: string) => void
+    onDrop: (taskId: string, newStatus: typeof status, newIndex?: number) => void
   }) => {
+    const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null)
+
     const [{ isOver }, dropRef] = useDrop({
       accept: 'TASK',
-      drop: (item: { id: string }) => onDrop(item.id),
+      drop: (item: { id: string, status: string, index: number, type: 'TASK' }) => {
+        const dropIndex = draggedOverIndex !== null ? draggedOverIndex : tasks.length
+        onDrop(item.id, status, dropIndex)
+        setDraggedOverIndex(null)
+      },
       collect: monitor => ({
-        isOver: monitor.isOver(),
+        isOver: monitor.isOver({ shallow: true }),
       }),
     })
 
@@ -211,6 +253,12 @@ export function App() {
             ? 'border-blue-400 ring-2 ring-blue-100' 
             : 'border-gray-200'
         } p-4`}
+        onDragLeave={(e) => {
+          // Only reset if we're leaving the column, not entering a child
+          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+            setDraggedOverIndex(null)
+          }
+        }}
       >
         <h2 className="font-semibold text-gray-900 mb-4 flex items-center text-lg">
           <span className="w-6 h-6 inline-flex items-center justify-center mr-2 text-base">
@@ -223,11 +271,45 @@ export function App() {
            status === 'review' ? 'Review' : 'Done'}
           <span className="ml-2 text-gray-400 text-sm">({tasks.length})</span>
         </h2>
-        <div className={`space-y-3 min-h-[100px] ${isOver ? 'bg-blue-50/50 rounded-lg p-2' : ''}`}>
-          {tasks.map(task => (
-            <TaskCard key={task.id} task={task} />
+        <div 
+          className={`space-y-3 min-h-[100px] ${isOver ? 'bg-blue-50/50 rounded-lg p-2' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault()
+            // If dragging over the empty space at the bottom
+            const rect = e.currentTarget.getBoundingClientRect()
+            if (e.clientY > rect.bottom - 60) {
+              setDraggedOverIndex(tasks.length)
+            }
+          }}
+        >
+          {tasks.map((task, index) => (
+            <React.Fragment key={task.id}>
+              {draggedOverIndex === index && (
+                <div className="h-20 border-2 border-dashed border-blue-200 rounded-lg bg-blue-50/50 transform transition-all duration-200 ease-in-out" />
+              )}
+              <div
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  const midpoint = rect.top + rect.height / 2
+                  if (e.clientY < midpoint) {
+                    setDraggedOverIndex(index)
+                  } else {
+                    setDraggedOverIndex(index + 1)
+                  }
+                }}
+              >
+                <TaskCard 
+                  task={task} 
+                  index={index}
+                />
+              </div>
+            </React.Fragment>
           ))}
-          {isOver && tasks.length === 0 && (
+          {draggedOverIndex === tasks.length && (
+            <div className="h-20 border-2 border-dashed border-blue-200 rounded-lg bg-blue-50/50 transform transition-all duration-200 ease-in-out" />
+          )}
+          {isOver && tasks.length === 0 && !draggedOverIndex && (
             <div className="h-24 border-2 border-dashed border-blue-200 rounded-lg flex items-center justify-center">
               <p className="text-sm text-blue-500">Drop task here</p>
             </div>
@@ -356,7 +438,7 @@ export function App() {
                 key={status}
                 status={status}
                 tasks={tasks}
-                onDrop={(taskId) => handleTaskMove(taskId, status)}
+                onDrop={(taskId, newStatus) => handleTaskMove(taskId, newStatus)}
               />
             ))}
           </div>

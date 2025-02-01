@@ -8,6 +8,7 @@ export interface Task {
   dependencies: string[];
   created_at: string;
   updated_at: string;
+  order: number;
   content: {
     notes: string;
     attachments: string[];
