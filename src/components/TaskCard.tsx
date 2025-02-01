@@ -15,10 +15,17 @@ export function TaskCard({ task }: TaskCardProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between mb-2">
-        <h3 className="font-medium text-gray-900">{task.title}</h3>
-        <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[task.priority]}`}>
-          {task.priority}
-        </span>
+        <div className="flex-1 mr-2">
+          <h3 className="font-medium text-gray-900">{task.title}</h3>
+        </div>
+        <div className="flex items-start gap-1.5 flex-shrink-0">
+          <code className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[10px] leading-[14px] font-mono rounded">
+            {task.id}
+          </code>
+          <span className={`px-1.5 py-0.5 rounded text-[10px] leading-[14px] font-medium ${priorityColors[task.priority]}`}>
+            {task.priority}
+          </span>
+        </div>
       </div>
       
       {task.description && (
