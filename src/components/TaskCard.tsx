@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import type { Task } from '../types'
 
 interface TaskCardProps {
@@ -6,10 +6,22 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task }: TaskCardProps) {
+  const [copied, setCopied] = useState(false)
+
   const priorityColors = {
     low: 'bg-blue-50 text-blue-700',
     medium: 'bg-yellow-50 text-yellow-700',
     high: 'bg-red-50 text-red-700',
+  }
+
+  const handleCopyId = async () => {
+    try {
+      await navigator.clipboard.writeText(task.id)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
   }
 
   return (
@@ -19,9 +31,37 @@ export function TaskCard({ task }: TaskCardProps) {
           <h3 className="font-medium text-gray-900">{task.title}</h3>
         </div>
         <div className="flex items-start gap-1.5 flex-shrink-0">
-          <code className="px-1.5 py-0.5 bg-gray-100 text-gray-600 text-[10px] leading-[14px] font-mono rounded">
+          <button
+            onClick={handleCopyId}
+            type="button"
+            className="group flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] leading-[14px] font-mono rounded cursor-pointer transition-colors"
+            title="Click to copy ID"
+            aria-label={`Copy task ID: ${task.id}`}
+          >
             {task.id}
-          </code>
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              className={`transition-opacity ${copied ? 'text-green-600' : 'text-gray-400 group-hover:text-gray-600'}`}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              {copied ? (
+                // Checkmark icon
+                <path d="M20 6L9 17L4 12" />
+              ) : (
+                // Copy icon
+                <>
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </>
+              )}
+            </svg>
+          </button>
           <span className={`px-1.5 py-0.5 rounded text-[10px] leading-[14px] font-medium ${priorityColors[task.priority]}`}>
             {task.priority}
           </span>
