@@ -2,7 +2,7 @@ export interface Task {
   id: string;
   title: string;
   description: string;
-  status: 'backlog' | 'in_progress' | 'review' | 'done';
+  status: 'backlog' | 'in-progress' | 'review' | 'done';
   priority: 'low' | 'medium' | 'high';
   labels: string[];
   dependencies: string[];

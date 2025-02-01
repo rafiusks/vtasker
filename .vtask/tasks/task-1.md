@@ -4,7 +4,7 @@
 Add user authentication to the application using JWT tokens.
 
 **Status**: backlog
-**Priority**: high
+**Priority**: low
 **Labels**: feature, security
 **Dependencies**: setup-database
 
@@ -15,4 +15,4 @@ Add user authentication to the application using JWT tokens.
 
 ## Attachments
 - auth-flow.png
-- api-spec.yaml 
+- api-spec.yaml

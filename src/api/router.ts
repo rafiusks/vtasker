@@ -21,7 +21,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.get('/api/tasks/:id', authenticate(), async (ctx) => {
+  router.get('/api/tasks/:id', async (ctx) => {
     try {
       const id = ctx.params.id;
       if (!id) {
@@ -62,7 +62,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.put('/api/tasks/:id', authenticate(['admin']), validateTaskUpdate, async (ctx) => {
+  router.put('/api/tasks/:id', validateTaskUpdate, async (ctx) => {
     try {
       const id = ctx.params.id;
       if (!id) {

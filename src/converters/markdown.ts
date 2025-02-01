@@ -93,7 +93,7 @@ export function markdownToTask(markdown: string, id: string): Task {
 }
 
 function isValidStatus(status: string): status is Task['status'] {
-  return ['backlog', 'in_progress', 'review', 'done'].includes(status);
+  return ['backlog', 'in-progress', 'review', 'done'].includes(status);
 }
 
 function isValidPriority(priority: string): priority is Task['priority'] {
