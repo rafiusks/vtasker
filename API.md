@@ -25,30 +25,94 @@ GET /tasks
 ```
 
 Query parameters:
-- `status`: Filter by status ('backlog', 'in_progress', 'review', 'done')
-- `priority`: Filter by priority ('low', 'medium', 'high')
+- `status`: Filter by status ('backlog', 'in-progress', 'review', 'done')
+- `priority`: Filter by priority ('low', 'normal', 'high')
+- `type`: Filter by type ('feature', 'bug', 'docs', 'chore')
 - `labels`: Filter by labels (comma-separated)
+- `createdAfter`: Filter by creation date (ISO string)
+- `createdBefore`: Filter by creation date (ISO string)
+- `updatedAfter`: Filter by update date (ISO string)
+- `updatedBefore`: Filter by update date (ISO string)
 
 Response:
 ```typescript
 {
   tasks: Array<{
-    id: string;
+    id: string; // UUID v4 format
     title: string;
     description: string;
-    status: 'backlog' | 'in_progress' | 'review' | 'done';
-    priority: 'low' | 'medium' | 'high';
+    status: 'backlog' | 'in-progress' | 'review' | 'done';
+    priority: 'low' | 'normal' | 'high';
+    type: 'feature' | 'bug' | 'docs' | 'chore';
     labels: string[];
-    dependencies: string[];
-    created_at: string;
-    updated_at: string;
+    dependencies: string[]; // Array of task UUIDs
+    parent?: string; // Optional parent task UUID
+    board?: string; // Optional board ID
+    column?: string; // Optional column ID
+    created_at: string; // ISO datetime
+    updated_at: string; // ISO datetime
+    status_history: Array<{
+      from: 'backlog' | 'in-progress' | 'review' | 'done';
+      to: 'backlog' | 'in-progress' | 'review' | 'done';
+      timestamp: string; // ISO datetime
+      comment?: string;
+    }>;
     content: {
-      notes: string;
-      attachments: string[];
+      description: string;
+      acceptance_criteria: string[];
+      implementation_details?: string;
+      notes?: string;
+      attachments?: string[];
     };
   }>
 }
 ```
+
+### Status Management
+
+The API enforces status transition rules to ensure tasks follow a proper workflow:
+
+1. Valid Status Order:
+   - backlog -> in-progress -> review -> done
+
+2. Transition Rules:
+   - Tasks can only move one step forward at a time
+   - Tasks can move backwards to any previous status
+   - Cannot move to the same status
+   - Cannot skip statuses (e.g., backlog -> review is invalid)
+
+3. Status History:
+   - All status changes are tracked with timestamps
+   - Previous status is preserved in history
+   - Optional comments can be added to status changes
+
+Example status transition error:
+```json
+{
+  "error": "Invalid status transition",
+  "message": "Tasks must go through in-progress before moving to review"
+}
+```
+
+### Update Task Status
+
+```http
+PUT /tasks/:id
+```
+
+Request body for status update:
+```typescript
+{
+  status: 'backlog' | 'in-progress' | 'review' | 'done';
+}
+```
+
+Response: Updated task object with new status and updated status history
+
+Error Responses:
+- 400: Invalid status transition
+- 404: Task not found
+- 500: Server error
 
 ### Get Task
 
@@ -67,28 +131,27 @@ POST /tasks
 Request body:
 ```typescript
 {
-  title: string;
-  description: string;
-  status: 'backlog' | 'in_progress' | 'review' | 'done';
-  priority: 'low' | 'medium' | 'high';
+  title: string; // Required, max 200 chars
+  description: string; // Required
+  status: 'backlog' | 'in-progress' | 'review' | 'done';
+  priority: 'low' | 'normal' | 'high';
+  type: 'feature' | 'bug' | 'docs' | 'chore';
   labels?: string[];
-  dependencies?: string[];
-  content?: {
+  dependencies?: string[]; // Array of task UUIDs
+  parent?: string; // Optional parent task UUID
+  board?: string; // Optional board ID
+  column?: string; // Optional column ID
+  content: {
+    description: string;
+    acceptance_criteria: string[];
+    implementation_details?: string;
     notes?: string;
     attachments?: string[];
   };
 }
 ```
 
-Headers:
-- `X-Task-ID`: Optional custom task ID (if not provided, one will be generated)
-
-Response:
-```typescript
-{
-  id: string;
-}
-```
+Response: Created task object with generated UUID and timestamps
 
 ### Update Task
 
@@ -97,6 +160,10 @@ PUT /tasks/:id
 ```
 
 Request body: Partial task object (only include fields to update)
+- All fields are optional except when updating descriptions
+- When updating description, both root level and content.description must be provided
+- Timestamps (created_at, updated_at) cannot be modified
+- Task ID cannot be modified
 
 Response: Updated task object
 
@@ -235,6 +302,10 @@ Errors are returned in the following format:
 {
   error: string;
   message: string;
+  details?: Array<{
+    path: string;
+    message: string;
+  }>;
 }
 ```
 
@@ -242,11 +313,28 @@ Common HTTP status codes:
 - 200: Success
 - 201: Created
 - 204: No Content (successful deletion)
-- 400: Bad Request (invalid input)
+- 400: Bad Request (validation error, includes details array)
 - 401: Unauthorized (missing or invalid token)
 - 403: Forbidden (insufficient permissions)
 - 404: Not Found
 - 500: Internal Server Error
+
+## Data Validation
+
+All requests are validated using Zod schemas. Common validation rules:
+
+- Task IDs: Must be valid UUIDs (v4)
+- Title: 1-200 characters
+- Status: Must be one of: 'backlog', 'in-progress', 'review', 'done'
+- Priority: Must be one of: 'low', 'normal', 'high'
+- Type: Must be one of: 'feature', 'bug', 'docs', 'chore'
+- Dates: Must be valid ISO 8601 datetime strings
+- Arrays (labels, dependencies): Must contain valid strings/UUIDs
+- Content: Must include required fields (description, acceptance_criteria)
+
+## Legacy Support
+
+For backward compatibility, the API temporarily supports the old task ID format (`task-XXX-X`) in addition to UUIDs. This support will be removed in a future version.
 
 ## Examples
 

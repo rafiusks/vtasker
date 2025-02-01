@@ -7,9 +7,12 @@ export const taskStatusSchema = z.enum(['backlog', 'in-progress', 'review', 'don
 export const taskPrioritySchema = z.enum(['low', 'normal', 'high'] as const);
 export const taskTypeSchema = z.enum(['feature', 'bug', 'docs', 'chore'] as const);
 
+const taskIdSchema = z.string().regex(/^(task-\d{3}(-\d{1,2})?|[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/);
+
 export const taskMetadataSchema = z.object({
-  id: z.string().regex(/^task-\d{3}(-\d{1,2})?$/),
+  id: taskIdSchema,
   title: z.string().min(1).max(200),
+  description: z.string(),
   status: taskStatusSchema,
   priority: taskPrioritySchema,
   type: taskTypeSchema,
@@ -17,10 +20,16 @@ export const taskMetadataSchema = z.object({
   updated_at: z.string().datetime().optional(),
   assignee: z.string().optional(),
   labels: z.array(z.string()),
-  dependencies: z.array(z.string().regex(/^task-\d{3}(-\d{1,2})?$/)),
-  parent: z.string().regex(/^task-\d{3}$/).optional(),
+  dependencies: z.array(taskIdSchema),
+  parent: taskIdSchema.optional(),
   board: z.string().optional(),
   column: z.string().optional(),
+  status_history: z.array(z.object({
+    from: taskStatusSchema,
+    to: taskStatusSchema,
+    timestamp: z.string().datetime(),
+    comment: z.string().optional(),
+  })).optional(),
 });
 
 export const taskContentSchema = z.object({
@@ -37,13 +46,14 @@ export const taskSchema = taskMetadataSchema.extend({
 // Schema for task updates
 export const taskUpdateSchema = z.object({
   title: z.string().min(1).max(200).optional(),
+  description: z.string().optional(),
   status: taskStatusSchema.optional(),
   priority: taskPrioritySchema.optional(),
   type: taskTypeSchema.optional(),
   assignee: z.string().optional().nullable(),
   labels: z.array(z.string()).optional(),
   dependencies: z.array(z.string().regex(/^task-\d{3}(-\d{1,2})?$/)).optional(),
-  parent: z.string().regex(/^task-\d{3}$/).optional().nullable(),
+  parent: taskIdSchema.optional().nullable(),
   board: z.string().optional().nullable(),
   column: z.string().optional().nullable(),
   content: z.object({
@@ -51,7 +61,16 @@ export const taskUpdateSchema = z.object({
     acceptance_criteria: z.array(z.string()).optional(),
     implementation_details: z.string().optional().nullable(),
     notes: z.string().optional().nullable(),
+    attachments: z.array(z.string()).optional(),
+    due_date: z.string().optional().nullable(),
+    assignee: z.string().optional().nullable()
   }).optional(),
+  status_history: z.array(z.object({
+    from: taskStatusSchema,
+    to: taskStatusSchema,
+    timestamp: z.string().datetime(),
+    comment: z.string().optional()
+  })).optional()
 });
 
 // Board Schemas

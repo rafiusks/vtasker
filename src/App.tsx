@@ -5,8 +5,10 @@ import { useDrop } from 'react-dnd'
 import { PlusIcon } from '@heroicons/react/20/solid'
 import { TaskCard } from './components/TaskCard'
 import { TaskForm } from './components/TaskForm'
+import { TaskColumn } from './components/TaskColumn'
 import { Select, type Option } from './components/Select'
 import type { Task } from './types'
+import { StatusNotification } from './components/StatusNotification'
 
 type FilterState = {
   status: string[];
@@ -54,6 +56,18 @@ export function App() {
   const [filtersLoading, setFiltersLoading] = useState(true)
   const [filters, setFilters] = useState<FilterState>(defaultFilters)
   const [isTaskFormOpen, setIsTaskFormOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | undefined>()
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    taskTitle: string;
+    fromStatus: string;
+    toStatus: string;
+  }>({
+    show: false,
+    taskTitle: '',
+    fromStatus: '',
+    toStatus: '',
+  });
 
   // Load filters from URL on mount
   useEffect(() => {
@@ -138,7 +152,7 @@ export function App() {
     if (filters.labels.length && !filters.labels.some(label => task.labels.includes(label))) return false;
     return true;
   }).sort((a, b) => {
-    const priorityOrder = { high: 3, medium: 2, low: 1 };
+    const priorityOrder = { high: 3, normal: 2, low: 1 };
     const getValue = (task: Task) => {
       if (filters.sortBy === 'created_at') {
         return new Date(task.created_at).getTime();
@@ -169,7 +183,7 @@ export function App() {
 
   const activeFilterCount = filters.status.length + filters.priority.length + filters.labels.length;
 
-  const handleTaskMove = async (taskId: string, newStatus: 'backlog' | 'in-progress' | 'review' | 'done', newIndex?: number) => {
+  const handleTaskMove = async (taskId: string, newStatus: Task['status'], newIndex?: number) => {
     try {
       const updates: { status?: string, order?: number } = {}
       
@@ -190,7 +204,8 @@ export function App() {
       })
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        const error = await response.json();
+        throw new Error(error.message || `HTTP error! status: ${response.status}`);
       }
       
       // Optimistically update the UI
@@ -202,7 +217,14 @@ export function App() {
         
         const task = { ...updatedTasks[taskIndex] }
         
-        if (newStatus) {
+        if (newStatus && newStatus !== task.status) {
+          // Show notification for status change
+          setNotification({
+            show: true,
+            taskTitle: task.title,
+            fromStatus: task.status,
+            toStatus: newStatus,
+          });
           task.status = newStatus
         }
         
@@ -225,7 +247,10 @@ export function App() {
       })
     } catch (err) {
       console.error('Failed to move task:', err)
-      // TODO: Show error toast/notification
+      setError(err instanceof Error ? err.message : 'Failed to move task')
+      
+      // Reload tasks to ensure UI is in sync with server
+      loadTasks()
     }
   }
 
@@ -243,8 +268,24 @@ export function App() {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
 
-      const newTask = await response.json()
-      setTasks(prev => [...prev, newTask])
+      const newTask = await response.json() as Task
+      
+      // Update tasks while maintaining sort order
+      setTasks(prev => {
+        const updatedTasks = [...prev, newTask]
+        return updatedTasks.sort((a, b) => {
+          if (filters.sortBy === 'created_at') {
+            return filters.sortOrder === 'desc'
+              ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+              : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          }
+          const priorityOrder: Record<Task['priority'], number> = { high: 3, normal: 2, low: 1 }
+          return filters.sortOrder === 'desc'
+            ? priorityOrder[b.priority] - priorityOrder[a.priority]
+            : priorityOrder[a.priority] - priorityOrder[b.priority]
+        })
+      })
+      
       setIsTaskFormOpen(false)
     } catch (err) {
       console.error('Failed to create task:', err)
@@ -252,14 +293,75 @@ export function App() {
     }
   }
 
+  const handleEditTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'updated_at' | 'order'>) => {
+    if (!editingTask) return
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/tasks/${editingTask.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(taskData),
+      })
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      const updatedTask = await response.json()
+      setTasks(prev => prev.map(task => 
+        task.id === editingTask.id ? updatedTask : task
+      ))
+      setEditingTask(undefined)
+    } catch (err) {
+      console.error('Failed to update task:', err)
+      setError(err instanceof Error ? err.message : 'Failed to update task')
+    }
+  }
+
+  const openEditForm = (task: Task) => {
+    setEditingTask(task)
+    setIsTaskFormOpen(true)
+  }
+
+  const closeTaskForm = () => {
+    setIsTaskFormOpen(false)
+    setEditingTask(undefined)
+  }
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || `HTTP error! status: ${response.status}`);
+      }
+
+      // Remove task from state
+      setTasks(prev => prev.filter(task => task.id !== taskId));
+    } catch (err) {
+      console.error('Failed to delete task:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete task');
+    }
+  };
+
   const ColumnDropZone = ({ 
     status, 
     tasks, 
-    onDrop 
+    onDrop,
+    children,
   }: { 
     status: 'backlog' | 'in-progress' | 'review' | 'done'
     tasks: Task[]
     onDrop: (taskId: string, newStatus: typeof status, newIndex?: number) => void
+    children?: React.ReactNode
   }) => {
     const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null)
 
@@ -312,33 +414,7 @@ export function App() {
             }
           }}
         >
-          {tasks.map((task, index) => (
-            <React.Fragment key={task.id}>
-              {draggedOverIndex === index && (
-                <div className="h-20 border-2 border-dashed border-blue-200 rounded-lg bg-blue-50/50 transform transition-all duration-200 ease-in-out" />
-              )}
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault()
-                  const rect = e.currentTarget.getBoundingClientRect()
-                  const midpoint = rect.top + rect.height / 2
-                  if (e.clientY < midpoint) {
-                    setDraggedOverIndex(index)
-                  } else {
-                    setDraggedOverIndex(index + 1)
-                  }
-                }}
-              >
-                <TaskCard 
-                  task={task} 
-                  index={index}
-                />
-              </div>
-            </React.Fragment>
-          ))}
-          {draggedOverIndex === tasks.length && (
-            <div className="h-20 border-2 border-dashed border-blue-200 rounded-lg bg-blue-50/50 transform transition-all duration-200 ease-in-out" />
-          )}
+          {children}
           {isOver && tasks.length === 0 && !draggedOverIndex && (
             <div className="h-24 border-2 border-dashed border-blue-200 rounded-lg flex items-center justify-center">
               <p className="text-sm text-blue-500">Drop task here</p>
@@ -475,12 +551,15 @@ export function App() {
 
         <main className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {(Object.entries(columns) as [Task['status'], Task[]][]).map(([status, tasks]) => (
-              <ColumnDropZone
+            {(Object.entries(columns) as [Task['status'], Task[]][]).map(([status, columnTasks]) => (
+              <TaskColumn
                 key={status}
                 status={status}
-                tasks={tasks}
-                onDrop={(taskId, newStatus) => handleTaskMove(taskId, newStatus)}
+                tasks={columnTasks}
+                onDrop={handleTaskMove}
+                onEdit={openEditForm}
+                onDelete={handleDeleteTask}
+                allTasks={tasks}
               />
             ))}
           </div>
@@ -488,8 +567,17 @@ export function App() {
 
         <TaskForm
           isOpen={isTaskFormOpen}
-          onClose={() => setIsTaskFormOpen(false)}
-          onSubmit={handleCreateTask}
+          onClose={closeTaskForm}
+          onSubmit={editingTask ? handleEditTask : handleCreateTask}
+          task={editingTask}
+          allTasks={tasks}
+        />
+        <StatusNotification
+          show={notification.show}
+          onClose={() => setNotification(prev => ({ ...prev, show: false }))}
+          taskTitle={notification.taskTitle}
+          fromStatus={notification.fromStatus}
+          toStatus={notification.toStatus}
         />
       </div>
     </DndProvider>

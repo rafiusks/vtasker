@@ -1,13 +1,33 @@
 import { Router, RouterContext } from 'oak';
-import type { StorageAdapter, TaskQuery, BoardQuery } from '../types/index.ts';
+import type { StorageAdapter, TaskQuery, BoardQuery, Task } from '../types/index.ts';
 import { authenticate } from './middleware/auth.ts';
 import { validateTaskCreate, validateTaskUpdate, validateTaskQuery, validateBoardCreate, validateBoardUpdate, validateBoardQuery } from './middleware/validation.ts';
+import { logOperation } from './middleware/logging.ts';
+import { validateStatusTransition, formatStatusTransitionError } from '../utils/statusValidation.ts';
+
+// Generate a UUID v4
+function generateUUID() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  // Set version (4) and variant (2)
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  
+  // Convert to hex string with proper formatting
+  const hex = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
+// Get current UTC timestamp in ISO format
+function getUTCTimestamp() {
+  return new Date().toISOString();
+}
 
 export function createApiRouter(storage: StorageAdapter): Router {
   const router = new Router();
 
   // Task routes
-  router.get('/api/tasks', validateTaskQuery, async (ctx: RouterContext) => {
+  router.get('/api/tasks', validateTaskQuery, logOperation('read'), async (ctx: RouterContext) => {
     try {
       const query = ctx.state.validated as TaskQuery;
       const tasks = await storage.listTasks(query);
@@ -21,7 +41,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.get('/api/tasks/:id', async (ctx) => {
+  router.get('/api/tasks/:id', logOperation('read'), async (ctx: RouterContext) => {
     try {
       const id = ctx.params.id;
       if (!id) {
@@ -41,13 +61,13 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.post('/api/tasks', validateTaskCreate, async (ctx) => {
+  router.post('/api/tasks', validateTaskCreate, logOperation('create'), async (ctx: RouterContext) => {
     try {
       const taskData = ctx.state.validated;
-      const now = new Date().toISOString();
+      const now = getUTCTimestamp();
       const task = {
         ...taskData,
-        id: `task-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
+        id: generateUUID(),
         created_at: now,
         updated_at: now,
         order: 0,
@@ -64,7 +84,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.put('/api/tasks/:id', validateTaskUpdate, async (ctx) => {
+  router.put('/api/tasks/:id', validateTaskUpdate, logOperation('update'), async (ctx: RouterContext) => {
     try {
       const id = ctx.params.id;
       if (!id) {
@@ -78,20 +98,57 @@ export function createApiRouter(storage: StorageAdapter): Router {
       
       // Merge updates with existing task
       const updates = ctx.state.validated;
+      const now = getUTCTimestamp();
+
+      // Validate status transition if status is being updated
+      if (updates.status && updates.status !== existingTask.status) {
+        const validationResult = validateStatusTransition(existingTask.status, updates.status);
+        if (!validationResult.valid) {
+          ctx.response.status = 400;
+          ctx.response.body = {
+            error: 'Invalid status transition',
+            message: validationResult.error || formatStatusTransitionError(existingTask.status, updates.status),
+          };
+          return;
+        }
+      }
+
+      // Track status change if status is being updated
+      const statusHistory = existingTask.status_history || [];
+      if (updates.status && updates.status !== existingTask.status) {
+        statusHistory.push({
+          from: existingTask.status,
+          to: updates.status,
+          timestamp: now,
+        });
+      }
+
       const updatedTask = {
         ...existingTask,
         ...updates,
         id, // Ensure ID doesn't change
-        updated_at: new Date().toISOString(),
+        updated_at: now,
         // Preserve these fields if not in updates
         created_at: existingTask.created_at,
         labels: updates.labels || existingTask.labels,
         dependencies: updates.dependencies || existingTask.dependencies,
+        status_history: statusHistory,
         content: {
           ...existingTask.content,
-          ...(updates.content || {}),
+          ...updates.content,
+          description: updates.description || existingTask.description,
+          due_date: updates.content?.due_date || existingTask.content?.due_date || '',
+          assignee: updates.content?.assignee || existingTask.content?.assignee || '',
+          acceptance_criteria: updates.content?.acceptance_criteria || existingTask.content?.acceptance_criteria || [],
+          implementation_details: updates.content?.implementation_details || existingTask.content?.implementation_details || '',
+          notes: updates.content?.notes || existingTask.content?.notes || '',
+          attachments: updates.content?.attachments || existingTask.content?.attachments || []
         },
       };
+
+      console.log('Task before update:', existingTask);
+      console.log('Update data:', updates);
+      console.log('Updated task:', updatedTask);
 
       await storage.writeTask(id, updatedTask);
       ctx.response.status = 200;
@@ -113,12 +170,33 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.delete('/api/tasks/:id', authenticate(['admin']), async (ctx) => {
+  router.delete('/api/tasks/:id', logOperation('delete'), async (ctx: RouterContext) => {
     try {
       const id = ctx.params.id;
       if (!id) {
         ctx.response.status = 400;
         ctx.response.body = { error: 'Task ID is required' };
+        return;
+      }
+
+      // Get all tasks to check for references
+      const tasks = await storage.listTasks({});
+      const referencingTasks = tasks.filter(task => 
+        task.dependencies.includes(id) || task.parent === id
+      );
+
+      // If there are referencing tasks, return an error
+      if (referencingTasks.length > 0) {
+        ctx.response.status = 400;
+        ctx.response.body = {
+          error: 'Task has dependencies',
+          message: 'Cannot delete task that is referenced by other tasks',
+          details: referencingTasks.map(task => ({
+            id: task.id,
+            title: task.title,
+            type: task.dependencies.includes(id) ? 'dependency' : 'parent'
+          }))
+        };
         return;
       }
 
@@ -134,7 +212,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
   });
 
   // Board routes
-  router.get('/api/boards', authenticate(), validateBoardQuery, async (ctx) => {
+  router.get('/api/boards', authenticate(), validateBoardQuery, async (ctx: RouterContext) => {
     try {
       const query = ctx.state.validated as BoardQuery;
       const boards = await storage.listBoards(query);
@@ -148,7 +226,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.get('/api/boards/:id', authenticate(), async (ctx) => {
+  router.get('/api/boards/:id', authenticate(), async (ctx: RouterContext) => {
     try {
       const id = ctx.params.id;
       if (!id) {
@@ -168,7 +246,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.post('/api/boards', authenticate(['admin']), validateBoardCreate, async (ctx) => {
+  router.post('/api/boards', authenticate(['admin']), validateBoardCreate, async (ctx: RouterContext) => {
     try {
       const board = ctx.state.validated;
       await storage.writeBoard(board.id, board);
@@ -183,7 +261,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.put('/api/boards/:id', authenticate(['admin']), validateBoardUpdate, async (ctx) => {
+  router.put('/api/boards/:id', authenticate(['admin']), validateBoardUpdate, async (ctx: RouterContext) => {
     try {
       const id = ctx.params.id;
       if (!id) {
@@ -201,7 +279,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
         ...existingBoard,
         ...updates,
         id, // Ensure ID doesn't change
-        updated_at: new Date().toISOString(),
+        updated_at: getUTCTimestamp(),
       };
 
       await storage.writeBoard(id, updatedBoard);
@@ -223,7 +301,7 @@ export function createApiRouter(storage: StorageAdapter): Router {
     }
   });
 
-  router.delete('/api/boards/:id', authenticate(['admin']), async (ctx) => {
+  router.delete('/api/boards/:id', authenticate(['admin']), async (ctx: RouterContext) => {
     try {
       const id = ctx.params.id;
       if (!id) {
