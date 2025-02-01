@@ -1,80 +1,33 @@
-import { serve } from "https://deno.land/std@0.220.1/http/server.ts";
-import { join } from "https://deno.land/std@0.220.1/path/mod.ts";
+import { Application, Context } from 'https://deno.land/x/oak@v12.6.1/mod.ts';
+import { FileSystemAdapter } from './src/storage/fs-adapter.ts';
+import { createApiRouter } from './src/api/router.ts';
 
-const TASKS_DIR = ".vtask/tasks";
+const storage = new FileSystemAdapter('.vtask');
+const app = new Application();
+const router = createApiRouter(storage);
 
-async function loadTasks() {
-  const tasks = [];
+// CORS middleware
+app.use(async (ctx: Context, next) => {
+  ctx.response.headers.set('Access-Control-Allow-Origin', '*');
+  ctx.response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE');
+  ctx.response.headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  await next();
+});
+
+// Error handling middleware
+app.use(async (ctx: Context, next) => {
   try {
-    console.log(`Reading tasks from directory: ${await Deno.realPath(TASKS_DIR)}`);
-    
-    for await (const entry of Deno.readDir(TASKS_DIR)) {
-      console.log(`Found file: ${entry.name}`);
-      
-      if (entry.isFile && entry.name.endsWith('.md')) {
-        const filePath = join(TASKS_DIR, entry.name);
-        console.log(`Reading task file: ${filePath}`);
-        
-        const content = await Deno.readTextFile(filePath);
-        const [id] = entry.name.split('.');
-        const lines = content.split('\n');
-        const title = lines[0].replace('# ', '');
-        const description = lines.slice(2).join('\n');
-        
-        tasks.push({
-          id,
-          title,
-          description,
-          status: 'backlog',
-          priority: 'normal',
-          type: 'feature',
-          created: new Date().toISOString()
-        });
-        
-        console.log(`Loaded task: ${title}`);
-      }
-    }
-  } catch (error) {
-    console.error('Error loading tasks:', error);
-    throw error;
+    await next();
+  } catch (err: unknown) {
+    ctx.response.status = 500;
+    ctx.response.body = { error: err instanceof Error ? err.message : 'Unknown error' };
+    console.error('Error handling request:', err);
   }
-  
-  console.log(`Total tasks loaded: ${tasks.length}`);
-  return tasks;
-}
+});
 
-const handler = async (req: Request): Promise<Response> => {
-  const url = new URL(req.url);
-  console.log(`Received ${req.method} request to ${url.pathname}`);
-  
-  if (url.pathname === '/api/tasks') {
-    try {
-      const tasks = await loadTasks();
-      return new Response(JSON.stringify(tasks), {
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    } catch (error) {
-      console.error('Error handling request:', error);
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 500,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
-    }
-  }
-  
-  return new Response('Not Found', { 
-    status: 404,
-    headers: {
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-};
+// Use the router
+app.use(router.routes());
+app.use(router.allowedMethods());
 
-console.log(`Task server running on http://localhost:8000`);
-await serve(handler, { port: 8000 });
+console.log('Server running on http://localhost:8000');
+await app.listen({ port: 8000 });

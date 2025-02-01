@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
 import { TaskCard } from './components/TaskCard'
-import { Task } from './types'
+import type { Task } from './types'
 
 export function App() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [error, setError] = useState<string>('')
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadTasks()
@@ -12,12 +13,19 @@ export function App() {
 
   const loadTasks = async () => {
     try {
+      setLoading(true)
       const response = await fetch('/api/tasks')
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
       const data = await response.json()
-      setTasks(data)
+      setTasks(Array.isArray(data) ? data : [])
     } catch (err) {
-      setError('Failed to load tasks')
+      setError(err instanceof Error ? err.message : 'Failed to load tasks')
       console.error(err)
+      setTasks([])
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -26,6 +34,10 @@ export function App() {
     in_progress: tasks.filter(t => t.status === 'in_progress'),
     review: tasks.filter(t => t.status === 'review'),
     done: tasks.filter(t => t.status === 'done'),
+  }
+
+  if (loading) {
+    return <div>Loading...</div>
   }
 
   return (

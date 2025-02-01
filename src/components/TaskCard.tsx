@@ -1,76 +1,45 @@
 import React from 'react'
-import { Task } from '../types'
+import type { Task } from '../types'
 
 interface TaskCardProps {
   task: Task
 }
 
-const priorityColors = {
-  low: "bg-gray-100 text-gray-700",
-  normal: "bg-blue-100 text-blue-700",
-  high: "bg-red-100 text-red-700",
-}
-
-const typeIcons = {
-  feature: "✨",
-  bug: "🐛",
-  chore: "🔧",
-  docs: "📝",
-}
-
-function formatDate(dateString: string) {
-  const date = new Date(dateString)
-  return new Intl.DateTimeFormat('en-US', { 
-    month: 'short', 
-    day: 'numeric',
-    year: 'numeric'
-  }).format(date)
-}
-
-function formatMarkdown(text: string) {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-blue-600 hover:underline">$1</a>')
-    .replace(/`(.*?)`/g, '<code class="bg-gray-100 px-1 rounded">$1</code>')
-}
-
 export function TaskCard({ task }: TaskCardProps) {
+  const priorityColors = {
+    low: 'bg-blue-50 text-blue-700',
+    medium: 'bg-yellow-50 text-yellow-700',
+    high: 'bg-red-50 text-red-700',
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-3">
-        <h3 className="font-medium text-gray-900 truncate flex-1" title={task.title}>
-          {task.title}
-        </h3>
-        <span className="ml-2 text-gray-400 text-xs font-mono" title="Task ID">
-          {task.id}
+    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
+      <div className="flex items-start justify-between mb-2">
+        <h3 className="font-medium text-gray-900">{task.title}</h3>
+        <span className={`px-2 py-1 rounded text-xs font-medium ${priorityColors[task.priority]}`}>
+          {task.priority}
         </span>
       </div>
       
-      <div 
-        className="mb-3 text-sm text-gray-600 prose-sm"
-        dangerouslySetInnerHTML={{ __html: formatMarkdown(task.description) }}
-      />
-      
-      <div className="flex items-center gap-2 flex-wrap">
-        <span 
-          className={`text-xs px-2 py-1 rounded-full font-medium ${priorityColors[task.priority]}`}
-          title="Priority"
-        >
-          {task.priority}
-        </span>
-        
-        <span 
-          className="text-sm bg-gray-50 px-2 py-1 rounded-full flex items-center gap-1" 
-          title={`Type: ${task.type}`}
-        >
-          <span>{typeIcons[task.type]}</span>
-          <span className="text-xs text-gray-600">{task.type}</span>
-        </span>
-        
-        <span className="text-xs text-gray-400 ml-auto" title="Created date">
-          {formatDate(task.created)}
-        </span>
+      {task.description && (
+        <p className="text-sm text-gray-600 mb-3">{task.description}</p>
+      )}
+
+      {task.labels && task.labels.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {task.labels.map(label => (
+            <span
+              key={label}
+              className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="text-xs text-gray-500 mt-2">
+        Updated {new Date(task.updated_at).toLocaleDateString()}
       </div>
     </div>
   )

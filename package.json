@@ -1,42 +1,40 @@
 {
-  "name": "vtask-vite",
-  "type": "module",
+  "name": "vtasker",
   "version": "0.1.0",
-  "private": true,
-  "bin": {
-    "vtask-log": "./scripts/log-cli.ts"
-  },
+  "description": "AI-powered task management system",
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
-    "log": "tsx scripts/log-cli.ts"
+    "preview": "vite preview",
+    "format": "prettier --write src/**/*.{ts,tsx}"
   },
   "dependencies": {
-    "commander": "^12.0.0",
-    "date-fns": "^3.3.1",
+    "zod": "^3.22.4",
+    "date-fns": "^2.30.0",
+    "yaml": "^2.3.4",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.22.1",
+    "@tanstack/react-query": "^5.20.5",
+    "@chakra-ui/react": "^2.8.2",
+    "@emotion/react": "^11.11.3",
+    "@emotion/styled": "^11.11.0",
+    "framer-motion": "^11.0.5"
   },
   "devDependencies": {
-    "@types/node": "^20.11.25",
-    "@types/react": "^18.2.56",
+    "@types/node": "^20.11.19",
+    "@types/react": "^18.2.55",
     "@types/react-dom": "^18.2.19",
-    "@typescript-eslint/eslint-plugin": "^7.0.2",
-    "@typescript-eslint/parser": "^7.0.2",
+    "@typescript-eslint/eslint-plugin": "^7.0.1",
+    "@typescript-eslint/parser": "^7.0.1",
     "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.17",
+    "typescript": "^5.3.3",
     "eslint": "^8.56.0",
-    "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
-    "postcss": "^8.4.33",
-    "prettier": "^3.2.4",
-    "tailwindcss": "^3.4.1",
-    "tsx": "^4.7.1",
-    "typescript": "^5.2.2",
-    "vite": "^5.1.4"
+    "prettier": "^3.2.5",
+    "vite": "^5.1.3"
   }
 } 
