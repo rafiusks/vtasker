@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { DndProvider } from 'react-dnd'
 import { HTML5Backend } from 'react-dnd-html5-backend'
-import { useDrop } from 'react-dnd'
 import { PlusIcon } from '@heroicons/react/20/solid'
 import { TaskForm } from './components/TaskForm'
 import { TaskColumn } from './components/TaskColumn'
@@ -350,79 +349,6 @@ export function App() {
       setError(err instanceof Error ? err.message : 'Failed to delete task');
     }
   };
-
-  const _ColumnDropZone = ({ 
-    status, 
-    tasks, 
-    onDrop,
-    children,
-  }: { 
-    status: 'backlog' | 'in-progress' | 'review' | 'done'
-    tasks: Task[]
-    onDrop: (taskId: string, newStatus: typeof status, newIndex?: number) => void
-    children?: React.ReactNode
-  }) => {
-    const [draggedOverIndex, setDraggedOverIndex] = useState<number | null>(null)
-
-    const [{ isOver }, dropRef] = useDrop({
-      accept: 'TASK',
-      drop: (item: { id: string, status: string, index: number, type: 'TASK' }) => {
-        const dropIndex = draggedOverIndex !== null ? draggedOverIndex : tasks.length
-        onDrop(item.id, status, dropIndex)
-        setDraggedOverIndex(null)
-      },
-      collect: monitor => ({
-        isOver: monitor.isOver({ shallow: true }),
-      }),
-    })
-
-    return (
-      <div
-        ref={dropRef}
-        className={`bg-white rounded-xl shadow-sm border-2 transition-colors ${
-          isOver 
-            ? 'border-blue-400 ring-2 ring-blue-100' 
-            : 'border-gray-200'
-        } p-4`}
-        onDragLeave={(e) => {
-          // Only reset if we're leaving the column, not entering a child
-          if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-            setDraggedOverIndex(null)
-          }
-        }}
-      >
-        <h2 className="font-semibold text-gray-900 mb-4 flex items-center text-lg">
-          <span className="w-6 h-6 inline-flex items-center justify-center mr-2 text-base">
-            {status === 'backlog' ? '📥' :
-             status === 'in-progress' ? '🏃' :
-             status === 'review' ? '👀' : '✅'}
-          </span>
-          {status === 'backlog' ? 'Backlog' :
-           status === 'in-progress' ? 'In Progress' :
-           status === 'review' ? 'Review' : 'Done'}
-          <span className="ml-2 text-gray-400 text-sm">({tasks.length})</span>
-        </h2>
-        <div 
-          className={`space-y-3 min-h-[100px] ${isOver ? 'bg-blue-50/50 rounded-lg p-2' : ''}`}
-          onDragOver={(e) => {
-            e.preventDefault()
-            // If dragging over the empty space at the bottom
-            const rect = e.currentTarget.getBoundingClientRect()
-            if (e.clientY > rect.bottom - 60) {
-              setDraggedOverIndex(tasks.length)
-            }
-          }}
-        >
-          {children}
-          {isOver && tasks.length === 0 && !draggedOverIndex && (
-            <div className="h-24 border-2 border-dashed border-blue-200 rounded-lg flex items-center justify-center">
-              <p className="text-sm text-blue-500">Drop task here</p>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
 
   if (loading || filtersLoading) {
     return (

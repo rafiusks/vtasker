@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useDrag } from 'react-dnd'
-import { PencilIcon, TrashIcon, ArrowsPointingOutIcon } from '@heroicons/react/20/solid'
+import { PencilIcon, TrashIcon } from '@heroicons/react/20/solid'
 import { Dialog } from '@headlessui/react'
 import type { Task } from '../types'
 
@@ -29,9 +29,7 @@ export function TaskCard({ task, index, onEdit, onDelete, allTasks = [] }: TaskC
   })
 
   // Count relationships
-  const childCount = allTasks.filter(t => t.parent === task.id).length;
   const dependentCount = allTasks.filter(t => t.dependencies.includes(task.id)).length;
-  const hasParent = task.parent !== undefined;
   const hasDependencies = task.dependencies.length > 0;
 
   const handleDelete = () => {
@@ -60,28 +58,16 @@ export function TaskCard({ task, index, onEdit, onDelete, allTasks = [] }: TaskC
         <p className="mt-1 text-sm text-gray-600 line-clamp-2">{task.description}</p>
         
         {/* Relationship Indicators */}
-        {(childCount > 0 || dependentCount > 0 || hasParent || hasDependencies) && (
+        {(dependentCount > 0 || hasDependencies) && (
           <div className="mt-2 flex flex-wrap gap-1">
-            {childCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
-                <ArrowsPointingOutIcon className="h-3 w-3 rotate-135" />
-                {childCount} {childCount === 1 ? 'child' : 'children'}
-              </span>
-            )}
-            {hasParent && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-medium text-purple-700">
-                <ArrowsPointingOutIcon className="h-3 w-3 -rotate-45" />
-                Parent
-              </span>
-            )}
             {hasDependencies && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700" title="This task depends on other tasks">
                 →
                 {task.dependencies.length} {task.dependencies.length === 1 ? 'dependency' : 'dependencies'}
               </span>
             )}
             {dependentCount > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700" title="Other tasks depend on this task">
                 ←
                 {dependentCount} {dependentCount === 1 ? 'dependent' : 'dependents'}
               </span>
