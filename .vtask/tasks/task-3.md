@@ -3,7 +3,7 @@
 ## Description
 Implement filtering and sorting functionality for the task board.
 
-**Status**: in-progress
+**Status**: done
 **Priority**: low
 **Labels**: feature, ui
 

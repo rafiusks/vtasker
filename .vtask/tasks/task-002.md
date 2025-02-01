@@ -1,22 +1,7 @@
 # Implement Task Management Features
 
+## Description
 Implement core task management functionality including creation, editing, and status management.
 
-## Features to Implement
-- Task creation and editing
-- Status tracking and updates
-- Assignment and labeling
-- Due dates and priorities
-- Activity logging
-- Comments system
-
-## Acceptance Criteria
-- [ ] Create new task functionality
-- [ ] Edit existing tasks
-- [ ] Move tasks between columns
-- [ ] Add/edit task metadata (priority, type, etc.)
-- [ ] Implement activity logging
-- [ ] Add commenting system
-
+**Status**: in-progress
 **Priority**: high
-**Type**: feature 

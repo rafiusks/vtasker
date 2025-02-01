@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react'
+import { DndProvider } from 'react-dnd'
+import { HTML5Backend } from 'react-dnd-html5-backend'
+import { useDrop } from 'react-dnd'
 import { TaskCard } from './components/TaskCard'
 import { Select, type Option } from './components/Select'
 import type { Task } from './types'
@@ -159,6 +162,81 @@ export function App() {
 
   const activeFilterCount = filters.status.length + filters.priority.length + filters.labels.length;
 
+  const handleTaskMove = async (taskId: string, newStatus: 'backlog' | 'in-progress' | 'review' | 'done') => {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      // Optimistically update the UI
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, status: newStatus } : task
+      ))
+    } catch (err) {
+      console.error('Failed to move task:', err)
+      // TODO: Show error toast/notification
+    }
+  }
+
+  const ColumnDropZone = ({ 
+    status, 
+    tasks, 
+    onDrop 
+  }: { 
+    status: 'backlog' | 'in-progress' | 'review' | 'done'
+    tasks: Task[]
+    onDrop: (taskId: string) => void
+  }) => {
+    const [{ isOver }, dropRef] = useDrop({
+      accept: 'TASK',
+      drop: (item: { id: string }) => onDrop(item.id),
+      collect: monitor => ({
+        isOver: monitor.isOver(),
+      }),
+    })
+
+    return (
+      <div
+        ref={dropRef}
+        className={`bg-white rounded-xl shadow-sm border-2 transition-colors ${
+          isOver 
+            ? 'border-blue-400 ring-2 ring-blue-100' 
+            : 'border-gray-200'
+        } p-4`}
+      >
+        <h2 className="font-semibold text-gray-900 mb-4 flex items-center text-lg">
+          <span className="w-6 h-6 inline-flex items-center justify-center mr-2 text-base">
+            {status === 'backlog' ? '📥' :
+             status === 'in-progress' ? '🏃' :
+             status === 'review' ? '👀' : '✅'}
+          </span>
+          {status === 'backlog' ? 'Backlog' :
+           status === 'in-progress' ? 'In Progress' :
+           status === 'review' ? 'Review' : 'Done'}
+          <span className="ml-2 text-gray-400 text-sm">({tasks.length})</span>
+        </h2>
+        <div className={`space-y-3 min-h-[100px] ${isOver ? 'bg-blue-50/50 rounded-lg p-2' : ''}`}>
+          {tasks.map(task => (
+            <TaskCard key={task.id} task={task} />
+          ))}
+          {isOver && tasks.length === 0 && (
+            <div className="h-24 border-2 border-dashed border-blue-200 rounded-lg flex items-center justify-center">
+              <p className="text-sm text-blue-500">Drop task here</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   if (loading || filtersLoading) {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
@@ -171,164 +249,119 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <header className="max-w-7xl mx-auto mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2">vTask Board</h1>
-        <p className="text-lg text-gray-600">Manage your tasks with ease</p>
-      </header>
+    <DndProvider backend={HTML5Backend}>
+      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+        <header className="max-w-7xl mx-auto mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">vTask Board</h1>
+          <p className="text-lg text-gray-600">Manage your tasks with ease</p>
+        </header>
 
-      {/* Filter Controls */}
-      <div className="max-w-7xl mx-auto mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-base font-medium text-gray-900">Filters</h2>
-          {activeFilterCount > 0 && (
-            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-              {activeFilterCount} active filter{activeFilterCount !== 1 ? 's' : ''}
-            </span>
-          )}
-        </div>
-        <div className="space-y-2">
-          <div className="flex flex-wrap items-start gap-4">
-            {/* Status & Priority Filters */}
-            <div className="flex items-start gap-4">
+        {/* Filter Controls */}
+        <div className="max-w-7xl mx-auto mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-medium text-gray-900">Filters</h2>
+            {activeFilterCount > 0 && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {activeFilterCount} active filter{activeFilterCount !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-start gap-4">
+              {/* Status & Priority Filters */}
+              <div className="flex items-start gap-4">
+                <Select
+                  id="status-filter"
+                  label="Status"
+                  value={filters.status}
+                  onChange={value => handleFilterChange('status', value)}
+                  options={statusOptions}
+                  badge={filters.status.length}
+                  multiple
+                  className="w-[180px]"
+                />
+                <Select
+                  id="priority-filter"
+                  label="Priority"
+                  value={filters.priority}
+                  onChange={value => handleFilterChange('priority', value)}
+                  options={priorityOptions}
+                  badge={filters.priority.length}
+                  multiple
+                  className="w-[180px]"
+                />
+              </div>
+
+              {/* Labels Filter */}
               <Select
-                id="status-filter"
-                label="Status"
-                value={filters.status}
-                onChange={value => handleFilterChange('status', value)}
-                options={statusOptions}
-                badge={filters.status.length}
+                id="labels-filter"
+                label="Labels"
+                value={filters.labels}
+                onChange={value => handleFilterChange('labels', value)}
+                options={allLabels.map(label => ({ value: label, label }))}
+                badge={filters.labels.length}
                 multiple
                 className="w-[180px]"
               />
-              <Select
-                id="priority-filter"
-                label="Priority"
-                value={filters.priority}
-                onChange={value => handleFilterChange('priority', value)}
-                options={priorityOptions}
-                badge={filters.priority.length}
-                multiple
-                className="w-[180px]"
-              />
+
+              {/* Sort Controls */}
+              <div className="flex items-start gap-2">
+                <Select
+                  id="sort-by"
+                  label="Sort By"
+                  value={[filters.sortBy]}
+                  onChange={([value]) => handleFilterChange('sortBy', value)}
+                  options={sortOptions}
+                  className="w-[180px]"
+                />
+                <Select
+                  id="sort-order"
+                  label="Order"
+                  value={[filters.sortOrder]}
+                  onChange={([value]) => handleFilterChange('sortOrder', value)}
+                  options={sortOrderOptions}
+                  isIconOnly
+                  className="mt-5"
+                />
+              </div>
             </div>
 
-            {/* Labels Filter */}
-            <Select
-              id="labels-filter"
-              label="Labels"
-              value={filters.labels}
-              onChange={value => handleFilterChange('labels', value)}
-              options={allLabels.map(label => ({ value: label, label }))}
-              badge={filters.labels.length}
-              multiple
-              className="w-[180px]"
-            />
+            {/* Clear Filters */}
+            {activeFilterCount > 0 && (
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="text-sm text-gray-500 hover:text-gray-700"
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
 
-            {/* Sort Controls */}
-            <div className="flex items-start gap-2">
-              <Select
-                id="sort-by"
-                label="Sort By"
-                value={[filters.sortBy]}
-                onChange={([value]) => handleFilterChange('sortBy', value)}
-                options={sortOptions}
-                className="w-[180px]"
-              />
-              <Select
-                id="sort-order"
-                label="Order"
-                value={[filters.sortOrder]}
-                onChange={([value]) => handleFilterChange('sortOrder', value)}
-                options={sortOrderOptions}
-                isIconOnly
-                className="mt-5"
-              />
+        {error && (
+          <div className="max-w-7xl mx-auto mb-8">
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+              {error}
             </div>
           </div>
+        )}
 
-          {/* Clear Filters */}
-          {activeFilterCount > 0 && (
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                Clear Filters
-              </button>
-            </div>
-          )}
-        </div>
+        <main className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {(Object.entries(columns) as [Task['status'], Task[]][]).map(([status, tasks]) => (
+              <ColumnDropZone
+                key={status}
+                status={status}
+                tasks={tasks}
+                onDrop={(taskId) => handleTaskMove(taskId, status)}
+              />
+            ))}
+          </div>
+        </main>
       </div>
-
-      {error && (
-        <div className="max-w-7xl mx-auto mb-8">
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {error}
-          </div>
-        </div>
-      )}
-
-      <main className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Backlog Column */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center text-lg">
-              <span className="w-6 h-6 inline-flex items-center justify-center mr-2 text-base">📥</span>
-              Backlog
-              <span className="ml-2 text-gray-400 text-sm">({columns.backlog.length})</span>
-            </h2>
-            <div className="space-y-3">
-              {columns.backlog.map(task => (
-                <TaskCard key={task.id} task={task} />
-              ))}
-            </div>
-          </div>
-
-          {/* In Progress Column */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center text-lg">
-              <span className="w-6 h-6 inline-flex items-center justify-center mr-2 text-base">🏃</span>
-              In Progress
-              <span className="ml-2 text-gray-400 text-sm">({columns['in-progress'].length})</span>
-            </h2>
-            <div className="space-y-3">
-              {columns['in-progress'].map(task => (
-                <TaskCard key={task.id} task={task} />
-              ))}
-            </div>
-          </div>
-
-          {/* Review Column */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center text-lg">
-              <span className="w-6 h-6 inline-flex items-center justify-center mr-2 text-base">👀</span>
-              Review
-              <span className="ml-2 text-gray-400 text-sm">({columns.review.length})</span>
-            </h2>
-            <div className="space-y-3">
-              {columns.review.map(task => (
-                <TaskCard key={task.id} task={task} />
-              ))}
-            </div>
-          </div>
-
-          {/* Done Column */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <h2 className="font-semibold text-gray-900 mb-4 flex items-center text-lg">
-              <span className="w-6 h-6 inline-flex items-center justify-center mr-2 text-base">✅</span>
-              Done
-              <span className="ml-2 text-gray-400 text-sm">({columns.done.length})</span>
-            </h2>
-            <div className="space-y-3">
-              {columns.done.map(task => (
-                <TaskCard key={task.id} task={task} />
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
-    </div>
+    </DndProvider>
   )
 } 

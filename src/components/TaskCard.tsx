@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React from 'react'
+import { useDrag } from 'react-dnd'
 import type { Task } from '../types'
 
 interface TaskCardProps {
@@ -6,7 +7,13 @@ interface TaskCardProps {
 }
 
 export function TaskCard({ task }: TaskCardProps) {
-  const [copied, setCopied] = useState(false)
+  const [{ isDragging }, dragRef] = useDrag({
+    type: 'TASK',
+    item: { id: task.id },
+    collect: (monitor) => ({
+      isDragging: monitor.isDragging(),
+    }),
+  })
 
   const priorityColors = {
     low: 'bg-blue-50 text-blue-700',
@@ -14,79 +21,61 @@ export function TaskCard({ task }: TaskCardProps) {
     high: 'bg-red-50 text-red-700',
   }
 
-  const handleCopyId = async () => {
-    try {
-      await navigator.clipboard.writeText(task.id)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch (err) {
-      console.error('Failed to copy:', err)
-    }
-  }
-
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1 mr-2">
-          <h3 className="font-medium text-gray-900">{task.title}</h3>
-        </div>
-        <div className="flex items-start gap-1.5 flex-shrink-0">
-          <button
-            onClick={handleCopyId}
-            type="button"
-            className="group flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-600 text-[10px] leading-[14px] font-mono rounded cursor-pointer transition-colors"
-            title="Click to copy ID"
-            aria-label={`Copy task ID: ${task.id}`}
-          >
-            {task.id}
-            <svg
-              width="10"
-              height="10"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              className={`transition-opacity ${copied ? 'text-green-600' : 'text-gray-400 group-hover:text-gray-600'}`}
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              {copied ? (
-                // Checkmark icon
-                <path d="M20 6L9 17L4 12" />
-              ) : (
-                // Copy icon
-                <>
-                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                </>
-              )}
-            </svg>
-          </button>
-          <span className={`px-1.5 py-0.5 rounded text-[10px] leading-[14px] font-medium ${priorityColors[task.priority]}`}>
-            {task.priority}
-          </span>
-        </div>
+    <div
+      ref={dragRef}
+      className={`bg-white rounded-lg border border-gray-200 p-3 shadow-sm hover:shadow-md transition-shadow cursor-move ${
+        isDragging ? 'opacity-50' : ''
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <h3 className="text-sm font-medium text-gray-900">{task.title}</h3>
+        <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
+          ${task.priority === 'high' ? 'bg-red-100 text-red-700' :
+            task.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+            'bg-green-100 text-green-700'}`}
+        >
+          {task.priority}
+        </span>
       </div>
-      
-      {task.description && (
-        <p className="text-sm text-gray-600 mb-3">{task.description}</p>
-      )}
-
-      {task.labels && task.labels.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
+      <p className="mt-1 text-sm text-gray-600 line-clamp-2">{task.description}</p>
+      {task.labels.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
           {task.labels.map(label => (
             <span
               key={label}
-              className="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs"
+              className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700"
             >
               {label}
             </span>
           ))}
         </div>
       )}
-
-      <div className="text-xs text-gray-500 mt-2">
-        Updated {new Date(task.updated_at).toLocaleDateString()}
+      <div className="flex items-start justify-between mt-2">
+        <div className="flex-1 mr-2">
+          <button
+            type="button"
+            onClick={() => {
+              navigator.clipboard.writeText(task.id)
+            }}
+            className="inline-flex items-center text-gray-400 hover:text-gray-500"
+            title="Copy task ID"
+          >
+            <svg 
+              className="h-4 w-4" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+              aria-label="Copy task ID icon"
+              role="img"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          </button>
+        </div>
+        <div className="text-xs text-gray-500">
+          Updated {new Date(task.updated_at).toLocaleDateString()}
+        </div>
       </div>
     </div>
   )
