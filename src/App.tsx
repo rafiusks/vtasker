@@ -8,6 +8,7 @@ import { Select, type Option } from "./components/Select";
 import type { Task, TaskStatus, TaskPriority } from "./types";
 import { StatusNotification } from "./components/StatusNotification";
 import { toast } from "react-hot-toast";
+import { taskAPI } from "./api/tasks";
 
 type FilterValue = TaskStatus[] | TaskPriority[] | string[] | string;
 
@@ -305,34 +306,12 @@ export function App() {
 				return updatedTasks;
 			});
 
-			// Send only necessary updates
-			const response = await fetch(
-				`http://localhost:8000/api/tasks/${taskId}`,
-				{
-					method: "PUT",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						status: newStatus,
-						order: newIndex, // Server should calculate final position
-					}),
-				},
-			);
+			// Send update to server
+			const updatedTask = await taskAPI.moveTask(taskId, updates);
 
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => null);
-				throw new Error(
-					errorData?.details?.[0]?.message ||
-						errorData?.message ||
-						`Server error: ${response.status}`,
-				);
-			}
-
-			// Server should return minimal response with updated fields
-			const serverUpdates = await response.json();
-
-			// Merge only the received updates into existing task
+			// Update task with server response
 			setTasks((prev) =>
-				prev.map((t) => (t.id === taskId ? { ...t, ...serverUpdates } : t)),
+				prev.map((t) => (t.id === taskId ? { ...t, ...updatedTask } : t)),
 			);
 		} catch (err) {
 			console.error("Failed to move task:", err);
@@ -344,22 +323,10 @@ export function App() {
 
 	const handleCreateTask = async (task: Partial<Task>) => {
 		try {
-			const response = await fetch("http://localhost:8000/api/tasks", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify({
-					...task,
-					order: tasks.length,
-				}),
+			const newTask = await taskAPI.createTask({
+				...task,
+				order: tasks.length,
 			});
-
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
-			}
-
-			const newTask = (await response.json()) as Task;
 			setTasks((prev) => [...prev, newTask]);
 			setIsTaskFormOpen(false);
 		} catch (err) {
@@ -381,68 +348,28 @@ export function App() {
 			// Clean up dependencies - ensure they are valid task IDs
 			const cleanDependencies =
 				updates.dependencies?.filter((dep) => {
-					// Check if the dependency exists in the tasks list
-					return tasks.some((t) => t.id === dep);
+					// Check if the dependency exists in the tasks list and is a valid string
+					return typeof dep === "string" && tasks.some((t) => t.id === dep);
 				}) ?? existingTask.dependencies;
 
 			// Merge updates with existing task data
 			const mergedUpdates = {
-				...existingTask,
 				...updates,
 				dependencies: cleanDependencies,
-				content: {
-					...existingTask.content,
-					...updates.content,
-					// Ensure we keep existing fields that aren't in the updates
-					acceptance_criteria:
-						updates.content?.acceptance_criteria ??
-						existingTask.content.acceptance_criteria,
-					implementation_details:
-						updates.content?.implementation_details ??
-						existingTask.content.implementation_details,
-					notes: updates.content?.notes ?? existingTask.content.notes,
-					attachments:
-						updates.content?.attachments ?? existingTask.content.attachments,
-					due_date: updates.content?.due_date ?? existingTask.content.due_date,
-					assignee: updates.content?.assignee ?? existingTask.content.assignee,
-				},
+				content: updates.content
+					? {
+							...existingTask.content,
+							...updates.content,
+						}
+					: existingTask.content,
 			};
 
-			const response = await fetch(
-				`http://localhost:8000/api/tasks/${taskId}`,
-				{
-					method: "PUT",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify(mergedUpdates),
-				},
-			);
+			// Send update to server
+			const updatedTask = await taskAPI.updateTask(taskId, mergedUpdates);
 
-			if (!response.ok) {
-				const errorData = await response.json();
-				throw new Error(
-					errorData.details?.[0]?.message ||
-						errorData.message ||
-						`Server error: ${response.status}`,
-				);
-			}
-
-			const updatedTask = (await response.json()) as Task;
-
-			// Ensure metrics are properly initialized
-			const taskWithMetrics = {
-				...updatedTask,
-				metrics: updatedTask.metrics ?? {
-					acceptance_criteria: {
-						total: 0,
-						completed: 0,
-					},
-				},
-			};
-
+			// Update local state
 			setTasks((prevTasks) =>
-				prevTasks.map((t) => (t.id === taskId ? taskWithMetrics : t)),
+				prevTasks.map((t) => (t.id === taskId ? updatedTask : t)),
 			);
 
 			toast.success("Task updated successfully");
@@ -464,23 +391,7 @@ export function App() {
 
 	const handleDeleteTask = async (taskId: string) => {
 		try {
-			const response = await fetch(
-				`http://localhost:8000/api/tasks/${taskId}`,
-				{
-					method: "DELETE",
-					headers: {
-						"Content-Type": "application/json",
-					},
-				},
-			);
-
-			if (!response.ok) {
-				const error = await response.json();
-				throw new Error(
-					error.message || `HTTP error! status: ${response.status}`,
-				);
-			}
-
+			await taskAPI.deleteTask(taskId);
 			// Remove task from state
 			setTasks((prev) => prev.filter((task) => task.id !== taskId));
 		} catch (err) {
