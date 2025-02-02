@@ -1,510 +1,652 @@
-import React, { useState, useEffect } from 'react'
-import { DndProvider } from 'react-dnd'
-import { HTML5Backend } from 'react-dnd-html5-backend'
-import { PlusIcon } from '@heroicons/react/20/solid'
-import { TaskForm } from './components/TaskForm'
-import { TaskColumn } from './components/TaskColumn'
-import { Select, type Option } from './components/Select'
-import type { Task } from './types'
-import { StatusNotification } from './components/StatusNotification'
+import React, { useState, useEffect } from "react";
+import { DndProvider } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
+import { PlusIcon } from "@heroicons/react/20/solid";
+import { TaskForm } from "./components/TaskForm";
+import { TaskColumn } from "./components/TaskColumn";
+import { Select, type Option } from "./components/Select";
+import type { Task, TaskStatus, TaskPriority } from "./types";
+import { StatusNotification } from "./components/StatusNotification";
+import { toast } from "react-hot-toast";
 
-type FilterState = {
-  status: string[];
-  priority: string[];
-  labels: string[];
-  sortBy: 'created_at' | 'priority';
-  sortOrder: 'asc' | 'desc';
+type FilterValue = TaskStatus[] | TaskPriority[] | string[] | string;
+
+interface FilterState {
+	status: TaskStatus[];
+	priority: TaskPriority[];
+	labels: string[];
+	sortBy: string;
+	sortOrder: "asc" | "desc";
 }
 
 const defaultFilters: FilterState = {
-  status: [],
-  priority: [],
-  labels: [],
-  sortBy: 'created_at',
-  sortOrder: 'desc'
+	status: [],
+	priority: [],
+	labels: [],
+	sortBy: "created_at",
+	sortOrder: "desc",
 };
 
-const statusOptions: Option[] = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'in-progress', label: 'In Progress' },
-  { value: 'review', label: 'Review' },
-  { value: 'done', label: 'Done' },
-]
+const statusOptions: { value: Task["status"]; label: string }[] = [
+	{ value: "backlog", label: "Backlog" },
+	{ value: "in-progress", label: "In Progress" },
+	{ value: "review", label: "Review" },
+	{ value: "done", label: "Done" },
+];
 
-const priorityOptions: Option[] = [
-  { value: 'low', label: 'Low' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'high', label: 'High' },
-]
+const priorityOptions: { value: Task["priority"]; label: string }[] = [
+	{ value: "low", label: "Low" },
+	{ value: "normal", label: "Normal" },
+	{ value: "high", label: "High" },
+];
 
-const sortOptions: Option[] = [
-  { value: 'created_at', label: 'Creation Date' },
-  { value: 'priority', label: 'Priority' },
-]
+const sortOptions: { value: FilterState["sortBy"]; label: string }[] = [
+	{ value: "created_at", label: "Creation Date" },
+	{ value: "priority", label: "Priority" },
+];
 
-const sortOrderOptions: Option[] = [
-  { value: 'asc', label: '↑' },
-  { value: 'desc', label: '↓' },
-]
+const sortOrderOptions: { value: FilterState["sortOrder"]; label: string }[] = [
+	{ value: "asc", label: "↑" },
+	{ value: "desc", label: "↓" },
+];
 
 export function App() {
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [error, setError] = useState<string>('')
-  const [loading, setLoading] = useState(true)
-  const [filtersLoading, setFiltersLoading] = useState(true)
-  const [filters, setFilters] = useState<FilterState>(defaultFilters)
-  const [isTaskFormOpen, setIsTaskFormOpen] = useState(false)
-  const [editingTask, setEditingTask] = useState<Task | undefined>()
-  const [notification, setNotification] = useState<{
-    show: boolean;
-    taskTitle: string;
-    fromStatus: string;
-    toStatus: string;
-  }>({
-    show: false,
-    taskTitle: '',
-    fromStatus: '',
-    toStatus: '',
-  });
+	const [tasks, setTasks] = useState<Task[]>([]);
+	const [error, setError] = useState<string | null>(null);
+	const [loading, setLoading] = useState(true);
+	const [filtersLoading, setFiltersLoading] = useState(true);
+	const [filters, setFilters] = useState<FilterState>({
+		status: [],
+		priority: [],
+		labels: [],
+		sortBy: "created_at",
+		sortOrder: "desc",
+	});
+	const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
+	const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
+	const [notification, setNotification] = useState<{
+		show: boolean;
+		taskTitle?: string;
+		fromStatus?: Task["status"];
+		toStatus?: Task["status"];
+	}>({ show: false });
 
-  // Load filters from URL on mount
-  useEffect(() => {
-    const params = new URLSearchParams(globalThis.location.search);
-    const urlFilters: Partial<FilterState> = {};
+	// Load filters from URL on mount
+	useEffect(() => {
+		const params = new URLSearchParams(globalThis.location.search);
+		const urlFilters: Partial<FilterState> = {};
 
-    // Parse array parameters
-    const arrayParams = ['status', 'priority', 'labels'] as const;
-    for (const key of arrayParams) {
-      const value = params.get(key);
-      if (value) {
-        urlFilters[key] = value.split(',') as FilterState[typeof key];
-      }
-    }
+		// Parse array parameters
+		const arrayParams = ["status", "priority", "labels"] as const;
+		for (const key of arrayParams) {
+			const value = params.get(key);
+			if (value) {
+				const values = value.split(",");
+				if (key === "status") {
+					const validStatuses = values.filter((v) =>
+						["backlog", "in-progress", "review", "done"].includes(v),
+					) as TaskStatus[];
+					if (validStatuses.length > 0) {
+						urlFilters.status = validStatuses;
+					}
+				} else if (key === "priority") {
+					const validPriorities = values.filter((v) =>
+						["low", "normal", "high"].includes(v),
+					) as TaskPriority[];
+					if (validPriorities.length > 0) {
+						urlFilters.priority = validPriorities;
+					}
+				} else if (key === "labels") {
+					urlFilters.labels = values;
+				}
+			}
+		}
 
-    // Parse single value parameters
-    const sortBy = params.get('sortBy');
-    if (sortBy === 'created_at' || sortBy === 'priority') {
-      urlFilters.sortBy = sortBy;
-    }
+		// Parse single value parameters
+		const sortBy = params.get("sortBy");
+		if (sortBy === "created_at" || sortBy === "priority") {
+			urlFilters.sortBy = sortBy;
+		}
 
-    const sortOrder = params.get('sortOrder');
-    if (sortOrder === 'asc' || sortOrder === 'desc') {
-      urlFilters.sortOrder = sortOrder;
-    }
+		const sortOrder = params.get("sortOrder");
+		if (sortOrder === "asc" || sortOrder === "desc") {
+			urlFilters.sortOrder = sortOrder;
+		}
 
-    setFilters(prev => ({ ...prev, ...urlFilters }));
-    setFiltersLoading(false);
-  }, []);
+		setFilters((prev) => ({ ...prev, ...urlFilters }));
+		setFiltersLoading(false);
+	}, []);
 
-  // Update URL when filters change
-  useEffect(() => {
-    if (filtersLoading) return;
+	// Update URL when filters change
+	useEffect(() => {
+		if (filtersLoading) return;
 
-    const params = new URLSearchParams();
-    
-    // Only add non-empty array filters to URL
-    for (const [key, value] of Object.entries(filters)) {
-      if (Array.isArray(value) && value.length > 0) {
-        params.set(key, value.join(','));
-      } else if (!Array.isArray(value)) {
-        params.set(key, value);
-      }
-    }
+		const params = new URLSearchParams();
 
-    const newUrl = params.toString()
-      ? `${globalThis.location.pathname}?${params.toString()}`
-      : globalThis.location.pathname;
-      
-    globalThis.history.replaceState({}, '', newUrl);
-  }, [filters, filtersLoading]);
+		// Only add non-empty array filters to URL
+		for (const [key, value] of Object.entries(filters)) {
+			if (Array.isArray(value) && value.length > 0) {
+				params.set(key, value.join(","));
+			} else if (!Array.isArray(value)) {
+				params.set(key, value);
+			}
+		}
 
-  useEffect(() => {
-    loadTasks()
-  }, [])
+		const newUrl = params.toString()
+			? `${globalThis.location.pathname}?${params.toString()}`
+			: globalThis.location.pathname;
 
-  const loadTasks = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('http://localhost:8000/api/tasks', {
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      const data = await response.json()
-      setTasks(Array.isArray(data) ? data : [])
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load tasks')
-      console.error(err)
-      setTasks([])
-    } finally {
-      setLoading(false)
-    }
-  }
+		globalThis.history.replaceState({}, "", newUrl);
+	}, [filters, filtersLoading]);
 
-  const filteredTasks = tasks.filter(task => {
-    if (filters.status.length && !filters.status.includes(task.status)) return false;
-    if (filters.priority.length && !filters.priority.includes(task.priority)) return false;
-    if (filters.labels.length && !filters.labels.some(label => task.labels.includes(label))) return false;
-    return true;
-  }).sort((a, b) => {
-    const priorityOrder = { high: 3, normal: 2, low: 1 };
-    const getValue = (task: Task) => {
-      if (filters.sortBy === 'created_at') {
-        return new Date(task.created_at).getTime();
-      }
-      return priorityOrder[task.priority];
-    };
-    const aValue = getValue(a);
-    const bValue = getValue(b);
-    return filters.sortOrder === 'desc' ? bValue - aValue : aValue - bValue;
-  });
+	useEffect(() => {
+		loadTasks();
+	}, []);
 
-  const columns = {
-    backlog: filteredTasks.filter(t => t.status === 'backlog').sort((a, b) => a.order - b.order),
-    'in-progress': filteredTasks.filter(t => t.status === 'in-progress').sort((a, b) => a.order - b.order),
-    review: filteredTasks.filter(t => t.status === 'review').sort((a, b) => a.order - b.order),
-    done: filteredTasks.filter(t => t.status === 'done').sort((a, b) => a.order - b.order),
-  }
+	const loadTasks = async () => {
+		try {
+			setLoading(true);
+			const response = await fetch("http://localhost:8000/api/tasks", {
+				headers: {
+					"Content-Type": "application/json",
+				},
+			});
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+			const data = await response.json();
+			setTasks(Array.isArray(data) ? data : []);
+		} catch (err) {
+			setError(err instanceof Error ? err.message : "Failed to load tasks");
+			console.error(err);
+			setTasks([]);
+		} finally {
+			setLoading(false);
+		}
+	};
 
-  const allLabels = Array.from(new Set(tasks.flatMap(t => t.labels)));
+	const filteredTasks = tasks
+		.filter((task) => {
+			if (filters.status.length && !filters.status.includes(task.status))
+				return false;
+			if (filters.priority.length && !filters.priority.includes(task.priority))
+				return false;
+			if (
+				filters.labels.length &&
+				!filters.labels.some((label) => task.labels.includes(label))
+			)
+				return false;
+			return true;
+		})
+		.sort((a, b) => {
+			const priorityOrder = { high: 3, normal: 2, low: 1 };
+			const getValue = (task: Task) => {
+				if (filters.sortBy === "created_at") {
+					return new Date(task.created_at).getTime();
+				}
+				return priorityOrder[task.priority];
+			};
+			const aValue = getValue(a);
+			const bValue = getValue(b);
+			return filters.sortOrder === "desc" ? bValue - aValue : aValue - bValue;
+		});
 
-  const handleFilterChange = (type: keyof FilterState, value: string | string[]) => {
-    setFilters(prev => ({ ...prev, [type]: value }));
-  }
+	const columns = {
+		backlog: filteredTasks
+			.filter((t) => t.status === "backlog")
+			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+		"in-progress": filteredTasks
+			.filter((t) => t.status === "in-progress")
+			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+		review: filteredTasks
+			.filter((t) => t.status === "review")
+			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+		done: filteredTasks
+			.filter((t) => t.status === "done")
+			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+	};
 
-  const clearFilters = () => {
-    setFilters(defaultFilters);
-  }
+	const allLabels = Array.from(new Set(tasks.flatMap((t) => t.labels)));
 
-  const activeFilterCount = filters.status.length + filters.priority.length + filters.labels.length;
+	const handleFilterChange = (type: keyof FilterState, value: FilterValue) => {
+		setFilters((prev) => {
+			const newFilters = { ...prev };
+			if (Array.isArray(value)) {
+				if (type === "status") {
+					newFilters.status = value.filter((v) =>
+						["backlog", "in-progress", "review", "done"].includes(v as string),
+					) as TaskStatus[];
+				} else if (type === "priority") {
+					newFilters.priority = value.filter((v) =>
+						["low", "normal", "high"].includes(v as string),
+					) as TaskPriority[];
+				} else if (type === "labels") {
+					newFilters.labels = value;
+				}
+			} else if (type === "sortBy") {
+				newFilters.sortBy = value;
+			} else if (type === "sortOrder") {
+				newFilters.sortOrder =
+					value === "asc" || value === "desc" ? value : "desc";
+			}
+			return newFilters;
+		});
+	};
 
-  const handleTaskMove = async (taskId: string, newStatus: Task['status'], newIndex?: number) => {
-    try {
-      const updates: { status?: string, order?: number } = {}
-      
-      if (newStatus) {
-        updates.status = newStatus
-      }
-      
-      if (typeof newIndex === 'number') {
-        updates.order = newIndex
-      }
+	const clearFilters = () => {
+		setFilters(defaultFilters);
+	};
 
-      const response = await fetch(`http://localhost:8000/api/tasks/${taskId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(updates),
-      })
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || `HTTP error! status: ${response.status}`);
-      }
-      
-      // Optimistically update the UI
-      setTasks(prev => {
-        const updatedTasks = [...prev]
-        const taskIndex = updatedTasks.findIndex(t => t.id === taskId)
-        
-        if (taskIndex === -1) return prev
-        
-        const task = { ...updatedTasks[taskIndex] }
-        
-        if (newStatus && newStatus !== task.status) {
-          // Show notification for status change
-          setNotification({
-            show: true,
-            taskTitle: task.title,
-            fromStatus: task.status,
-            toStatus: newStatus,
-          });
-          task.status = newStatus
-        }
-        
-        if (typeof newIndex === 'number') {
-          // Remove task from its current position
-          updatedTasks.splice(taskIndex, 1)
-          // Insert it at the new position
-          updatedTasks.splice(newIndex, 0, task)
-          
-          // Update order for all tasks in the column
-          const columnTasks = updatedTasks.filter(t => t.status === task.status)
-          columnTasks.forEach((t, i) => {
-            t.order = i
-          })
-        } else {
-          updatedTasks[taskIndex] = task
-        }
-        
-        return updatedTasks
-      })
-    } catch (err) {
-      console.error('Failed to move task:', err)
-      setError(err instanceof Error ? err.message : 'Failed to move task')
-      
-      // Reload tasks to ensure UI is in sync with server
-      loadTasks()
-    }
-  }
+	const activeFilterCount =
+		filters.status.length + filters.priority.length + filters.labels.length;
 
-  const handleCreateTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'updated_at' | 'order'>) => {
-    try {
-      const response = await fetch('http://localhost:8000/api/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(taskData),
-      })
+	const handleTaskMove = async (
+		taskId: string,
+		newStatus: Task["status"],
+		newIndex?: number,
+	) => {
+		// Store the original state for recovery
+		const originalTasks = [...tasks];
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+		try {
+			// Find the task to update
+			const taskToUpdate = tasks.find((t) => t.id === taskId);
+			if (!taskToUpdate) {
+				throw new Error("Task not found");
+			}
 
-      const newTask = await response.json() as Task
-      
-      // Update tasks while maintaining sort order
-      setTasks(prev => {
-        const updatedTasks = [...prev, newTask]
-        return updatedTasks.sort((a, b) => {
-          if (filters.sortBy === 'created_at') {
-            return filters.sortOrder === 'desc'
-              ? new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-              : new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-          }
-          const priorityOrder: Record<Task['priority'], number> = { high: 3, normal: 2, low: 1 }
-          return filters.sortOrder === 'desc'
-            ? priorityOrder[b.priority] - priorityOrder[a.priority]
-            : priorityOrder[a.priority] - priorityOrder[b.priority]
-        })
-      })
-      
-      setIsTaskFormOpen(false)
-    } catch (err) {
-      console.error('Failed to create task:', err)
-      setError(err instanceof Error ? err.message : 'Failed to create task')
-    }
-  }
+			// Only send the fields we want to update
+			const updates = {
+				status: newStatus,
+				order: typeof newIndex === "number" ? newIndex : taskToUpdate.order,
+			};
 
-  const handleEditTask = async (taskData: Omit<Task, 'id' | 'created_at' | 'updated_at' | 'order'>) => {
-    if (!editingTask) return
+			// Optimistically update the UI first
+			setTasks((prev) => {
+				const updatedTasks = [...prev];
+				const taskIndex = updatedTasks.findIndex((t) => t.id === taskId);
 
-    try {
-      const response = await fetch(`http://localhost:8000/api/tasks/${editingTask.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(taskData),
-      })
+				if (taskIndex === -1) return prev;
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
+				const task = { ...updatedTasks[taskIndex], ...updates };
+				const oldStatus = updatedTasks[taskIndex].status;
 
-      const updatedTask = await response.json()
-      setTasks(prev => prev.map(task => 
-        task.id === editingTask.id ? updatedTask : task
-      ))
-      setEditingTask(undefined)
-    } catch (err) {
-      console.error('Failed to update task:', err)
-      setError(err instanceof Error ? err.message : 'Failed to update task')
-    }
-  }
+				if (newStatus && newStatus !== oldStatus) {
+					setNotification({
+						show: true,
+						taskTitle: task.title,
+						fromStatus: oldStatus,
+						toStatus: newStatus,
+					});
+				}
 
-  const openEditForm = (task: Task) => {
-    setEditingTask(task)
-    setIsTaskFormOpen(true)
-  }
+				// Remove task from its current position
+				updatedTasks.splice(taskIndex, 1);
 
-  const closeTaskForm = () => {
-    setIsTaskFormOpen(false)
-    setEditingTask(undefined)
-  }
+				// Insert it at the new position
+				if (typeof newIndex === "number") {
+					updatedTasks.splice(newIndex, 0, task);
+				} else {
+					const lastIndexInColumn = updatedTasks.reduce(
+						(lastIndex, t, i) => (t.status === newStatus ? i : lastIndex),
+						-1,
+					);
+					updatedTasks.splice(lastIndexInColumn + 1, 0, task);
+				}
 
-  const handleDeleteTask = async (taskId: string) => {
-    try {
-      const response = await fetch(`http://localhost:8000/api/tasks/${taskId}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+				// Update order for all tasks in both old and new status columns
+				const tasksToUpdate = updatedTasks.filter(
+					(t) => t.status === oldStatus || t.status === newStatus,
+				);
+				tasksToUpdate.forEach((t, i) => {
+					t.order = i;
+				});
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || `HTTP error! status: ${response.status}`);
-      }
+				return updatedTasks;
+			});
 
-      // Remove task from state
-      setTasks(prev => prev.filter(task => task.id !== taskId));
-    } catch (err) {
-      console.error('Failed to delete task:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete task');
-    }
-  };
+			// Send only necessary updates
+			const response = await fetch(
+				`http://localhost:8000/api/tasks/${taskId}`,
+				{
+					method: "PUT",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						status: newStatus,
+						order: newIndex, // Server should calculate final position
+					}),
+				},
+			);
 
-  if (loading || filtersLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4" />
-          <p className="text-gray-600">Loading tasks...</p>
-        </div>
-      </div>
-    );
-  }
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => null);
+				throw new Error(
+					errorData?.details?.[0]?.message ||
+						errorData?.message ||
+						`Server error: ${response.status}`,
+				);
+			}
 
-  return (
-    <DndProvider backend={HTML5Backend}>
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-        <header className="max-w-7xl mx-auto mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">vTask Board</h1>
-              <p className="text-lg text-gray-600">Manage your tasks with ease</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setIsTaskFormOpen(true)}
-              className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-            >
-              <PlusIcon className="h-5 w-5" aria-hidden="true" />
-              New Task
-            </button>
-          </div>
-        </header>
+			// Server should return minimal response with updated fields
+			const serverUpdates = await response.json();
 
-        {/* Filter Controls */}
-        <div className="max-w-7xl mx-auto mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-medium text-gray-900">Filters</h2>
-            {activeFilterCount > 0 && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                {activeFilterCount} active filter{activeFilterCount !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-          <div className="space-y-2">
-            <div className="flex flex-wrap items-start gap-4">
-              {/* Status & Priority Filters */}
-              <div className="flex items-start gap-4">
-                <Select
-                  id="status-filter"
-                  label="Status"
-                  value={filters.status}
-                  onChange={value => handleFilterChange('status', value)}
-                  options={statusOptions}
-                  badge={filters.status.length}
-                  multiple
-                  className="w-[180px]"
-                />
-                <Select
-                  id="priority-filter"
-                  label="Priority"
-                  value={filters.priority}
-                  onChange={value => handleFilterChange('priority', value)}
-                  options={priorityOptions}
-                  badge={filters.priority.length}
-                  multiple
-                  className="w-[180px]"
-                />
-              </div>
+			// Merge only the received updates into existing task
+			setTasks((prev) =>
+				prev.map((t) => (t.id === taskId ? { ...t, ...serverUpdates } : t)),
+			);
+		} catch (err) {
+			console.error("Failed to move task:", err);
+			// Revert to the original state
+			setTasks(originalTasks);
+			toast.error(err instanceof Error ? err.message : "Failed to move task");
+		}
+	};
 
-              {/* Labels Filter */}
-              <Select
-                id="labels-filter"
-                label="Labels"
-                value={filters.labels}
-                onChange={value => handleFilterChange('labels', value)}
-                options={allLabels.map(label => ({ value: label, label }))}
-                badge={filters.labels.length}
-                multiple
-                className="w-[180px]"
-              />
+	const handleCreateTask = async (task: Partial<Task>) => {
+		try {
+			const response = await fetch("http://localhost:8000/api/tasks", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					...task,
+					order: tasks.length,
+				}),
+			});
 
-              {/* Sort Controls */}
-              <div className="flex items-start gap-2">
-                <Select
-                  id="sort-by"
-                  label="Sort By"
-                  value={[filters.sortBy]}
-                  onChange={([value]) => handleFilterChange('sortBy', value)}
-                  options={sortOptions}
-                  className="w-[180px]"
-                />
-                <Select
-                  id="sort-order"
-                  label="Order"
-                  value={[filters.sortOrder]}
-                  onChange={([value]) => handleFilterChange('sortOrder', value)}
-                  options={sortOrderOptions}
-                  isIconOnly
-                  className="mt-5"
-                />
-              </div>
-            </div>
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
 
-            {/* Clear Filters */}
-            {activeFilterCount > 0 && (
-              <div className="flex justify-end pt-2">
-                <button
-                  type="button"
-                  onClick={clearFilters}
-                  className="text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Clear Filters
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+			const newTask = (await response.json()) as Task;
+			setTasks((prev) => [...prev, newTask]);
+			setIsTaskFormOpen(false);
+		} catch (err) {
+			console.error("Failed to create task:", err);
+			setError(err instanceof Error ? err.message : "Failed to create task");
+		}
+	};
 
-        {error && (
-          <div className="max-w-7xl mx-auto mb-8">
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-              {error}
-            </div>
-          </div>
-        )}
+	const handleEditTask = async (taskId: string, updates: Partial<Task>) => {
+		if (!taskId) return;
 
-        <main className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {(Object.entries(columns) as [Task['status'], Task[]][]).map(([status, columnTasks]) => (
-              <TaskColumn
-                key={status}
-                status={status}
-                tasks={columnTasks}
-                onDrop={handleTaskMove}
-                onEdit={openEditForm}
-                onDelete={handleDeleteTask}
-                allTasks={tasks}
-              />
-            ))}
-          </div>
-        </main>
+		try {
+			// Find the existing task
+			const existingTask = tasks.find((t) => t.id === taskId);
+			if (!existingTask) {
+				throw new Error("Task not found");
+			}
 
-        <TaskForm
-          isOpen={isTaskFormOpen}
-          onClose={closeTaskForm}
-          onSubmit={editingTask ? handleEditTask : handleCreateTask}
-          task={editingTask}
-          allTasks={tasks}
-        />
-        <StatusNotification
-          show={notification.show}
-          onClose={() => setNotification(prev => ({ ...prev, show: false }))}
-          taskTitle={notification.taskTitle}
-          fromStatus={notification.fromStatus}
-          toStatus={notification.toStatus}
-        />
-      </div>
-    </DndProvider>
-  )
-} 
+			// Clean up dependencies - ensure they are valid task IDs
+			const cleanDependencies =
+				updates.dependencies?.filter((dep) => {
+					// Check if the dependency exists in the tasks list
+					return tasks.some((t) => t.id === dep);
+				}) ?? existingTask.dependencies;
+
+			// Merge updates with existing task data
+			const mergedUpdates = {
+				...existingTask,
+				...updates,
+				dependencies: cleanDependencies,
+				content: {
+					...existingTask.content,
+					...updates.content,
+					// Ensure we keep existing fields that aren't in the updates
+					acceptance_criteria:
+						updates.content?.acceptance_criteria ??
+						existingTask.content.acceptance_criteria,
+					implementation_details:
+						updates.content?.implementation_details ??
+						existingTask.content.implementation_details,
+					notes: updates.content?.notes ?? existingTask.content.notes,
+					attachments:
+						updates.content?.attachments ?? existingTask.content.attachments,
+					due_date: updates.content?.due_date ?? existingTask.content.due_date,
+					assignee: updates.content?.assignee ?? existingTask.content.assignee,
+				},
+			};
+
+			const response = await fetch(
+				`http://localhost:8000/api/tasks/${taskId}`,
+				{
+					method: "PUT",
+					headers: {
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify(mergedUpdates),
+				},
+			);
+
+			if (!response.ok) {
+				const errorData = await response.json();
+				throw new Error(
+					errorData.details?.[0]?.message ||
+						errorData.message ||
+						`Server error: ${response.status}`,
+				);
+			}
+
+			const updatedTask = (await response.json()) as Task;
+
+			// Ensure metrics are properly initialized
+			const taskWithMetrics = {
+				...updatedTask,
+				metrics: updatedTask.metrics ?? {
+					acceptance_criteria: {
+						total: 0,
+						completed: 0,
+					},
+				},
+			};
+
+			setTasks((prevTasks) =>
+				prevTasks.map((t) => (t.id === taskId ? taskWithMetrics : t)),
+			);
+
+			toast.success("Task updated successfully");
+		} catch (err) {
+			console.error("Failed to update task:", err);
+			toast.error(err instanceof Error ? err.message : "Failed to update task");
+		}
+	};
+
+	const openEditForm = (task: Task) => {
+		setEditingTask(task);
+		setIsTaskFormOpen(true);
+	};
+
+	const closeTaskForm = () => {
+		setIsTaskFormOpen(false);
+		setEditingTask(undefined);
+	};
+
+	const handleDeleteTask = async (taskId: string) => {
+		try {
+			const response = await fetch(
+				`http://localhost:8000/api/tasks/${taskId}`,
+				{
+					method: "DELETE",
+					headers: {
+						"Content-Type": "application/json",
+					},
+				},
+			);
+
+			if (!response.ok) {
+				const error = await response.json();
+				throw new Error(
+					error.message || `HTTP error! status: ${response.status}`,
+				);
+			}
+
+			// Remove task from state
+			setTasks((prev) => prev.filter((task) => task.id !== taskId));
+		} catch (err) {
+			console.error("Failed to delete task:", err);
+			setError(err instanceof Error ? err.message : "Failed to delete task");
+		}
+	};
+
+	if (loading || filtersLoading) {
+		return (
+			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
+				<div className="text-center">
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4" />
+					<p className="text-gray-600">Loading tasks...</p>
+				</div>
+			</div>
+		);
+	}
+
+	return (
+		<DndProvider backend={HTML5Backend}>
+			<div className="min-h-screen bg-gray-50 p-4 md:p-6">
+				<header className="max-w-7xl mx-auto mb-8">
+					<div className="flex items-center justify-between mb-4">
+						<div>
+							<h1 className="text-4xl font-bold text-gray-900 mb-2">
+								vTask Board
+							</h1>
+							<p className="text-lg text-gray-600">
+								Manage your tasks with ease
+							</p>
+						</div>
+						<button
+							type="button"
+							onClick={() => setIsTaskFormOpen(true)}
+							className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+							aria-label="New Task"
+						>
+							<PlusIcon className="h-5 w-5" aria-hidden="true" />
+							New Task
+						</button>
+					</div>
+				</header>
+
+				{/* Filter Controls */}
+				<div className="max-w-7xl mx-auto mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+					<div className="flex items-center justify-between mb-3">
+						<h2 className="text-base font-medium text-gray-900">Filters</h2>
+						{activeFilterCount > 0 && (
+							<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+								{activeFilterCount} active filter
+								{activeFilterCount !== 1 ? "s" : ""}
+							</span>
+						)}
+					</div>
+					<div className="space-y-2">
+						<div className="flex flex-wrap items-start gap-4">
+							{/* Status & Priority Filters */}
+							<div className="flex items-start gap-4">
+								<Select
+									label="Status"
+									value={filters.status}
+									onChange={(value) => handleFilterChange("status", value)}
+									options={statusOptions}
+									multiple
+								/>
+								<Select
+									label="Priority"
+									value={filters.priority}
+									onChange={(value) => handleFilterChange("priority", value)}
+									options={priorityOptions}
+									multiple
+								/>
+							</div>
+
+							{/* Labels Filter */}
+							<Select
+								label="Labels"
+								value={filters.labels}
+								onChange={(value) => handleFilterChange("labels", value)}
+								options={allLabels.map((label) => ({
+									value: label,
+									label,
+								}))}
+								multiple
+							/>
+
+							{/* Sort Controls */}
+							<div className="flex items-start gap-2">
+								<Select
+									label="Sort By"
+									value={filters.sortBy}
+									onChange={(value) => handleFilterChange("sortBy", value)}
+									options={sortOptions}
+								/>
+								<Select
+									label="Sort Order"
+									value={filters.sortOrder}
+									onChange={(value) => handleFilterChange("sortOrder", value)}
+									options={sortOrderOptions}
+									isIconOnly
+								/>
+							</div>
+						</div>
+
+						{/* Clear Filters */}
+						{activeFilterCount > 0 && (
+							<div className="flex justify-end pt-2">
+								<button
+									type="button"
+									onClick={clearFilters}
+									className="text-sm text-gray-500 hover:text-gray-700"
+								>
+									Clear Filters
+								</button>
+							</div>
+						)}
+					</div>
+				</div>
+
+				{error && (
+					<div className="max-w-7xl mx-auto mb-8">
+						<div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+							{error}
+						</div>
+					</div>
+				)}
+
+				<main className="max-w-7xl mx-auto">
+					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+						{(Object.entries(columns) as [Task["status"], Task[]][]).map(
+							([status, columnTasks]) => (
+								<TaskColumn
+									key={status}
+									status={status}
+									tasks={columnTasks}
+									onDrop={handleTaskMove}
+									onEdit={openEditForm}
+									onDelete={handleDeleteTask}
+									allTasks={tasks}
+								/>
+							),
+						)}
+					</div>
+				</main>
+
+				{/* Task Form */}
+				<TaskForm
+					isOpen={isTaskFormOpen}
+					onClose={closeTaskForm}
+					onSubmit={
+						editingTask
+							? (task) => handleEditTask(editingTask.id, task)
+							: handleCreateTask
+					}
+					task={editingTask}
+					allTasks={tasks}
+				/>
+				<StatusNotification
+					show={notification.show}
+					onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
+					taskTitle={notification.taskTitle}
+					fromStatus={notification.fromStatus}
+					toStatus={notification.toStatus}
+				/>
+			</div>
+		</DndProvider>
+	);
+}
