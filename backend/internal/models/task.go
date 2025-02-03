@@ -4,16 +4,20 @@ import (
 	"time"
 )
 
-type TaskStatus string
+// TaskStatusCode represents the status code type
+type TaskStatusCode string
+
+const (
+	StatusBacklog    TaskStatusCode = "backlog"
+	StatusInProgress TaskStatusCode = "in-progress"
+	StatusReview     TaskStatusCode = "review"
+	StatusDone       TaskStatusCode = "done"
+)
+
 type TaskPriority string
 type TaskType string
 
 const (
-	StatusBacklog    TaskStatus = "backlog"
-	StatusInProgress TaskStatus = "in-progress"
-	StatusReview     TaskStatus = "review"
-	StatusDone       TaskStatus = "done"
-
 	PriorityLow    TaskPriority = "low"
 	PriorityNormal TaskPriority = "normal"
 	PriorityHigh   TaskPriority = "high"
@@ -66,12 +70,15 @@ type AcceptanceCriterion struct {
 	Notes       *string    `json:"notes,omitempty"`
 }
 
-// StatusChange represents a change in task status
-type StatusChange struct {
-	From      TaskStatus `json:"from"`
-	To        TaskStatus `json:"to"`
-	Timestamp time.Time  `json:"timestamp"`
-	Comment   *string    `json:"comment,omitempty"`
+// TaskStatus represents a task status in the database
+type TaskStatusEntity struct {
+	ID           int           `json:"id"`
+	Code         TaskStatusCode `json:"code"`
+	Name         string        `json:"name"`
+	Description  *string       `json:"description,omitempty"`
+	DisplayOrder int           `json:"display_order"`
+	CreatedAt    time.Time     `json:"created_at"`
+	UpdatedAt    time.Time     `json:"updated_at"`
 }
 
 // TaskRelationships represents task relationships
@@ -81,21 +88,54 @@ type TaskRelationships struct {
 	Labels       []string  `json:"labels,omitempty"`
 }
 
+// TaskPriorityEntity represents a task priority in the database
+type TaskPriorityEntity struct {
+	ID           int       `json:"id"`
+	Code         string    `json:"code"`
+	Name         string    `json:"name"`
+	Description  *string   `json:"description,omitempty"`
+	DisplayOrder int       `json:"display_order"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+}
+
 // Task represents a task in the system
 type Task struct {
-	ID          string           `json:"id"`
-	ExternalID  string          `json:"external_id"`
-	Title       string          `json:"title"`
-	Description string          `json:"description"`
-	Status      TaskStatus      `json:"status"`
-	Priority    TaskPriority    `json:"priority"`
-	Type        TaskType        `json:"type"`
-	Order       int             `json:"order"`
-	
-	// Grouped fields
-	Metadata      TaskMetadata      `json:"metadata"`
-	Progress      TaskProgress      `json:"progress"`
-	Content       *TaskContent      `json:"content,omitempty"`
-	Relationships TaskRelationships `json:"relationships"`
-	StatusHistory []StatusChange    `json:"status_history,omitempty"`
+	ID            string            `json:"id"`
+	Title         string            `json:"title"`
+	Description   string            `json:"description"`
+	StatusID      int               `json:"status_id" db:"status_id"`
+	Status        *TaskStatusEntity `json:"status,omitempty"`
+	PriorityID    int               `json:"priority_id" db:"priority_id"`
+	Priority      *TaskPriorityEntity `json:"priority,omitempty"`
+	Type          string            `json:"type" db:"type"`
+	Order         int               `json:"order" db:"order"`
+	Content       *TaskContent      `json:"content" db:"content"`
+	Relationships TaskRelationships `json:"relationships" db:"relationships"`
+	Metadata      TaskMetadata     `json:"metadata" db:"metadata"`
+	Progress      TaskProgress     `json:"progress" db:"progress"`
+	StatusHistory []StatusChange   `json:"status_history,omitempty" db:"status_history"`
+	CreatedAt     time.Time        `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time        `json:"updated_at" db:"updated_at"`
+}
+
+// StatusChange represents a change in task status
+type StatusChange struct {
+	TaskID      string           `json:"task_id" db:"task_id"`
+	FromStatusID int             `json:"from_status_id" db:"from_status_id"`
+	ToStatusID   int             `json:"to_status_id" db:"to_status_id"`
+	FromStatus  *TaskStatusEntity `json:"from_status,omitempty"`
+	ToStatus    *TaskStatusEntity `json:"to_status,omitempty"`
+	From        TaskStatusCode    `json:"from" db:"from"`
+	To          TaskStatusCode    `json:"to" db:"to"`
+	Comment     *string          `json:"comment,omitempty" db:"comment"`
+	Timestamp   time.Time        `json:"timestamp" db:"timestamp"`
+	ChangedAt   time.Time        `json:"changed_at" db:"changed_at"`
+}
+
+type TaskStatus struct {
+	ID           int    `json:"id"`
+	Code         string `json:"code"`
+	Name         string `json:"name"`
+	DisplayOrder int    `json:"display_order"`
 } 

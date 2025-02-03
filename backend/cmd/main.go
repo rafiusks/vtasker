@@ -2,42 +2,57 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rafaelzasas/vtasker/internal/api"
-	"github.com/rafaelzasas/vtasker/internal/db"
 )
 
 func main() {
 	// Load environment variables
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("../.env"); err != nil {
 		log.Printf("Warning: .env file not found")
 	}
 
-	// Initialize database connection
-	pool, err := db.Connect(context.Background())
+	// Create connection pool configuration
+	config, err := pgxpool.ParseConfig(os.Getenv("DATABASE_URL"))
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Error parsing connection config: %v", err)
+	}
+
+	// Initialize database connection
+	pool, err := pgxpool.NewWithConfig(context.Background(), config)
+	if err != nil {
+		log.Fatal(fmt.Errorf("unable to create connection pool: %w", err))
 	}
 	defer pool.Close()
+
+	// Add connection check
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := pool.Ping(ctx); err != nil {
+		log.Fatal("Database unreachable: ", err)
+	}
 
 	// Initialize Gin router
 	router := gin.Default()
 
 	// CORS middleware
-	config := cors.DefaultConfig()
+	configCors := cors.DefaultConfig()
 	allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
 		allowedOrigins = "http://localhost:5173,http://localhost:3000" // Default to development ports
 	}
-	config.AllowOrigins = strings.Split(allowedOrigins, ",")
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
-	config.AllowHeaders = []string{
+	configCors.AllowOrigins = strings.Split(allowedOrigins, ",")
+	configCors.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
+	configCors.AllowHeaders = []string{
 		"Origin",
 		"Content-Type",
 		"Content-Length",
@@ -45,12 +60,12 @@ func main() {
 		"X-CSRF-Token",
 		"Authorization",
 	}
-	config.ExposeHeaders = []string{
+	configCors.ExposeHeaders = []string{
 		"Content-Length",
 		"Content-Type",
 	}
-	config.AllowCredentials = true
-	router.Use(cors.New(config))
+	configCors.AllowCredentials = true
+	router.Use(cors.New(configCors))
 
 	// Setup routes
 	api.SetupRoutes(router, pool)

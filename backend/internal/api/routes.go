@@ -19,6 +19,8 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 		legacy.PUT("/tasks/:id", taskHandler.UpdateTask)
 		legacy.PUT("/tasks/:id/move", taskHandler.MoveTask)
 		legacy.DELETE("/tasks/:id", taskHandler.DeleteTask)
+		legacy.GET("/task-statuses", taskHandler.ListTaskStatuses)
+		legacy.GET("/task-priorities", taskHandler.ListTaskPriorities)
 	}
 
 	// API v1 group
@@ -34,5 +36,9 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 			tasks.PUT("/:id/move", taskHandler.MoveTask)
 			tasks.DELETE("/:id", taskHandler.DeleteTask)
 		}
+
+		// Task status routes
+		v1.GET("/task-statuses", taskHandler.ListTaskStatuses)
+		v1.GET("/task-priorities", taskHandler.ListTaskPriorities)
 	}
 } 

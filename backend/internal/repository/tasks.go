@@ -2,9 +2,9 @@ package repository
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,11 +30,11 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 	// Insert main task
 	var id string
 	err = tx.QueryRow(ctx,
-		`INSERT INTO tasks (external_id, title, description, status, priority, type, "order", parent_id, board, column_name)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		`INSERT INTO tasks (title, description, status_id, priority_id, type, "order")
+		VALUES ($1, $2, $3, $4, CAST($5 AS task_priority), CAST($6 AS task_type), $7)
 		RETURNING id`,
-		task.ExternalID, task.Title, task.Description, task.Status, task.Priority,
-		task.Type, task.Order, task.Relationships.Parent, task.Metadata.Board, task.Metadata.Column).Scan(&id)
+		task.Title, task.Description, task.StatusID, task.PriorityID,
+		task.Type, task.Order).Scan(&id)
 	if err != nil {
 		return fmt.Errorf("error inserting task: %v", err)
 	}
@@ -64,7 +64,7 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 	// Insert dependencies
 	for _, dep := range task.Relationships.Dependencies {
 		_, err = tx.Exec(ctx,
-			`INSERT INTO task_dependencies (dependent_task_id, dependency_external_id) VALUES ($1, $2)`,
+			`INSERT INTO task_dependencies (dependent_task_id, dependency_id) VALUES ($1, $2)`,
 			id, dep)
 		if err != nil {
 			return fmt.Errorf("error inserting task dependency: %v", err)
@@ -89,33 +89,44 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 }
 
 // GetTask retrieves a task by its external ID with all related data
-func (r *TaskRepository) GetTask(ctx context.Context, externalID string) (*models.Task, error) {
-	var task models.Task
-	var taskID string
-	var totalCriteria, completedCriteria int
-
-	// Get main task data with metrics
-	err := r.pool.QueryRow(ctx,
-		`WITH task_metrics AS (
-			SELECT 
-				task_id,
-				COUNT(*) as total_criteria,
-				COUNT(*) FILTER (WHERE completed) as completed_criteria
-			FROM acceptance_criteria
-			WHERE task_id = (SELECT id FROM tasks WHERE external_id = $1)
-			GROUP BY task_id
-		)
-		SELECT t.id, t.external_id, t.title, t.description, t.status, t.priority,
-			t.type, t."order", t.parent_id, t.board, t.column_name, t.created_at, t.updated_at,
-			COALESCE(m.total_criteria, 0), COALESCE(m.completed_criteria, 0)
+func (r *TaskRepository) GetTask(ctx context.Context, taskID string) (*models.Task, error) {
+	query := `
+		SELECT 
+			t.id,
+			t.title,
+			t.description,
+			t.status_id,
+			t.priority_id,
+			t.type,
+			t.order,
+			t.created_at,
+			t.updated_at,
+			ts.code AS status_code,
+			ts.name AS status_name,
+			ts.display_order AS status_display_order
 		FROM tasks t
-		LEFT JOIN task_metrics m ON t.id = m.task_id
-		WHERE t.external_id = $1`,
-		externalID).Scan(
-		&taskID, &task.ExternalID, &task.Title, &task.Description, &task.Status,
-		&task.Priority, &task.Type, &task.Order, &task.Relationships.Parent, 
-		&task.Metadata.Board, &task.Metadata.Column, &task.Metadata.CreatedAt, 
-		&task.Metadata.UpdatedAt, &totalCriteria, &completedCriteria)
+		JOIN task_statuses ts ON t.status_id = ts.id
+		WHERE t.id = $1`
+
+	var task models.Task
+	var statusCode string
+	var statusName string
+	var statusDisplayOrder int
+
+	err := r.pool.QueryRow(ctx, query, taskID).Scan(
+		&task.ID,
+		&task.Title,
+		&task.Description,
+		&task.StatusID,
+		&task.PriorityID,
+		&task.Type,
+		&task.Order,
+		&task.CreatedAt,
+		&task.UpdatedAt,
+		&statusCode,
+		&statusName,
+		&statusDisplayOrder,
+	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -123,14 +134,65 @@ func (r *TaskRepository) GetTask(ctx context.Context, externalID string) (*model
 		return nil, fmt.Errorf("error getting task: %v", err)
 	}
 
-	// Initialize task ID and relationships
-	task.ID = taskID
-	task.Relationships.Labels = make([]string, 0)
-	task.Relationships.Dependencies = make([]string, 0)
-	task.StatusHistory = make([]models.StatusChange, 0)
-	task.Content = &models.TaskContent{
-		AcceptanceCriteria: make([]models.AcceptanceCriterion, 0),
-		Attachments:        make([]string, 0),
+	// Initialize empty structs for JSON fields
+	task.Content = &models.TaskContent{}
+	task.Relationships = models.TaskRelationships{}
+	task.Metadata = models.TaskMetadata{}
+	task.Progress = models.TaskProgress{}
+
+	// Set up the status
+	task.Status = &models.TaskStatusEntity{
+		ID:           task.StatusID,
+		Code:         models.TaskStatusCode(statusCode),
+		Name:         statusName,
+		DisplayOrder: statusDisplayOrder,
+	}
+
+	return &task, nil
+}
+
+// scanTask scans a task row into a Task struct
+func scanTask(row pgx.Row) (*models.Task, error) {
+	var task models.Task
+	var statusID *int
+	var statusCode *string
+	var statusDescription *string
+	var statusDisplayOrder *int
+	var statusCreatedAt *time.Time
+	var statusUpdatedAt *time.Time
+	var totalCriteria, completedCriteria int
+
+	err := row.Scan(
+		&task.ID,
+		&task.Title,
+		&task.Description,
+		&task.StatusID,
+		&task.PriorityID,
+		&task.Type,
+		&task.Order,
+		&task.Relationships.Parent,
+		&task.Metadata.Board,
+		&task.Metadata.Column,
+		&task.Metadata.CreatedAt,
+		&task.Metadata.UpdatedAt,
+		&totalCriteria,
+		&completedCriteria,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error scanning task: %v", err)
+	}
+
+	// Set the status if we have one
+	if statusID != nil {
+		task.StatusID = *statusID
+		task.Status = &models.TaskStatusEntity{
+			ID:           *statusID,
+			Code:         models.TaskStatusCode(*statusCode),
+			Description:  statusDescription,
+			DisplayOrder: *statusDisplayOrder,
+			CreatedAt:    *statusCreatedAt,
+			UpdatedAt:    *statusUpdatedAt,
+		}
 	}
 
 	// Set progress metrics
@@ -140,246 +202,81 @@ func (r *TaskRepository) GetTask(ctx context.Context, externalID string) (*model
 		task.Progress.Percentage = int((float64(completedCriteria) / float64(totalCriteria)) * 100)
 	}
 
-	// Get task content
-	err = r.pool.QueryRow(ctx,
-		`SELECT description, implementation_details, notes, due_date, assignee
-		FROM task_contents WHERE task_id = $1`,
-		taskID).Scan(
-		&task.Content.Description, &task.Content.ImplementationDetails,
-		&task.Content.Notes, &task.Content.DueDate, &task.Content.Assignee)
-	if err != nil && err != pgx.ErrNoRows {
-		return nil, fmt.Errorf("error getting task content: %v", err)
-	}
-
-	// Get labels
-	rows, err := r.pool.Query(ctx,
-		`SELECT label FROM task_labels WHERE task_id = $1`,
-		taskID)
-	if err != nil {
-		return nil, fmt.Errorf("error getting task labels: %v", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var label string
-		if err := rows.Scan(&label); err != nil {
-			return nil, fmt.Errorf("error scanning task label: %v", err)
-		}
-		task.Relationships.Labels = append(task.Relationships.Labels, label)
-	}
-
-	// Get dependencies
-	rows, err = r.pool.Query(ctx,
-		`SELECT dependency_external_id FROM task_dependencies WHERE dependent_task_id = $1`,
-		taskID)
-	if err != nil {
-		return nil, fmt.Errorf("error getting task dependencies: %v", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var depID string
-		if err := rows.Scan(&depID); err != nil {
-			return nil, fmt.Errorf("error scanning task dependency: %v", err)
-		}
-		task.Relationships.Dependencies = append(task.Relationships.Dependencies, depID)
-	}
-
-	// Get acceptance criteria
-	rows, err = r.pool.Query(ctx,
-		`SELECT id, description, completed, completed_at, completed_by, created_at,
-			updated_at, "order", category, notes
-		FROM acceptance_criteria
-		WHERE task_id = $1
-		ORDER BY "order"`,
-		taskID)
-	if err != nil {
-		return nil, fmt.Errorf("error getting acceptance criteria: %v", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var criterion models.AcceptanceCriterion
-		if err := rows.Scan(
-			&criterion.ID, &criterion.Description, &criterion.Completed,
-			&criterion.CompletedAt, &criterion.CompletedBy, &criterion.CreatedAt,
-			&criterion.UpdatedAt, &criterion.Order, &criterion.Category,
-			&criterion.Notes); err != nil {
-			return nil, fmt.Errorf("error scanning acceptance criterion: %v", err)
-		}
-		task.Content.AcceptanceCriteria = append(task.Content.AcceptanceCriteria, criterion)
-	}
-
-	// Get status history
-	rows, err = r.pool.Query(ctx,
-		`SELECT from_status, to_status, changed_at, comment
-		FROM status_history
-		WHERE task_id = $1
-		ORDER BY changed_at DESC`,
-		taskID)
-	if err != nil {
-		return nil, fmt.Errorf("error getting status history: %v", err)
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var change models.StatusChange
-		if err := rows.Scan(
-			&change.From, &change.To, &change.Timestamp, &change.Comment); err != nil {
-			return nil, fmt.Errorf("error scanning status change: %v", err)
-		}
-		task.StatusHistory = append(task.StatusHistory, change)
-	}
-
 	return &task, nil
 }
 
 // ListTasks retrieves all tasks with optional filtering
-func (r *TaskRepository) ListTasks(ctx context.Context, status, priority string) ([]models.Task, error) {
-	log.Printf("Listing tasks with status=%q, priority=%q", status, priority)
-
+func (r *TaskRepository) ListTasks(ctx context.Context, statusFilter string, priorityFilter string) ([]models.Task, error) {
 	query := `
-		WITH task_metrics AS (
-			SELECT 
-				task_id,
-				COUNT(*) as total_criteria,
-				COUNT(*) FILTER (WHERE completed) as completed_criteria
-			FROM acceptance_criteria
-			GROUP BY task_id
-		),
-		task_history AS (
-			SELECT 
-				task_id,
-				json_agg(
-					json_build_object(
-						'from', from_status,
-						'to', to_status,
-						'timestamp', changed_at,
-						'comment', comment
-					) ORDER BY changed_at DESC
-				) as history
-			FROM status_history
-			GROUP BY task_id
-		)
 		SELECT 
-			t.id, 
-			t.external_id, 
-			t.title, 
-			t.description, 
-			t.status, 
-			t.priority,
-			t.type, 
-			t."order", 
-			t.parent_id, 
-			t.board, 
-			t.column_name, 
-			t.created_at, 
+			t.id,
+			t.title,
+			t.description,
+			t.status_id,
+			t.priority_id,
+			t.type,
+			t.order,
+			t.created_at,
 			t.updated_at,
-			tc.description as content_description,
-			tc.implementation_details,
-			tc.notes as content_notes,
-			tc.due_date,
-			tc.assignee,
-			COALESCE(m.total_criteria, 0) as total_criteria,
-			COALESCE(m.completed_criteria, 0) as completed_criteria,
-			(
-				SELECT COALESCE(json_agg(label), '[]'::json)
-				FROM task_labels tl
-				WHERE tl.task_id = t.id
-			) as labels,
-			(
-				SELECT COALESCE(json_agg(dependency_external_id), '[]'::json)
-				FROM task_dependencies td
-				WHERE td.dependent_task_id = t.id
-			) as dependencies,
-			COALESCE(th.history, '[]'::json) as status_history
+			ts.code AS status_code,
+			ts.name AS status_name
 		FROM tasks t
-		LEFT JOIN task_contents tc ON t.id = tc.task_id
-		LEFT JOIN task_metrics m ON t.id = m.task_id
-		LEFT JOIN task_history th ON t.id = th.task_id
-		WHERE ($1 = '' OR t.status::text = $1)
-		AND ($2 = '' OR t.priority::text = $2)
-		ORDER BY t.status, t."order"`
+		JOIN task_statuses ts ON t.status_id = ts.id
+		WHERE ($1 = '' OR ts.code = $1)
+		AND ($2 = '' OR t.priority_id::text = $2)
+		ORDER BY t.order`
 
-	rows, err := r.pool.Query(ctx, query, status, priority)
+	rows, err := r.pool.Query(ctx, query, statusFilter, priorityFilter)
 	if err != nil {
-		log.Printf("Database error: %v", err)
-		return nil, fmt.Errorf("error listing tasks: %v", err)
+		return nil, fmt.Errorf("error querying tasks: %v", err)
 	}
 	defer rows.Close()
 
-	tasks := make([]models.Task, 0)
+	var tasks []models.Task
 	for rows.Next() {
 		var task models.Task
-		task.Content = &models.TaskContent{
-			AcceptanceCriteria: make([]models.AcceptanceCriterion, 0),
-			Attachments:        make([]string, 0),
-		}
-		task.Relationships = models.TaskRelationships{
-			Labels:       make([]string, 0),
-			Dependencies: make([]string, 0),
-		}
-		task.Progress = models.TaskProgress{
-			AcceptanceCriteria: struct {
-				Total     int `json:"total"`
-				Completed int `json:"completed"`
-			}{},
-		}
-		var totalCriteria, completedCriteria int
-		var labelsJSON, dependenciesJSON, statusHistoryJSON []byte
+		var statusCode, statusName string
 
-		if err := rows.Scan(
-			&task.ID, &task.ExternalID, &task.Title, &task.Description,
-			&task.Status, &task.Priority, &task.Type, &task.Order,
-			&task.Relationships.Parent, &task.Metadata.Board, &task.Metadata.Column,
-			&task.Metadata.CreatedAt, &task.Metadata.UpdatedAt,
-			&task.Content.Description,
-			&task.Content.ImplementationDetails,
-			&task.Content.Notes,
-			&task.Content.DueDate,
-			&task.Content.Assignee,
-			&totalCriteria,
-			&completedCriteria,
-			&labelsJSON,
-			&dependenciesJSON,
-			&statusHistoryJSON,
-		); err != nil {
-			log.Printf("Error scanning task: %v", err)
+		err := rows.Scan(
+			&task.ID,
+			&task.Title,
+			&task.Description,
+			&task.StatusID,
+			&task.PriorityID,
+			&task.Type,
+			&task.Order,
+			&task.CreatedAt,
+			&task.UpdatedAt,
+			&statusCode,
+			&statusName,
+		)
+		if err != nil {
 			return nil, fmt.Errorf("error scanning task: %v", err)
 		}
 
-		// Set progress metrics
-		task.Progress.AcceptanceCriteria.Total = totalCriteria
-		task.Progress.AcceptanceCriteria.Completed = completedCriteria
-		if totalCriteria > 0 {
-			task.Progress.Percentage = int((float64(completedCriteria) / float64(totalCriteria)) * 100)
-		}
+		// Initialize empty structs for JSON fields
+		task.Content = &models.TaskContent{}
+		task.Relationships = models.TaskRelationships{}
+		task.Metadata = models.TaskMetadata{}
+		task.Progress = models.TaskProgress{}
 
-		// Parse JSON arrays
-		if err := json.Unmarshal(labelsJSON, &task.Relationships.Labels); err != nil {
-			return nil, fmt.Errorf("error parsing labels: %v", err)
-		}
-		if err := json.Unmarshal(dependenciesJSON, &task.Relationships.Dependencies); err != nil {
-			return nil, fmt.Errorf("error parsing dependencies: %v", err)
-		}
-		if err := json.Unmarshal(statusHistoryJSON, &task.StatusHistory); err != nil {
-			return nil, fmt.Errorf("error parsing status history: %v", err)
+		// Set up the status
+		task.Status = &models.TaskStatusEntity{
+			Code: models.TaskStatusCode(statusCode),
+			Name: statusName,
 		}
 
 		tasks = append(tasks, task)
 	}
 
-	if err := rows.Err(); err != nil {
-		log.Printf("Error after scanning: %v", err)
-		return nil, fmt.Errorf("error after scanning: %v", err)
-	}
-
-	log.Printf("Found %d tasks", len(tasks))
 	return tasks, nil
 }
 
 // UpdateTask updates a task and its related data
-func (r *TaskRepository) UpdateTask(ctx context.Context, externalID string, task *models.Task) error {
+func (r *TaskRepository) UpdateTask(ctx context.Context, taskID string, task *models.Task) error {
+	// Debug log
+	log.Printf("Updating task %s with data: %+v", taskID, task)
+
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("error starting transaction: %v", err)
@@ -387,107 +284,140 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, externalID string, task
 	defer tx.Rollback(ctx)
 
 	// Update main task
-	var taskID string
-	err = tx.QueryRow(ctx,
+	result, err := tx.Exec(ctx,
 		`UPDATE tasks
-		SET title = $1, description = $2, status = $3, priority = $4,
-			type = $5, "order" = $6, parent_id = $7, board = $8, column_name = $9
-		WHERE external_id = $10
-		RETURNING id`,
-		task.Title, task.Description, task.Status, task.Priority,
-		task.Type, task.Order, task.Relationships.Parent, task.Metadata.Board, task.Metadata.Column,
-		externalID).Scan(&taskID)
+		SET title = $1, 
+			description = $2, 
+			status_id = $3, 
+			priority_id = $4,
+			type = $5, 
+			"order" = $6,
+			updated_at = NOW()
+		WHERE id = $7`,
+		task.Title, 
+		task.Description, 
+		task.StatusID, 
+		task.PriorityID,
+		task.Type, 
+		task.Order, 
+		taskID)
 	if err != nil {
 		return fmt.Errorf("error updating task: %v", err)
 	}
 
-	// Update task content
-	if task.Content != nil {
-		_, err = tx.Exec(ctx,
-			`INSERT INTO task_contents (task_id, description, implementation_details,
-				notes, due_date, assignee)
-			VALUES ($1, $2, $3, $4, $5, $6)
-			ON CONFLICT (task_id) DO UPDATE SET
-				description = EXCLUDED.description,
-				implementation_details = EXCLUDED.implementation_details,
-				notes = EXCLUDED.notes,
-				due_date = EXCLUDED.due_date,
-				assignee = EXCLUDED.assignee`,
-			taskID, task.Content.Description, task.Content.ImplementationDetails,
-			task.Content.Notes, task.Content.DueDate, task.Content.Assignee)
-		if err != nil {
-			return fmt.Errorf("error updating task content: %v", err)
-		}
-	}
+	// Debug log
+	rows := result.RowsAffected()
+	log.Printf("Updated %d rows for task %s", rows, taskID)
 
-	// Update labels
-	_, err = tx.Exec(ctx, `DELETE FROM task_labels WHERE task_id = $1`, taskID)
+	return tx.Commit(ctx)
+}
+
+// MoveTaskByID updates a task's status and order
+func (r *TaskRepository) MoveTaskByID(ctx context.Context, externalID string, statusID int, order int, comment *string) error {
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("error deleting task labels: %v", err)
+		return fmt.Errorf("error starting transaction: %v", err)
 	}
+	defer tx.Rollback(ctx)
 
-	for _, label := range task.Relationships.Labels {
-		_, err = tx.Exec(ctx,
-			`INSERT INTO task_labels (task_id, label) VALUES ($1, $2)`,
-			taskID, label)
-		if err != nil {
-			return fmt.Errorf("error inserting task label: %v", err)
-		}
-	}
-
-	// Update dependencies
-	_, err = tx.Exec(ctx,
-		`DELETE FROM task_dependencies WHERE dependent_task_id = $1`,
-		taskID)
+	// Get current task's status
+	var currentStatusID int
+	err = tx.QueryRow(ctx, `SELECT status_id FROM tasks WHERE id = $1`, externalID).Scan(&currentStatusID)
 	if err != nil {
-		return fmt.Errorf("error deleting task dependencies: %v", err)
+		return fmt.Errorf("error getting current status: %v", err)
 	}
 
-	for _, dep := range task.Relationships.Dependencies {
-		_, err = tx.Exec(ctx,
-			`INSERT INTO task_dependencies (dependent_task_id, dependency_external_id)
-			VALUES ($1, $2)`,
-			taskID, dep)
-		if err != nil {
-			return fmt.Errorf("error inserting task dependency: %v", err)
-		}
+	// Shift tasks in target status down
+	_, err = tx.Exec(ctx, `
+		UPDATE tasks 
+		SET "order" = "order" + 1
+		WHERE status_id = $1 
+		AND "order" >= $2
+	`, statusID, order)
+	if err != nil {
+		return fmt.Errorf("error shifting tasks down: %v", err)
+	}
+
+	// Record status change
+	_, err = tx.Exec(ctx, `
+		INSERT INTO status_history (task_id, from_status_id, to_status_id, comment, changed_at)
+		VALUES ($1, $2, $3, $4, NOW())
+	`, externalID, currentStatusID, statusID, comment)
+	if err != nil {
+		return fmt.Errorf("error recording status change: %v", err)
+	}
+
+	// Finally, update the task itself
+	_, err = tx.Exec(ctx, `
+		UPDATE tasks 
+		SET status_id = $2, 
+			"order" = $3,
+			updated_at = NOW()
+		WHERE id = $1
+	`, externalID, statusID, order)
+	if err != nil {
+		return fmt.Errorf("error updating task: %v", err)
 	}
 
 	return tx.Commit(ctx)
 }
 
-// MoveTask updates a task's status and order, recording the status change
-func (r *TaskRepository) MoveTask(ctx context.Context, externalID string, status string, order int) error {
-	// Use a single query to update the task and record status history if needed
-	_, err := r.pool.Exec(ctx, `
-		WITH task_update AS (
-			UPDATE tasks 
-			SET status = $2, 
-				"order" = $3,
-				updated_at = NOW()
-			WHERE external_id = $1
-			RETURNING id, status != $2 as status_changed, status as old_status
-		)
-		INSERT INTO status_history (task_id, from_status, to_status)
-		SELECT id, old_status, $2 
-		FROM task_update 
-		WHERE status_changed;
-	`, externalID, status, order)
-
+// ReorderTaskByID updates a task's order within the same status column
+func (r *TaskRepository) ReorderTaskByID(ctx context.Context, externalID string, statusID int, order int) error {
+	tx, err := r.pool.Begin(ctx)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return fmt.Errorf("task not found: %s", externalID)
-		}
-		return fmt.Errorf("error moving task: %v", err)
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// Get current task's order
+	var currentOrder int
+	err = tx.QueryRow(ctx, `SELECT "order" FROM tasks WHERE id = $1`, externalID).Scan(&currentOrder)
+	if err != nil {
+		return fmt.Errorf("error getting current order: %v", err)
 	}
 
-	return nil
+	if currentOrder < order {
+		// Moving down - shift tasks up
+		_, err = tx.Exec(ctx, `
+			UPDATE tasks 
+			SET "order" = "order" - 1
+			WHERE status_id = $1 
+			AND "order" > $2 
+			AND "order" <= $3
+		`, statusID, currentOrder, order)
+	} else {
+		// Moving up - shift tasks down
+		_, err = tx.Exec(ctx, `
+			UPDATE tasks 
+			SET "order" = "order" + 1
+			WHERE status_id = $1 
+			AND "order" >= $2 
+			AND "order" < $3
+		`, statusID, order, currentOrder)
+	}
+	if err != nil {
+		return fmt.Errorf("error reordering tasks: %v", err)
+	}
+
+	// Update the task's order
+	_, err = tx.Exec(ctx, `
+		UPDATE tasks 
+		SET "order" = $2,
+			updated_at = NOW()
+		WHERE id = $1
+	`, externalID, order)
+	if err != nil {
+		return fmt.Errorf("error updating task order: %v", err)
+	}
+
+	return tx.Commit(ctx)
 }
 
 // DeleteTask deletes a task and all its related data
 func (r *TaskRepository) DeleteTask(ctx context.Context, externalID string) error {
 	_, err := r.pool.Exec(ctx,
-		`DELETE FROM tasks WHERE external_id = $1`,
+		`DELETE FROM tasks WHERE id = $1`,
 		externalID)
 	if err != nil {
 		return fmt.Errorf("error deleting task: %v", err)
@@ -499,7 +429,7 @@ func (r *TaskRepository) DeleteTask(ctx context.Context, externalID string) erro
 func (r *TaskRepository) GetDependentTasks(ctx context.Context, externalID string) (int, error) {
 	var count int
 	err := r.pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM task_dependencies WHERE dependency_external_id = $1`,
+		`SELECT COUNT(*) FROM task_dependencies WHERE dependency_id = $1`,
 		externalID).Scan(&count)
 	if err != nil {
 		return 0, fmt.Errorf("error counting dependent tasks: %v", err)
@@ -511,4 +441,85 @@ func (r *TaskRepository) GetDependentTasks(ctx context.Context, externalID strin
 func (r *TaskRepository) GetTaskDetails(ctx context.Context, externalID string) (*models.Task, error) {
 	// Reuse the existing GetTask function as it already fetches all necessary details
 	return r.GetTask(ctx, externalID)
+}
+
+// ListTaskStatuses retrieves all task statuses
+func (r *TaskRepository) ListTaskStatuses(ctx context.Context) ([]models.TaskStatusEntity, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, code, name, description, display_order, created_at, updated_at
+		FROM task_statuses
+		ORDER BY display_order
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("error listing task statuses: %v", err)
+	}
+	defer rows.Close()
+
+	var statuses []models.TaskStatusEntity
+	for rows.Next() {
+		var status models.TaskStatusEntity
+		if err := rows.Scan(
+			&status.ID,
+			&status.Code,
+			&status.Name,
+			&status.Description,
+			&status.DisplayOrder,
+			&status.CreatedAt,
+			&status.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("error scanning task status: %v", err)
+		}
+		statuses = append(statuses, status)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error after scanning task statuses: %v", err)
+	}
+
+	return statuses, nil
+}
+
+// ListTaskPriorities retrieves all task priorities
+func (r *TaskRepository) ListTaskPriorities(ctx context.Context) ([]models.TaskPriorityEntity, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, code, name, description, display_order, created_at, updated_at
+		FROM task_priorities
+		ORDER BY display_order
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("error listing task priorities: %v", err)
+	}
+	defer rows.Close()
+
+	var priorities []models.TaskPriorityEntity
+	for rows.Next() {
+		var priority models.TaskPriorityEntity
+		if err := rows.Scan(
+			&priority.ID,
+			&priority.Code,
+			&priority.Name,
+			&priority.Description,
+			&priority.DisplayOrder,
+			&priority.CreatedAt,
+			&priority.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("error scanning task priority: %v", err)
+		}
+		priorities = append(priorities, priority)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error after scanning task priorities: %v", err)
+	}
+
+	return priorities, nil
+}
+
+// Add to TaskRepository
+func (r *TaskRepository) Ping(ctx context.Context) error {
+	return r.pool.Ping(ctx)
+}
+
+func (r *TaskRepository) BeginTx(ctx context.Context) (pgx.Tx, error) {
+	return r.pool.Begin(ctx)
 } 
