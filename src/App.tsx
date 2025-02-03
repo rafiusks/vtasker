@@ -5,16 +5,17 @@ import { PlusIcon } from "@heroicons/react/20/solid";
 import { TaskForm } from "./components/TaskForm";
 import { TaskColumn } from "./components/TaskColumn";
 import { Select, type Option } from "./components/Select";
-import type { Task, TaskStatus, TaskPriority } from "./types";
+import type { Task, TaskStatus, TaskPriority, TaskStatusCode } from "./types";
 import { StatusNotification } from "./components/StatusNotification";
 import { toast } from "react-hot-toast";
-import { taskAPI } from "./api/tasks";
+import { taskAPI } from "./api/client";
+import type { TaskMoveRequest } from "./api/client";
 
-type FilterValue = TaskStatus[] | TaskPriority[] | string[] | string;
+type FilterValue = number[] | string[] | string;
 
 interface FilterState {
-	status: TaskStatus[];
-	priority: TaskPriority[];
+	status: number[];
+	priority: string[];
 	labels: string[];
 	sortBy: string;
 	sortOrder: "asc" | "desc";
@@ -28,14 +29,42 @@ const defaultFilters: FilterState = {
 	sortOrder: "desc",
 };
 
-const statusOptions: { value: Task["status"]; label: string }[] = [
-	{ value: "backlog", label: "Backlog" },
-	{ value: "in-progress", label: "In Progress" },
-	{ value: "review", label: "Review" },
-	{ value: "done", label: "Done" },
+const statusOptions: TaskStatus[] = [
+	{
+		id: 1,
+		code: "backlog" as TaskStatusCode,
+		name: "Backlog",
+		display_order: 0,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	},
+	{
+		id: 2,
+		code: "in-progress" as TaskStatusCode,
+		name: "In Progress",
+		display_order: 1,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	},
+	{
+		id: 3,
+		code: "review" as TaskStatusCode,
+		name: "Review",
+		display_order: 2,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	},
+	{
+		id: 4,
+		code: "done" as TaskStatusCode,
+		name: "Done",
+		display_order: 3,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	},
 ];
 
-const priorityOptions: { value: Task["priority"]; label: string }[] = [
+const priorityOptions: { value: TaskPriority; label: string }[] = [
 	{ value: "low", label: "Low" },
 	{ value: "normal", label: "Normal" },
 	{ value: "high", label: "High" },
@@ -53,7 +82,8 @@ const sortOrderOptions: { value: FilterState["sortOrder"]; label: string }[] = [
 
 export function App() {
 	const [tasks, setTasks] = useState<Task[]>([]);
-	const [error, setError] = useState<string | null>(null);
+	const [statuses, setStatuses] = useState<TaskStatus[]>([]);
+	const [error, setError] = useState<string>();
 	const [loading, setLoading] = useState(true);
 	const [filtersLoading, setFiltersLoading] = useState(true);
 	const [filters, setFilters] = useState<FilterState>({
@@ -64,13 +94,37 @@ export function App() {
 		sortOrder: "desc",
 	});
 	const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
-	const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
+	const [editingTask, setEditingTask] = useState<Task>();
 	const [notification, setNotification] = useState<{
 		show: boolean;
 		taskTitle?: string;
-		fromStatus?: Task["status"];
-		toStatus?: Task["status"];
+		fromStatus?: string;
+		toStatus?: string;
 	}>({ show: false });
+
+	// Fetch tasks and statuses on mount
+	useEffect(() => {
+		const fetchData = async () => {
+			try {
+				setLoading(true);
+				const [tasksData, statusesData] = await Promise.all([
+					taskAPI.listTasks(),
+					taskAPI.listStatuses().catch((err) => {
+						console.error("Failed to fetch task statuses:", err);
+						return statusOptions; // Fall back to hardcoded statuses
+					}),
+				]);
+				setTasks(tasksData);
+				setStatuses(statusesData);
+			} catch (err) {
+				console.error("Failed to fetch data:", err);
+				setError(err instanceof Error ? err.message : "Failed to fetch data");
+			} finally {
+				setLoading(false);
+			}
+		};
+		fetchData();
+	}, []);
 
 	// Load filters from URL on mount
 	useEffect(() => {
@@ -86,9 +140,11 @@ export function App() {
 				if (key === "status") {
 					const validStatuses = values.filter((v) =>
 						["backlog", "in-progress", "review", "done"].includes(v),
-					) as TaskStatus[];
+					);
 					if (validStatuses.length > 0) {
-						urlFilters.status = validStatuses;
+						urlFilters.status = validStatuses.map((s) =>
+							Number.parseInt(s, 10),
+						);
 					}
 				} else if (key === "priority") {
 					const validPriorities = values.filter((v) =>
@@ -168,24 +224,34 @@ export function App() {
 
 	const filteredTasks = tasks
 		.filter((task) => {
-			if (filters.status.length && !filters.status.includes(task.status))
+			if (filters.status.length && !filters.status.includes(task.status_id))
 				return false;
-			if (filters.priority.length && !filters.priority.includes(task.priority))
+			if (
+				filters.priority.length &&
+				!filters.priority.includes(task.priority?.code)
+			)
 				return false;
 			if (
 				filters.labels.length &&
-				!filters.labels.some((label) => task.labels.includes(label))
+				!filters.labels.some((label) =>
+					task.relationships.labels.includes(label),
+				)
 			)
 				return false;
 			return true;
 		})
 		.sort((a, b) => {
-			const priorityOrder = { high: 3, normal: 2, low: 1 };
+			const priorityOrder: Record<TaskPriority, number> = {
+				high: 3,
+				normal: 2,
+				low: 1,
+			};
 			const getValue = (task: Task) => {
 				if (filters.sortBy === "created_at") {
-					return new Date(task.created_at).getTime();
+					return new Date(task.created_at ?? "").getTime();
 				}
-				return priorityOrder[task.priority];
+				const priorityCode = (task.priority?.code ?? "normal") as TaskPriority;
+				return priorityOrder[priorityCode];
 			};
 			const aValue = getValue(a);
 			const bValue = getValue(b);
@@ -194,35 +260,33 @@ export function App() {
 
 	const columns = {
 		backlog: filteredTasks
-			.filter((t) => t.status === "backlog")
+			.filter((t) => t.status_id === 1)
 			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
 		"in-progress": filteredTasks
-			.filter((t) => t.status === "in-progress")
+			.filter((t) => t.status_id === 2)
 			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
 		review: filteredTasks
-			.filter((t) => t.status === "review")
+			.filter((t) => t.status_id === 3)
 			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
 		done: filteredTasks
-			.filter((t) => t.status === "done")
+			.filter((t) => t.status_id === 4)
 			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
 	};
 
-	const allLabels = Array.from(new Set(tasks.flatMap((t) => t.labels)));
+	const allLabels = Array.from(
+		new Set(tasks.flatMap((t) => t.relationships.labels)),
+	);
 
 	const handleFilterChange = (type: keyof FilterState, value: FilterValue) => {
 		setFilters((prev) => {
 			const newFilters = { ...prev };
 			if (Array.isArray(value)) {
 				if (type === "status") {
-					newFilters.status = value.filter((v) =>
-						["backlog", "in-progress", "review", "done"].includes(v as string),
-					) as TaskStatus[];
+					newFilters.status = value as number[];
 				} else if (type === "priority") {
-					newFilters.priority = value.filter((v) =>
-						["low", "normal", "high"].includes(v as string),
-					) as TaskPriority[];
+					newFilters.priority = value as string[];
 				} else if (type === "labels") {
-					newFilters.labels = value;
+					newFilters.labels = value as string[];
 				}
 			} else if (type === "sortBy") {
 				newFilters.sortBy = value;
@@ -243,81 +307,74 @@ export function App() {
 
 	const handleTaskMove = async (
 		taskId: string,
-		newStatus: Task["status"],
+		newStatusId: number,
 		newIndex?: number,
 	) => {
-		// Store the original state for recovery
 		const originalTasks = [...tasks];
 
 		try {
-			// Find the task to update
 			const taskToUpdate = tasks.find((t) => t.id === taskId);
-			if (!taskToUpdate) {
-				throw new Error("Task not found");
-			}
+			if (!taskToUpdate) throw new Error("Task not found");
 
-			// Only send the fields we want to update
-			const updates = {
-				status: newStatus,
-				order: typeof newIndex === "number" ? newIndex : taskToUpdate.order,
+			// Calculate new order and get target status
+			const targetStatus = statuses.find((s) => s.id === newStatusId);
+			const tasksInTargetColumn = tasks.filter(
+				(t) => t.status_id === newStatusId,
+			);
+			const newOrder =
+				typeof newIndex === "number" ? newIndex : tasksInTargetColumn.length;
+
+			// Create optimized task version for UI
+			const optimisticTask = {
+				...taskToUpdate,
+				status_id: newStatusId,
+				order: newOrder,
+				status: targetStatus,
 			};
 
-			// Optimistically update the UI first
+			// Immediately update UI state
 			setTasks((prev) => {
-				const updatedTasks = [...prev];
-				const taskIndex = updatedTasks.findIndex((t) => t.id === taskId);
-
-				if (taskIndex === -1) return prev;
-
-				const task = { ...updatedTasks[taskIndex], ...updates };
-				const oldStatus = updatedTasks[taskIndex].status;
-
-				if (newStatus && newStatus !== oldStatus) {
-					setNotification({
-						show: true,
-						taskTitle: task.title,
-						fromStatus: oldStatus,
-						toStatus: newStatus,
-					});
-				}
-
-				// Remove task from its current position
-				updatedTasks.splice(taskIndex, 1);
-
-				// Insert it at the new position
-				if (typeof newIndex === "number") {
-					updatedTasks.splice(newIndex, 0, task);
-				} else {
-					const lastIndexInColumn = updatedTasks.reduce(
-						(lastIndex, t, i) => (t.status === newStatus ? i : lastIndex),
-						-1,
-					);
-					updatedTasks.splice(lastIndexInColumn + 1, 0, task);
-				}
-
-				// Update order for all tasks in both old and new status columns
-				const tasksToUpdate = updatedTasks.filter(
-					(t) => t.status === oldStatus || t.status === newStatus,
+				const filtered = prev.filter((t) => t.id !== taskId);
+				const insertIndex = filtered.findIndex(
+					(t) => t.status_id === newStatusId && t.order >= newOrder,
 				);
-				tasksToUpdate.forEach((t, i) => {
-					t.order = i;
-				});
 
-				return updatedTasks;
+				const newTasks = [
+					...filtered.slice(0, insertIndex),
+					optimisticTask,
+					...filtered.slice(insertIndex),
+				];
+
+				// Recalculate orders for target column
+				return newTasks.map((t) =>
+					t.status_id === newStatusId
+						? { ...t, order: newTasks.indexOf(t) }
+						: t,
+				);
 			});
 
-			// Send update to server
-			const updatedTask = await taskAPI.moveTask(taskId, updates);
+			// Send move request to server
+			const moveRequest = {
+				status_id: newStatusId,
+				order: newOrder,
+				previous_status_id: taskToUpdate.status_id,
+				comment: `Moved from ${taskToUpdate.status?.name} to ${targetStatus?.name}`,
+				type: taskToUpdate.type,
+				_moveOperation: true,
+			};
 
-			// Update task with server response
-			setTasks((prev) =>
-				prev.map((t) => (t.id === taskId ? { ...t, ...updatedTask } : t)),
-			);
+			const updatedTask = await taskAPI.moveTask(taskId, moveRequest);
+
+			// Only update if server returns valid response
+			if (updatedTask?.id) {
+				setTasks((prev) =>
+					prev.map((t) => (t.id === taskId ? { ...t, ...updatedTask } : t)),
+				);
+			}
 		} catch (err) {
-			console.error("Failed to move task:", err);
-			// Revert to the original state
+			console.error("Move failed:", err);
 			setTasks(originalTasks);
-			toast.error(err instanceof Error ? err.message : "Failed to move task");
+			toast.error("Failed to move task. Changes reverted.");
 		}
 	};
 
@@ -379,11 +436,6 @@ export function App() {
 		}
 	};
 
-	const openEditForm = (task: Task) => {
-		setEditingTask(task);
-		setIsTaskFormOpen(true);
-	};
-
 	const closeTaskForm = () => {
 		setIsTaskFormOpen(false);
 		setEditingTask(undefined);
@@ -400,12 +452,28 @@ export function App() {
 		}
 	};
 
+	const handleTaskClick = (task: Task) => {
+		setEditingTask(task);
+		setIsTaskFormOpen(true);
+	};
+
 	if (loading || filtersLoading) {
 		return (
 			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
 				<div className="text-center">
 					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4" />
 					<p className="text-gray-600">Loading tasks...</p>
+				</div>
+			</div>
+		);
+	}
+
+	if (error) {
+		return (
+			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
+				<div className="text-center">
+					<div className="text-red-500 mb-4">⚠️</div>
+					<p className="text-gray-600">{error}</p>
 				</div>
 			</div>
 		);
@@ -512,33 +580,23 @@ export function App() {
 					</div>
 				</div>
 
-				{error && (
-					<div className="max-w-7xl mx-auto mb-8">
-						<div className="p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
-							{error}
-						</div>
-					</div>
-				)}
-
 				<main className="max-w-7xl mx-auto">
-					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-						{(Object.entries(columns) as [Task["status"], Task[]][]).map(
-							([status, columnTasks]) => (
-								<TaskColumn
-									key={status}
-									status={status}
-									tasks={columnTasks}
-									onDrop={handleTaskMove}
-									onEdit={openEditForm}
-									onDelete={handleDeleteTask}
-									allTasks={tasks}
-								/>
-							),
-						)}
+					<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+						{statuses.map((status) => (
+							<TaskColumn
+								key={status.id}
+								status={status}
+								tasks={tasks.filter((t) => t.status_id === status.id)}
+								onDrop={handleTaskMove}
+								onEdit={handleEditTask}
+								onDelete={handleDeleteTask}
+								onTaskClick={handleTaskClick}
+							/>
+						))}
 					</div>
 				</main>
 
-				{/* Task Form */}
+				{/* Task Form - used for create/edit/view */}
 				<TaskForm
 					isOpen={isTaskFormOpen}
 					onClose={closeTaskForm}

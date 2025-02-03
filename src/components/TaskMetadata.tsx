@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { TagIcon, CalendarIcon, UserIcon } from '@heroicons/react/20/solid';
 import type { Task } from '../types';
 
@@ -9,28 +9,35 @@ interface TaskMetadataProps {
 
 export function TaskMetadata({ task, onUpdate }: TaskMetadataProps) {
   const [newLabel, setNewLabel] = React.useState('');
-  const [dueDate, setDueDate] = React.useState(task.content.due_date || '');
-  const [assignee, setAssignee] = React.useState(task.content.assignee || '');
+  const [dueDate, setDueDate] = useState(task.content?.due_date || '');
+  const [assignee, setAssignee] = useState(task.content?.assignee || '');
+  const [dependencies, setDependencies] = useState(task.relationships?.dependencies || []);
+  const [labels, setLabels] = useState(task.labels || []);
 
   // Update local state when task changes
   React.useEffect(() => {
-    setDueDate(task.content.due_date || '');
-    setAssignee(task.content.assignee || '');
+    setDueDate(task.content?.due_date || '');
+    setAssignee(task.content?.assignee || '');
+    setLabels(task.labels || []);
   }, [task]);
 
   const handleAddLabel = (e: React.FormEvent) => {
     e.preventDefault();
-    if (newLabel.trim() && !task.labels.includes(newLabel.trim())) {
+    if (newLabel.trim() && !labels.includes(newLabel.trim())) {
+      const newLabels = [...labels, newLabel.trim()];
+      setLabels(newLabels);
       onUpdate({
-        labels: [...task.labels, newLabel.trim()]
+        labels: newLabels
       });
       setNewLabel('');
     }
   };
 
   const handleRemoveLabel = (label: string) => {
+    const newLabels = labels.filter(l => l !== label);
+    setLabels(newLabels);
     onUpdate({
-      labels: task.labels.filter(l => l !== label)
+      labels: newLabels
     });
   };
 
@@ -56,13 +63,28 @@ export function TaskMetadata({ task, onUpdate }: TaskMetadataProps) {
     });
   };
 
+  const handleSave = () => {
+    onUpdate({
+      ...task,
+      content: {
+        ...task.content,
+        due_date: dueDate || null,
+        assignee: assignee || null,
+      },
+      relationships: {
+        ...task.relationships,
+        dependencies: dependencies,
+      },
+    });
+  };
+
   return (
     <div className="space-y-4">
       {/* Labels Section */}
       <div>
         <h3 className="text-sm font-medium text-gray-900 mb-2">Labels</h3>
         <div className="flex flex-wrap gap-2 mb-2">
-          {task.labels.map(label => (
+          {labels.map(label => (
             <span
               key={label}
               className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-700"
@@ -124,6 +146,33 @@ export function TaskMetadata({ task, onUpdate }: TaskMetadataProps) {
             placeholder="Assign to..."
             className="block w-full rounded-md border-0 py-1.5 pl-8 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
           />
+        </div>
+      </div>
+
+      {/* Dependencies */}
+      <div>
+        <label className="block text-sm font-medium text-gray-900">
+          Dependencies
+        </label>
+        <div className="mt-2 space-y-2">
+          {dependencies.map((depId) => (
+            <div key={depId} className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">{depId}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const newDeps = dependencies.filter(
+                    (id) => id !== depId
+                  );
+                  setDependencies(newDeps);
+                  handleSave();
+                }}
+                className="text-red-500 hover:text-red-700"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
         </div>
       </div>
     </div>

@@ -3,9 +3,29 @@
  */
 
 // Task related types
-export type TaskStatus = "backlog" | "in-progress" | "review" | "done";
+export type TaskStatusCode = "backlog" | "in-progress" | "review" | "done";
 export type TaskPriority = "low" | "normal" | "high";
 export type TaskType = "feature" | "bug" | "docs" | "chore";
+
+export interface TaskStatus {
+	id: number;
+	code: TaskStatusCode;
+	name: string;
+	description?: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface TaskPriorityEntity {
+	id: number;
+	code: TaskPriority;
+	name: string;
+	description?: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
 
 export interface AcceptanceCriterion {
 	id: string;
@@ -23,28 +43,63 @@ export interface AcceptanceCriterion {
 export interface TaskContent {
 	description: string;
 	acceptance_criteria: AcceptanceCriterion[];
-	implementation_details?: string | null;
-	notes?: string | null;
-	attachments?: string[];
-	due_date?: string | null;
-	assignee?: string | null;
+	implementation_details?: string;
+	notes?: string;
+	attachments: string[];
+	due_date?: string;
+	assignee?: string;
+}
+
+export interface TaskRelationships {
+	parent?: string;
+	dependencies: string[];
+	labels: string[];
+}
+
+export interface TaskMetadata {
+	created_at: string;
+	updated_at: string;
+	board?: string;
+	column?: string;
+}
+
+export interface TaskProgress {
+	acceptance_criteria: {
+		total: number;
+		completed: number;
+	};
+	percentage: number;
 }
 
 export interface Task {
 	id: string;
+	external_id: string;
 	title: string;
-	status: TaskStatus;
-	priority: TaskPriority;
+	description: string;
+	status_id: number;
+	status?: TaskStatus;
+	priority_id: number;
+	priority?: TaskPriorityEntity;
 	type: TaskType;
-	created_at: string;
-	updated_at: string;
-	labels: string[];
-	dependencies: string[];
-	content: TaskContent;
-	parent?: string;
-	board?: string;
-	column?: string;
 	order: number;
+	content: TaskContent;
+	relationships: TaskRelationships;
+	metadata: TaskMetadata;
+	progress: TaskProgress;
+	status_history?: StatusChange[];
+	labels?: string[];
+	created_at?: string;
+	updated_at?: string;
+}
+
+export interface StatusChange {
+	task_id: string;
+	from_status_id: number;
+	to_status_id: number;
+	from_status?: TaskStatus;
+	to_status?: TaskStatus;
+	comment?: string;
+	changed_at: string;
 }
 
 // Board related types
@@ -65,6 +120,16 @@ export interface Board {
 	columns: BoardColumn[];
 	created_at: string;
 	updated_at: string;
+}
+
+// Query types
+export interface TaskQuery {
+	status?: string;
+	priority?: string;
+	type?: string;
+	labels?: string[];
+	board?: string;
+	column?: string;
 }
 
 export interface BoardQuery {
@@ -92,16 +157,6 @@ export interface AIProgress {
 	timestamp: string;
 }
 
-// Query types
-export interface TaskQuery {
-	status?: string;
-	priority?: string;
-	type?: string;
-	labels?: string[];
-	board?: string;
-	column?: string;
-}
-
 // Storage types
 export interface StorageAdapter {
 	readTask(id: string): Promise<Task>;
@@ -112,4 +167,16 @@ export interface StorageAdapter {
 	listBoards(query?: BoardQuery): Promise<Board[]>;
 	deleteTask(id: string): Promise<void>;
 	deleteBoard(id: string): Promise<void>;
+}
+
+export interface TaskFormData {
+	title: string;
+	description: string;
+	status_id: number;
+	priority_id: number;
+	type: TaskType;
+	order: number;
+	content: TaskContent;
+	relationships: TaskRelationships;
+	metadata: TaskMetadata;
 }

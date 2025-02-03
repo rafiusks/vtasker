@@ -2,18 +2,19 @@ import React from "react";
 import { Listbox } from "@headlessui/react";
 import { ChevronUpDownIcon } from "@heroicons/react/20/solid";
 
-export type Option = {
-	value: string;
+export interface Option {
+	value: string | number;
 	label: string;
-};
+	isIconOnly?: boolean;
+}
 
 interface SelectProps {
 	label: string;
-	value: string | string[];
-	onChange: (value: string | string[]) => void;
+	value: string | number | string[];
+	onChange: (value: string | number | string[]) => void;
 	options: Option[];
-	isIconOnly?: boolean;
 	multiple?: boolean;
+	isIconOnly?: boolean;
 }
 
 export function Select({

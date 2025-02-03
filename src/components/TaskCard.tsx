@@ -1,57 +1,64 @@
 import { useState } from "react";
-import { useDrag } from "react-dnd";
+import { useDrag, useDrop } from "react-dnd";
 import { TaskForm } from "./TaskForm";
-import type { Task } from "../types";
+import type { Task, TaskPriorityEntity } from "../types";
 import { toast } from "react-hot-toast";
+import { PencilIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon } from "@heroicons/react/24/outline";
 
 interface TaskCardProps {
-	task: {
-		id: string;
-		title: string;
-		status: Task["status"];
-		priority: Task["priority"];
-		type: Task["type"];
-		order: number;
-		metadata?: {
-			board?: string;
-			column?: string;
-		};
-		progress?: {
-			acceptance_criteria: {
-				total: number;
-				completed: number;
-			};
-			percentage: number;
-		};
-		relationships?: {
-			labels?: string[];
-			dependencies?: string[];
-		};
-	};
+	task: Task;
 	index: number;
-	onEdit?: (task: Task) => void;
-	onDelete?: (taskId: string) => void;
-	allTasks?: Task[];
+	onDrop: (taskId: string, index: number) => void;
+	onEdit: (taskId: string) => void;
+	onDelete: (taskId: string) => void;
+	onTaskClick: (task: Task) => void;
+	allTasks: Task[];
 }
 
-export function TaskCard({
+export const TaskCard: React.FC<TaskCardProps> = ({
 	task,
 	index,
+	onDrop,
 	onEdit,
 	onDelete,
+	onTaskClick,
 	allTasks,
-}: TaskCardProps) {
+}) => {
 	const [isEditing, setIsEditing] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
 	const [taskDetails, setTaskDetails] = useState<Task | null>(null);
 
-	const [{ isDragging }, dragRef] = useDrag({
-		type: "TASK",
-		item: { id: task.id, status: task.status, index, type: "TASK" },
+	const [{ isDragging }, drag] = useDrag({
+		type: "task",
+		item: { id: task.id },
 		collect: (monitor) => ({
 			isDragging: monitor.isDragging(),
 		}),
 	});
+
+	const [{ isOver }, drop] = useDrop({
+		accept: "task",
+		drop: (item: { id: string }, monitor) => {
+			const didDrop = monitor.didDrop();
+			if (didDrop) {
+				return;
+			}
+
+			onDrop(item.id, index);
+		},
+		collect: (monitor) => ({
+			isOver: monitor.isOver({ shallow: true }),
+		}),
+	});
+
+	const handleEdit = () => {
+		onEdit(task.id);
+	};
+
+	const handleDelete = () => {
+		onDelete(task.id);
+	};
 
 	const handleOpenTask = async () => {
 		if (!task.id) return;
@@ -86,87 +93,114 @@ export function TaskCard({
 		}
 	};
 
-	// Only calculate progress if we have valid metrics
-	const progress = task.progress?.percentage ?? 0;
+	const getPriorityColor = (priority: TaskPriorityEntity) => {
+		switch (priority.code) {
+			case "high":
+				return "bg-red-100 text-red-800";
+			case "normal":
+				return "bg-yellow-100 text-yellow-800";
+			case "low":
+				return "bg-green-100 text-green-800";
+			default:
+				return "bg-gray-100 text-gray-800";
+		}
+	};
 
 	return (
 		<>
-			<button
-				ref={dragRef}
-				type="button"
-				className={`w-full text-left p-4 bg-white rounded-lg shadow hover:shadow-md transition-shadow cursor-move ${
-					isLoading ? "opacity-50" : ""
-				} ${isDragging ? "opacity-25" : ""}`}
-				onClick={isDragging ? undefined : handleOpenTask}
-				disabled={isLoading || isDragging}
-				data-testid="task-card"
+			<div
+				ref={(node) => drag(drop(node))}
+				className={`bg-white rounded-lg shadow-sm border border-gray-200 p-4 ${
+					isDragging ? "opacity-50" : ""
+				} ${isOver ? "ring-2 ring-blue-500" : ""} cursor-pointer`}
+				onClick={(e) => {
+					e.stopPropagation();
+					onTaskClick(task);
+				}}
 			>
-				<div className="flex flex-col gap-2">
-					<div className="flex items-start justify-between">
-						<h3 className="text-sm font-medium text-gray-900">{task.title}</h3>
-						<span
-							className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-								task.priority === "high"
-									? "bg-red-100 text-red-700"
-									: task.priority === "low"
-										? "bg-green-100 text-green-700"
-										: "bg-blue-100 text-blue-700"
-							}`}
-						>
-							{task.priority}
-						</span>
+				<div className="flex items-start justify-between">
+					<div className="flex-1">
+						<h3 className="text-base font-medium text-gray-900">
+							{task.title}
+						</h3>
+						<p className="mt-1 text-sm text-gray-500 line-clamp-2">
+							{task.description}
+						</p>
 					</div>
-					<span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 w-fit">
-						{task.id}
+					<div className="ml-4 flex items-center">
+						<button
+							type="button"
+							onClick={handleEdit}
+							className="text-gray-400 hover:text-gray-500"
+						>
+							<PencilIcon className="h-4 w-4" aria-hidden="true" />
+						</button>
+						<button
+							type="button"
+							onClick={handleDelete}
+							className="ml-2 text-gray-400 hover:text-red-500"
+						>
+							<TrashIcon className="h-4 w-4" aria-hidden="true" />
+						</button>
+					</div>
+				</div>
+
+				<div className="mt-3 flex items-center gap-2">
+					<span
+						className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+							task.priority
+								? getPriorityColor(task.priority)
+								: "bg-gray-100 text-gray-800"
+						}`}
+					>
+						{task.priority?.name || "Unknown"}
 					</span>
 
-					{/* Progress Bar */}
-					{task.progress && task.progress.acceptance_criteria.total > 0 && (
-						<div className="mt-2">
-							<div className="flex items-center justify-between text-xs text-gray-500">
-								<span>
-									{task.progress.acceptance_criteria.completed} of{" "}
-									{task.progress.acceptance_criteria.total} criteria
-								</span>
-								<span>{task.progress.percentage}%</span>
-							</div>
-							<div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
-								<div
-									className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-									style={{ width: `${progress}%` }}
+					<span
+						className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+							task.type === "bug"
+								? "bg-red-100 text-red-800"
+								: task.type === "feature"
+									? "bg-blue-100 text-blue-800"
+									: task.type === "docs"
+										? "bg-purple-100 text-purple-800"
+										: "bg-gray-100 text-gray-800"
+						}`}
+					>
+						{task.type}
+					</span>
+
+					{task.content?.due_date && (
+						<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+							📅 {new Date(task.content.due_date).toLocaleDateString()}
+						</span>
+					)}
+
+					{task.content?.assignee && (
+						<span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+							👤 {task.content.assignee}
+						</span>
+					)}
+				</div>
+
+				{task.content?.acceptance_criteria &&
+					task.content.acceptance_criteria.length > 0 && (
+						<div className="mt-3">
+							<div className="flex items-center gap-1 text-sm text-gray-500">
+								<CheckCircleIcon
+									className={`h-4 w-4 ${
+										task.progress.acceptance_criteria.completed ===
+										task.progress.acceptance_criteria.total
+											? "text-green-500"
+											: "text-gray-400"
+									}`}
 								/>
+								{task.progress.acceptance_criteria.completed}/
+								{task.progress.acceptance_criteria.total} criteria
 							</div>
 						</div>
 					)}
-
-					{/* Labels */}
-					{(() => {
-						const labels = task.relationships?.labels ?? [];
-						return labels.length > 0 ? (
-							<div className="mt-2 flex flex-wrap gap-1">
-								{labels.map((label) => (
-									<span
-										key={label}
-										className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-									>
-										{label}
-									</span>
-								))}
-							</div>
-						) : null;
-					})()}
-
-					{/* Dependencies */}
-					{(() => {
-						const dependencies = task.relationships?.dependencies ?? [];
-						return dependencies.length > 0 ? (
-							<div className="mt-2 text-xs text-gray-500">
-								Depends on: {dependencies.join(", ")}
-							</div>
-						) : null;
-					})()}
-				</div>
-			</button>
+			</div>
 
 			{isEditing && taskDetails && (
 				<TaskForm
@@ -177,7 +211,7 @@ export function TaskCard({
 					}}
 					onSubmit={(updatedTask) => {
 						if (onEdit) {
-							onEdit(updatedTask as Task);
+							onEdit(updatedTask.id);
 						}
 						setIsEditing(false);
 						setTaskDetails(null);
@@ -188,4 +222,4 @@ export function TaskCard({
 			)}
 		</>
 	);
-}
+};

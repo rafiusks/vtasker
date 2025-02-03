@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ArrowsPointingOutIcon, ArrowTopRightOnSquareIcon, ArrowLongRightIcon } from '@heroicons/react/20/solid';
 import type { Task } from '../types';
 
@@ -6,6 +6,7 @@ interface TaskRelationshipsProps {
   task: Task;
   allTasks: Task[];
   onTaskClick?: (taskId: string) => void;
+  onUpdate: (updates: Partial<Task>) => void;
 }
 
 interface RelatedTask {
@@ -14,7 +15,9 @@ interface RelatedTask {
   type: 'parent' | 'child' | 'dependency' | 'dependent';
 }
 
-export function TaskRelationships({ task, allTasks, onTaskClick }: TaskRelationshipsProps) {
+export function TaskRelationships({ task, allTasks, onTaskClick, onUpdate }: TaskRelationshipsProps) {
+  const [selectedTaskId, setSelectedTaskId] = useState('');
+
   // Get all related tasks
   const relatedTasks: RelatedTask[] = [];
 
@@ -39,30 +42,33 @@ export function TaskRelationships({ task, allTasks, onTaskClick }: TaskRelations
   })));
 
   // Add dependencies
-  for (const depId of task.dependencies) {
-    // Clean up dependency ID (remove any description in parentheses)
-    const cleanDepId = depId.replace(/\s*\(.*\)\s*$/, '');
-    const depTask = allTasks.find(t => t.id === cleanDepId);
-    if (depTask) {
-      relatedTasks.push({
-        id: depTask.id,
-        title: depTask.title,
-        type: 'dependency'
-      });
-    }
-  }
+  const availableTasks = allTasks.filter(t => 
+    t.id !== task.id && 
+    !task.relationships?.dependencies?.includes(t.id)
+  );
 
-  // Add dependent tasks (tasks that depend on this one)
-  const dependentTasks = allTasks.filter(t => {
-    // Clean up each dependency ID in the task
-    const cleanDeps = t.dependencies.map(d => d.replace(/\s*\(.*\)\s*$/, ''));
-    return cleanDeps.includes(task.id);
-  });
-  relatedTasks.push(...dependentTasks.map(t => ({
-    id: t.id,
-    title: t.title,
-    type: 'dependent' as const
-  })));
+  const handleAddDependency = () => {
+    if (!selectedTaskId) return;
+
+    const currentDependencies = task.relationships?.dependencies || [];
+    onUpdate({
+      relationships: {
+        ...task.relationships,
+        dependencies: [...currentDependencies, selectedTaskId]
+      }
+    });
+    setSelectedTaskId('');
+  };
+
+  const handleRemoveDependency = (dependencyId: string) => {
+    const currentDependencies = task.relationships?.dependencies || [];
+    onUpdate({
+      relationships: {
+        ...task.relationships,
+        dependencies: currentDependencies.filter(id => id !== dependencyId)
+      }
+    });
+  };
 
   if (relatedTasks.length === 0) {
     return (
@@ -112,38 +118,53 @@ export function TaskRelationships({ task, allTasks, onTaskClick }: TaskRelations
   };
 
   return (
-    <div className="space-y-3">
-      {relatedTasks.map(relatedTask => (
-        <div
-          key={`${relatedTask.type}-${relatedTask.id}`}
-          className={`relative group rounded-lg border p-3 ${getRelationshipColor(relatedTask.type)}`}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {getRelationshipIcon(relatedTask.type)}
-              <span className="text-xs font-medium">
-                {getRelationshipLabel(relatedTask.type)}
+    <div className="space-y-4">
+      <h3 className="text-sm font-medium text-gray-900">Dependencies</h3>
+      
+      {/* Current Dependencies */}
+      <div className="space-y-2">
+        {(task.relationships?.dependencies || []).map(dependencyId => {
+          const dependencyTask = allTasks.find(t => t.id === dependencyId);
+          return (
+            <div key={dependencyId} className="flex items-center justify-between">
+              <span className="text-sm text-gray-600">
+                {dependencyTask?.title || 'Unknown Task'}
               </span>
-            </div>
-            {onTaskClick && (
               <button
                 type="button"
-                onClick={() => onTaskClick(relatedTask.id)}
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                title="View task"
+                onClick={() => handleRemoveDependency(dependencyId)}
+                className="text-sm text-red-600 hover:text-red-800"
               >
-                <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                Remove
               </button>
-            )}
-          </div>
-          <p className="mt-1 text-sm font-medium truncate">
-            {relatedTask.title}
-          </p>
-          <div className="mt-1 text-xs opacity-60">
-            {relatedTask.id}
-          </div>
-        </div>
-      ))}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Add Dependency */}
+      <div className="flex gap-2">
+        <select
+          value={selectedTaskId}
+          onChange={(e) => setSelectedTaskId(e.target.value)}
+          className="block w-full rounded-md border-0 py-1.5 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6"
+        >
+          <option value="">Select a task...</option>
+          {availableTasks.map(t => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          onClick={handleAddDependency}
+          disabled={!selectedTaskId}
+          className="rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
+        >
+          Add
+        </button>
+      </div>
     </div>
   );
 } 

@@ -3,7 +3,7 @@ import type { AcceptanceCriterion } from "../types";
 import { CheckIcon, PlusIcon } from "@heroicons/react/24/outline";
 
 interface AcceptanceCriteriaProps {
-	criteria: AcceptanceCriterion[];
+	criteria?: AcceptanceCriterion[];
 	onUpdate: (criteria: AcceptanceCriterion[]) => void;
 	readonly?: boolean;
 	taskId?: string;
@@ -15,12 +15,13 @@ export function AcceptanceCriteria({
 	readonly = false,
 	taskId,
 }: AcceptanceCriteriaProps) {
+	const safeCriteria = criteria || [];
 	const [newCriterion, setNewCriterion] = useState("");
 	const [showError, setShowError] = useState(false);
 
 	// Ensure criteria have descriptions and order
 	useEffect(() => {
-		const updatedCriteria = criteria
+		const updatedCriteria = safeCriteria
 			.filter((c) => c && typeof c === "object")
 			.map((c, index) => {
 				const description =
@@ -37,16 +38,16 @@ export function AcceptanceCriteria({
 			})
 			.filter((c): c is AcceptanceCriterion => c !== null);
 
-		if (JSON.stringify(updatedCriteria) !== JSON.stringify(criteria)) {
+		if (JSON.stringify(updatedCriteria) !== JSON.stringify(safeCriteria)) {
 			onUpdate(updatedCriteria);
 		}
-	}, [criteria, onUpdate]);
+	}, [safeCriteria, onUpdate]);
 
 	const handleToggle = async (criterion: AcceptanceCriterion) => {
 		if (readonly) return;
 
 		const now = new Date().toISOString();
-		const updated = criteria.map((c) => {
+		const updated = safeCriteria.map((c) => {
 			if (c.id === criterion.id) {
 				const updatedCriterion = {
 					...c,
@@ -97,7 +98,7 @@ export function AcceptanceCriteria({
 		} catch (error) {
 			console.error("Error updating acceptance criteria:", error);
 			// Revert the local update if server update fails
-			onUpdate(criteria);
+			onUpdate(safeCriteria);
 		}
 	};
 
@@ -121,18 +122,23 @@ export function AcceptanceCriteria({
 			completed_by: null,
 			created_at: now,
 			updated_at: now,
-			order: criteria.length,
+			order: safeCriteria.length,
 		};
 
 		console.log("Adding new criterion:", JSON.stringify(criterion, null, 2));
-		onUpdate([...criteria, criterion]);
+		onUpdate([...safeCriteria, criterion]);
 		setNewCriterion("");
 	};
 
-	const completedCount = criteria.filter((c) => c.completed).length;
+	const handleDelete = (id: string) => {
+		const filtered = safeCriteria.filter((c) => c.id !== id);
+		onUpdate(filtered);
+	};
+
+	const completedCount = safeCriteria.filter((c) => c.completed).length;
 	const progress =
-		criteria.length > 0
-			? Math.round((completedCount / criteria.length) * 100)
+		safeCriteria.length > 0
+			? Math.round((completedCount / safeCriteria.length) * 100)
 			: 0;
 
 	return (
@@ -145,7 +151,7 @@ export function AcceptanceCriteria({
 					className="text-sm text-gray-500"
 					data-testid="criteria-progress-text"
 				>
-					{completedCount} of {criteria.length} completed ({progress}%)
+					{completedCount} of {safeCriteria.length} completed ({progress}%)
 				</span>
 			</div>
 
@@ -166,7 +172,7 @@ export function AcceptanceCriteria({
 
 			{/* Criteria List */}
 			<ul className="space-y-2">
-				{criteria.map((criterion) => {
+				{safeCriteria.map((criterion) => {
 					if (!criterion.description) {
 						console.warn(
 							"Empty description found for criterion:",

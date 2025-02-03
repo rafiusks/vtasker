@@ -1,20 +1,36 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Task, AcceptanceCriterion } from "../types";
 import { TaskMetadata } from "./TaskMetadata";
 import { AcceptanceCriteria } from "./AcceptanceCriteria";
 
 interface TaskDetailProps {
-	task: Task;
+	task?: Task;
 	onUpdate: (updates: Partial<Task>) => void;
 	onClose: () => void;
+	isOpen: boolean;
 }
 
-export function TaskDetail({ task, onUpdate, onClose }: TaskDetailProps) {
+export function TaskDetail({
+	task,
+	onUpdate,
+	onClose,
+	isOpen,
+}: TaskDetailProps) {
+	if (!task || !isOpen) return null;
+
 	const [description, setDescription] = useState(task.description);
 	const [implementationDetails, setImplementationDetails] = useState(
-		task.content.implementation_details || "",
+		task.content?.implementation_details || "",
 	);
-	const [notes, setNotes] = useState(task.content.notes || "");
+	const [notes, setNotes] = useState(task.content?.notes || "");
+
+	useEffect(() => {
+		if (task) {
+			setDescription(task.description);
+			setImplementationDetails(task.content?.implementation_details || "");
+			setNotes(task.content?.notes || "");
+		}
+	}, [task]);
 
 	const handleSave = () => {
 		onUpdate({
@@ -88,7 +104,7 @@ export function TaskDetail({ task, onUpdate, onClose }: TaskDetailProps) {
 
 				{/* Acceptance Criteria */}
 				<AcceptanceCriteria
-					criteria={task.content.acceptance_criteria}
+					criteria={task.content?.acceptance_criteria || []}
 					onUpdate={handleAcceptanceCriteriaUpdate}
 				/>
 
