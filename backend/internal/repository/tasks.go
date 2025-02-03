@@ -2,7 +2,9 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,7 +34,7 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id`,
 		task.ExternalID, task.Title, task.Description, task.Status, task.Priority,
-		task.Type, task.Order, task.Parent, task.Board, task.Column).Scan(&id)
+		task.Type, task.Order, task.Relationships.Parent, task.Metadata.Board, task.Metadata.Column).Scan(&id)
 	if err != nil {
 		return fmt.Errorf("error inserting task: %v", err)
 	}
@@ -50,7 +52,7 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 	}
 
 	// Insert labels
-	for _, label := range task.Labels {
+	for _, label := range task.Relationships.Labels {
 		_, err = tx.Exec(ctx,
 			`INSERT INTO task_labels (task_id, label) VALUES ($1, $2)`,
 			id, label)
@@ -60,7 +62,7 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 	}
 
 	// Insert dependencies
-	for _, dep := range task.Dependencies {
+	for _, dep := range task.Relationships.Dependencies {
 		_, err = tx.Exec(ctx,
 			`INSERT INTO task_dependencies (dependent_task_id, dependency_external_id) VALUES ($1, $2)`,
 			id, dep)
@@ -70,14 +72,16 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 	}
 
 	// Insert acceptance criteria
-	for _, criterion := range task.Content.AcceptanceCriteria {
-		_, err = tx.Exec(ctx,
-			`INSERT INTO acceptance_criteria (task_id, description, completed, completed_at, completed_by, "order", category, notes)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-			id, criterion.Description, criterion.Completed, criterion.CompletedAt,
-			criterion.CompletedBy, criterion.Order, criterion.Category, criterion.Notes)
-		if err != nil {
-			return fmt.Errorf("error inserting acceptance criterion: %v", err)
+	if task.Content != nil {
+		for _, criterion := range task.Content.AcceptanceCriteria {
+			_, err = tx.Exec(ctx,
+				`INSERT INTO acceptance_criteria (task_id, description, completed, completed_at, completed_by, "order", category, notes)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+				id, criterion.Description, criterion.Completed, criterion.CompletedAt,
+				criterion.CompletedBy, criterion.Order, criterion.Category, criterion.Notes)
+			if err != nil {
+				return fmt.Errorf("error inserting acceptance criterion: %v", err)
+			}
 		}
 	}
 
@@ -88,16 +92,30 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 func (r *TaskRepository) GetTask(ctx context.Context, externalID string) (*models.Task, error) {
 	var task models.Task
 	var taskID string
+	var totalCriteria, completedCriteria int
 
-	// Get main task data
+	// Get main task data with metrics
 	err := r.pool.QueryRow(ctx,
-		`SELECT id, external_id, title, description, status, priority, type, "order",
-			parent_id, board, column_name, created_at, updated_at
-		FROM tasks WHERE external_id = $1`,
+		`WITH task_metrics AS (
+			SELECT 
+				task_id,
+				COUNT(*) as total_criteria,
+				COUNT(*) FILTER (WHERE completed) as completed_criteria
+			FROM acceptance_criteria
+			WHERE task_id = (SELECT id FROM tasks WHERE external_id = $1)
+			GROUP BY task_id
+		)
+		SELECT t.id, t.external_id, t.title, t.description, t.status, t.priority,
+			t.type, t."order", t.parent_id, t.board, t.column_name, t.created_at, t.updated_at,
+			COALESCE(m.total_criteria, 0), COALESCE(m.completed_criteria, 0)
+		FROM tasks t
+		LEFT JOIN task_metrics m ON t.id = m.task_id
+		WHERE t.external_id = $1`,
 		externalID).Scan(
 		&taskID, &task.ExternalID, &task.Title, &task.Description, &task.Status,
-		&task.Priority, &task.Type, &task.Order, &task.Parent, &task.Board,
-		&task.Column, &task.CreatedAt, &task.UpdatedAt)
+		&task.Priority, &task.Type, &task.Order, &task.Relationships.Parent, 
+		&task.Metadata.Board, &task.Metadata.Column, &task.Metadata.CreatedAt, 
+		&task.Metadata.UpdatedAt, &totalCriteria, &completedCriteria)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
@@ -105,8 +123,24 @@ func (r *TaskRepository) GetTask(ctx context.Context, externalID string) (*model
 		return nil, fmt.Errorf("error getting task: %v", err)
 	}
 
+	// Initialize task ID and relationships
+	task.ID = taskID
+	task.Relationships.Labels = make([]string, 0)
+	task.Relationships.Dependencies = make([]string, 0)
+	task.StatusHistory = make([]models.StatusChange, 0)
+	task.Content = &models.TaskContent{
+		AcceptanceCriteria: make([]models.AcceptanceCriterion, 0),
+		Attachments:        make([]string, 0),
+	}
+
+	// Set progress metrics
+	task.Progress.AcceptanceCriteria.Total = totalCriteria
+	task.Progress.AcceptanceCriteria.Completed = completedCriteria
+	if totalCriteria > 0 {
+		task.Progress.Percentage = int((float64(completedCriteria) / float64(totalCriteria)) * 100)
+	}
+
 	// Get task content
-	task.Content = &models.TaskContent{}
 	err = r.pool.QueryRow(ctx,
 		`SELECT description, implementation_details, notes, due_date, assignee
 		FROM task_contents WHERE task_id = $1`,
@@ -126,13 +160,12 @@ func (r *TaskRepository) GetTask(ctx context.Context, externalID string) (*model
 	}
 	defer rows.Close()
 
-	task.Labels = make([]string, 0)
 	for rows.Next() {
 		var label string
 		if err := rows.Scan(&label); err != nil {
 			return nil, fmt.Errorf("error scanning task label: %v", err)
 		}
-		task.Labels = append(task.Labels, label)
+		task.Relationships.Labels = append(task.Relationships.Labels, label)
 	}
 
 	// Get dependencies
@@ -144,13 +177,12 @@ func (r *TaskRepository) GetTask(ctx context.Context, externalID string) (*model
 	}
 	defer rows.Close()
 
-	task.Dependencies = make([]string, 0)
 	for rows.Next() {
 		var depID string
 		if err := rows.Scan(&depID); err != nil {
 			return nil, fmt.Errorf("error scanning task dependency: %v", err)
 		}
-		task.Dependencies = append(task.Dependencies, depID)
+		task.Relationships.Dependencies = append(task.Relationships.Dependencies, depID)
 	}
 
 	// Get acceptance criteria
@@ -166,7 +198,6 @@ func (r *TaskRepository) GetTask(ctx context.Context, externalID string) (*model
 	}
 	defer rows.Close()
 
-	task.Content.AcceptanceCriteria = make([]models.AcceptanceCriterion, 0)
 	for rows.Next() {
 		var criterion models.AcceptanceCriterion
 		if err := rows.Scan(
@@ -179,21 +210,100 @@ func (r *TaskRepository) GetTask(ctx context.Context, externalID string) (*model
 		task.Content.AcceptanceCriteria = append(task.Content.AcceptanceCriteria, criterion)
 	}
 
+	// Get status history
+	rows, err = r.pool.Query(ctx,
+		`SELECT from_status, to_status, changed_at, comment
+		FROM status_history
+		WHERE task_id = $1
+		ORDER BY changed_at DESC`,
+		taskID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting status history: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var change models.StatusChange
+		if err := rows.Scan(
+			&change.From, &change.To, &change.Timestamp, &change.Comment); err != nil {
+			return nil, fmt.Errorf("error scanning status change: %v", err)
+		}
+		task.StatusHistory = append(task.StatusHistory, change)
+	}
+
 	return &task, nil
 }
 
 // ListTasks retrieves all tasks with optional filtering
 func (r *TaskRepository) ListTasks(ctx context.Context, status, priority string) ([]models.Task, error) {
+	log.Printf("Listing tasks with status=%q, priority=%q", status, priority)
+
 	query := `
-		SELECT t.id, t.external_id, t.title, t.description, t.status, t.priority,
-			t.type, t."order", t.parent_id, t.board, t.column_name, t.created_at, t.updated_at
+		WITH task_metrics AS (
+			SELECT 
+				task_id,
+				COUNT(*) as total_criteria,
+				COUNT(*) FILTER (WHERE completed) as completed_criteria
+			FROM acceptance_criteria
+			GROUP BY task_id
+		),
+		task_history AS (
+			SELECT 
+				task_id,
+				json_agg(
+					json_build_object(
+						'from', from_status,
+						'to', to_status,
+						'timestamp', changed_at,
+						'comment', comment
+					) ORDER BY changed_at DESC
+				) as history
+			FROM status_history
+			GROUP BY task_id
+		)
+		SELECT 
+			t.id, 
+			t.external_id, 
+			t.title, 
+			t.description, 
+			t.status, 
+			t.priority,
+			t.type, 
+			t."order", 
+			t.parent_id, 
+			t.board, 
+			t.column_name, 
+			t.created_at, 
+			t.updated_at,
+			tc.description as content_description,
+			tc.implementation_details,
+			tc.notes as content_notes,
+			tc.due_date,
+			tc.assignee,
+			COALESCE(m.total_criteria, 0) as total_criteria,
+			COALESCE(m.completed_criteria, 0) as completed_criteria,
+			(
+				SELECT COALESCE(json_agg(label), '[]'::json)
+				FROM task_labels tl
+				WHERE tl.task_id = t.id
+			) as labels,
+			(
+				SELECT COALESCE(json_agg(dependency_external_id), '[]'::json)
+				FROM task_dependencies td
+				WHERE td.dependent_task_id = t.id
+			) as dependencies,
+			COALESCE(th.history, '[]'::json) as status_history
 		FROM tasks t
-		WHERE ($1 = '' OR t.status = $1)
-		AND ($2 = '' OR t.priority = $2)
+		LEFT JOIN task_contents tc ON t.id = tc.task_id
+		LEFT JOIN task_metrics m ON t.id = m.task_id
+		LEFT JOIN task_history th ON t.id = th.task_id
+		WHERE ($1 = '' OR t.status::text = $1)
+		AND ($2 = '' OR t.priority::text = $2)
 		ORDER BY t.status, t."order"`
 
 	rows, err := r.pool.Query(ctx, query, status, priority)
 	if err != nil {
+		log.Printf("Database error: %v", err)
 		return nil, fmt.Errorf("error listing tasks: %v", err)
 	}
 	defer rows.Close()
@@ -201,16 +311,70 @@ func (r *TaskRepository) ListTasks(ctx context.Context, status, priority string)
 	tasks := make([]models.Task, 0)
 	for rows.Next() {
 		var task models.Task
+		task.Content = &models.TaskContent{
+			AcceptanceCriteria: make([]models.AcceptanceCriterion, 0),
+			Attachments:        make([]string, 0),
+		}
+		task.Relationships = models.TaskRelationships{
+			Labels:       make([]string, 0),
+			Dependencies: make([]string, 0),
+		}
+		task.Progress = models.TaskProgress{
+			AcceptanceCriteria: struct {
+				Total     int `json:"total"`
+				Completed int `json:"completed"`
+			}{},
+		}
+		var totalCriteria, completedCriteria int
+		var labelsJSON, dependenciesJSON, statusHistoryJSON []byte
+
 		if err := rows.Scan(
 			&task.ID, &task.ExternalID, &task.Title, &task.Description,
 			&task.Status, &task.Priority, &task.Type, &task.Order,
-			&task.Parent, &task.Board, &task.Column,
-			&task.CreatedAt, &task.UpdatedAt); err != nil {
+			&task.Relationships.Parent, &task.Metadata.Board, &task.Metadata.Column,
+			&task.Metadata.CreatedAt, &task.Metadata.UpdatedAt,
+			&task.Content.Description,
+			&task.Content.ImplementationDetails,
+			&task.Content.Notes,
+			&task.Content.DueDate,
+			&task.Content.Assignee,
+			&totalCriteria,
+			&completedCriteria,
+			&labelsJSON,
+			&dependenciesJSON,
+			&statusHistoryJSON,
+		); err != nil {
+			log.Printf("Error scanning task: %v", err)
 			return nil, fmt.Errorf("error scanning task: %v", err)
 		}
+
+		// Set progress metrics
+		task.Progress.AcceptanceCriteria.Total = totalCriteria
+		task.Progress.AcceptanceCriteria.Completed = completedCriteria
+		if totalCriteria > 0 {
+			task.Progress.Percentage = int((float64(completedCriteria) / float64(totalCriteria)) * 100)
+		}
+
+		// Parse JSON arrays
+		if err := json.Unmarshal(labelsJSON, &task.Relationships.Labels); err != nil {
+			return nil, fmt.Errorf("error parsing labels: %v", err)
+		}
+		if err := json.Unmarshal(dependenciesJSON, &task.Relationships.Dependencies); err != nil {
+			return nil, fmt.Errorf("error parsing dependencies: %v", err)
+		}
+		if err := json.Unmarshal(statusHistoryJSON, &task.StatusHistory); err != nil {
+			return nil, fmt.Errorf("error parsing status history: %v", err)
+		}
+
 		tasks = append(tasks, task)
 	}
 
+	if err := rows.Err(); err != nil {
+		log.Printf("Error after scanning: %v", err)
+		return nil, fmt.Errorf("error after scanning: %v", err)
+	}
+
+	log.Printf("Found %d tasks", len(tasks))
 	return tasks, nil
 }
 
@@ -231,7 +395,7 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, externalID string, task
 		WHERE external_id = $10
 		RETURNING id`,
 		task.Title, task.Description, task.Status, task.Priority,
-		task.Type, task.Order, task.Parent, task.Board, task.Column,
+		task.Type, task.Order, task.Relationships.Parent, task.Metadata.Board, task.Metadata.Column,
 		externalID).Scan(&taskID)
 	if err != nil {
 		return fmt.Errorf("error updating task: %v", err)
@@ -262,7 +426,7 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, externalID string, task
 		return fmt.Errorf("error deleting task labels: %v", err)
 	}
 
-	for _, label := range task.Labels {
+	for _, label := range task.Relationships.Labels {
 		_, err = tx.Exec(ctx,
 			`INSERT INTO task_labels (task_id, label) VALUES ($1, $2)`,
 			taskID, label)
@@ -279,7 +443,7 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, externalID string, task
 		return fmt.Errorf("error deleting task dependencies: %v", err)
 	}
 
-	for _, dep := range task.Dependencies {
+	for _, dep := range task.Relationships.Dependencies {
 		_, err = tx.Exec(ctx,
 			`INSERT INTO task_dependencies (dependent_task_id, dependency_external_id)
 			VALUES ($1, $2)`,
@@ -294,40 +458,30 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, externalID string, task
 
 // MoveTask updates a task's status and order, recording the status change
 func (r *TaskRepository) MoveTask(ctx context.Context, externalID string, status string, order int) error {
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %v", err)
-	}
-	defer tx.Rollback(ctx)
+	// Use a single query to update the task and record status history if needed
+	_, err := r.pool.Exec(ctx, `
+		WITH task_update AS (
+			UPDATE tasks 
+			SET status = $2, 
+				"order" = $3,
+				updated_at = NOW()
+			WHERE external_id = $1
+			RETURNING id, status != $2 as status_changed, status as old_status
+		)
+		INSERT INTO status_history (task_id, from_status, to_status)
+		SELECT id, old_status, $2 
+		FROM task_update 
+		WHERE status_changed;
+	`, externalID, status, order)
 
-	var oldStatus string
-	err = tx.QueryRow(ctx,
-		`SELECT status FROM tasks WHERE external_id = $1`,
-		externalID).Scan(&oldStatus)
 	if err != nil {
-		return fmt.Errorf("error getting task status: %v", err)
-	}
-
-	// Update task status and order
-	_, err = tx.Exec(ctx,
-		`UPDATE tasks SET status = $1, "order" = $2 WHERE external_id = $3`,
-		status, order, externalID)
-	if err != nil {
-		return fmt.Errorf("error updating task status: %v", err)
-	}
-
-	// Record status change if status changed
-	if oldStatus != status {
-		_, err = tx.Exec(ctx,
-			`INSERT INTO status_history (task_id, from_status, to_status)
-			SELECT id, $1, $2 FROM tasks WHERE external_id = $3`,
-			oldStatus, status, externalID)
-		if err != nil {
-			return fmt.Errorf("error recording status change: %v", err)
+		if err == pgx.ErrNoRows {
+			return fmt.Errorf("task not found: %s", externalID)
 		}
+		return fmt.Errorf("error moving task: %v", err)
 	}
 
-	return tx.Commit(ctx)
+	return nil
 }
 
 // DeleteTask deletes a task and all its related data
@@ -351,4 +505,10 @@ func (r *TaskRepository) GetDependentTasks(ctx context.Context, externalID strin
 		return 0, fmt.Errorf("error counting dependent tasks: %v", err)
 	}
 	return count, nil
+}
+
+// GetTaskDetails retrieves detailed task information by its external ID
+func (r *TaskRepository) GetTaskDetails(ctx context.Context, externalID string) (*models.Task, error) {
+	// Reuse the existing GetTask function as it already fetches all necessary details
+	return r.GetTask(ctx, externalID)
 } 

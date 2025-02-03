@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -23,6 +24,7 @@ func NewTaskHandler(pool *pgxpool.Pool) *TaskHandler {
 func (h *TaskHandler) ListTasks(c *gin.Context) {
 	tasks, err := h.repo.ListTasks(c.Request.Context(), c.Query("status"), c.Query("priority"))
 	if err != nil {
+		log.Printf("Error listing tasks: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

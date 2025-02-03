@@ -33,11 +33,23 @@ func main() {
 	config := cors.DefaultConfig()
 	allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
-		allowedOrigins = "http://localhost:5173" // Default to Vite's port
+		allowedOrigins = "http://localhost:5173,http://localhost:3000" // Default to development ports
 	}
 	config.AllowOrigins = strings.Split(allowedOrigins, ",")
-	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
-	config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
+	config.AllowHeaders = []string{
+		"Origin",
+		"Content-Type",
+		"Content-Length",
+		"Accept-Encoding",
+		"X-CSRF-Token",
+		"Authorization",
+	}
+	config.ExposeHeaders = []string{
+		"Content-Length",
+		"Content-Type",
+	}
+	config.AllowCredentials = true
 	router.Use(cors.New(config))
 
 	// Setup routes

@@ -10,6 +10,17 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 	// Create handlers
 	taskHandler := NewTaskHandler(pool)
 
+	// Legacy routes (for compatibility)
+	legacy := router.Group("/api")
+	{
+		legacy.GET("/tasks", taskHandler.ListTasks)
+		legacy.GET("/tasks/:id", taskHandler.GetTask)
+		legacy.POST("/tasks", taskHandler.CreateTask)
+		legacy.PUT("/tasks/:id", taskHandler.UpdateTask)
+		legacy.PUT("/tasks/:id/move", taskHandler.MoveTask)
+		legacy.DELETE("/tasks/:id", taskHandler.DeleteTask)
+	}
+
 	// API v1 group
 	v1 := router.Group("/api/v1")
 	{
