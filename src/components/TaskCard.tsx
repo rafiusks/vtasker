@@ -11,15 +11,22 @@ interface TaskCardProps {
 		status: Task["status"];
 		priority: Task["priority"];
 		type: Task["type"];
-		labels: string[];
-		dependencies: string[];
-		metrics?: {
+		order: number;
+		metadata?: {
+			board?: string;
+			column?: string;
+		};
+		progress?: {
 			acceptance_criteria: {
 				total: number;
 				completed: number;
 			};
+			percentage: number;
 		};
-		order: number;
+		relationships?: {
+			labels?: string[];
+			dependencies?: string[];
+		};
 	};
 	index: number;
 	onEdit?: (task: Task) => void;
@@ -52,7 +59,7 @@ export function TaskCard({
 		setIsLoading(true);
 		try {
 			const response = await fetch(
-				`http://localhost:8000/api/tasks/${task.id}/details`,
+				`http://localhost:8000/api/v1/tasks/${task.id}`,
 			);
 			if (!response.ok) {
 				throw new Error("Failed to fetch task details");
@@ -79,23 +86,8 @@ export function TaskCard({
 		}
 	};
 
-	// Add default values for metrics and ensure they are properly initialized
-	const metrics = task.metrics ?? {
-		acceptance_criteria: {
-			total: 0,
-			completed: 0,
-		},
-	};
-
 	// Only calculate progress if we have valid metrics
-	const progress =
-		metrics.acceptance_criteria && metrics.acceptance_criteria.total > 0
-			? Math.round(
-					(metrics.acceptance_criteria.completed /
-						metrics.acceptance_criteria.total) *
-						100,
-				)
-			: 0;
+	const progress = task.progress?.percentage ?? 0;
 
 	return (
 		<>
@@ -129,45 +121,50 @@ export function TaskCard({
 					</span>
 
 					{/* Progress Bar */}
-					{metrics.acceptance_criteria &&
-						metrics.acceptance_criteria.total > 0 && (
-							<div className="mt-2">
-								<div className="flex items-center justify-between text-xs text-gray-500">
-									<span>
-										{metrics.acceptance_criteria.completed} of{" "}
-										{metrics.acceptance_criteria.total} criteria
-									</span>
-									<span>{progress}%</span>
-								</div>
-								<div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
-									<div
-										className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-										style={{ width: `${progress}%` }}
-									/>
-								</div>
+					{task.progress && task.progress.acceptance_criteria.total > 0 && (
+						<div className="mt-2">
+							<div className="flex items-center justify-between text-xs text-gray-500">
+								<span>
+									{task.progress.acceptance_criteria.completed} of{" "}
+									{task.progress.acceptance_criteria.total} criteria
+								</span>
+								<span>{task.progress.percentage}%</span>
 							</div>
-						)}
+							<div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
+								<div
+									className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+									style={{ width: `${progress}%` }}
+								/>
+							</div>
+						</div>
+					)}
 
 					{/* Labels */}
-					{task.labels.length > 0 && (
-						<div className="mt-2 flex flex-wrap gap-1">
-							{task.labels.map((label) => (
-								<span
-									key={label}
-									className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-								>
-									{label}
-								</span>
-							))}
-						</div>
-					)}
+					{(() => {
+						const labels = task.relationships?.labels ?? [];
+						return labels.length > 0 ? (
+							<div className="mt-2 flex flex-wrap gap-1">
+								{labels.map((label) => (
+									<span
+										key={label}
+										className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+									>
+										{label}
+									</span>
+								))}
+							</div>
+						) : null;
+					})()}
 
 					{/* Dependencies */}
-					{task.dependencies.length > 0 && (
-						<div className="mt-2 text-xs text-gray-500">
-							Depends on: {task.dependencies.join(", ")}
-						</div>
-					)}
+					{(() => {
+						const dependencies = task.relationships?.dependencies ?? [];
+						return dependencies.length > 0 ? (
+							<div className="mt-2 text-xs text-gray-500">
+								Depends on: {dependencies.join(", ")}
+							</div>
+						) : null;
+					})()}
 				</div>
 			</button>
 

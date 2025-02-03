@@ -3,16 +3,22 @@ import { useState, useEffect } from "react";
 import { Dialog } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { Select } from "./Select";
-import type { Task, AcceptanceCriterion } from "../types";
-import { TaskRelationships } from "./TaskRelationships";
-import { TaskMetadata } from "./TaskMetadata";
+import type {
+	Task,
+	TaskMetadata,
+	TaskContent,
+	TaskRelationships,
+	AcceptanceCriterion,
+} from "../types";
+import { TaskRelationships as TaskRelationshipsEditor } from "./TaskRelationships";
+import { TaskMetadata as TaskMetadataEditor } from "./TaskMetadata";
 import { AcceptanceCriteria } from "./AcceptanceCriteria";
 import { toast } from "react-hot-toast";
 
 interface TaskFormProps {
 	isOpen: boolean;
 	onClose: () => void;
-	onSubmit: (task: Partial<Task>) => void;
+	onSubmit: (task: Task) => void;
 	task?: Task;
 	allTasks?: Task[];
 }
@@ -23,18 +29,38 @@ interface TaskFormState {
 	status: Task["status"];
 	priority: Task["priority"];
 	type: Task["type"];
-	labels: string[];
-	dependencies: string[];
+	order: number;
+	metadata: {
+		created_at: string;
+		updated_at: string;
+		board?: string;
+		column?: string;
+	};
+	relationships: {
+		parent?: string;
+		dependencies: string[];
+		labels: string[];
+	};
 	content: {
 		description: string;
-		acceptance_criteria: AcceptanceCriterion[];
+		acceptance_criteria: Array<{
+			id: string;
+			description: string;
+			order: number;
+			completed: boolean;
+			completed_at?: string;
+			completed_by?: string;
+			created_at: string;
+			updated_at: string;
+			category?: string;
+			notes?: string;
+		}>;
 		implementation_details?: string;
 		notes?: string;
-		attachments?: string[];
+		attachments: string[];
 		due_date?: string;
 		assignee?: string;
 	};
-	status_history: Task["status_history"];
 }
 
 interface TaskDetails {
@@ -55,24 +81,36 @@ interface TaskDetails {
 	}>;
 }
 
+const defaultContent: TaskContent = {
+	description: "",
+	acceptance_criteria: [],
+	implementation_details: "",
+	notes: "",
+	attachments: [],
+};
+
 const getInitialFormState = (): TaskFormState => ({
 	title: "",
 	description: "",
 	status: "backlog",
 	priority: "normal",
 	type: "feature",
-	labels: [],
-	dependencies: [],
+	order: 0,
+	metadata: {
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	},
+	relationships: {
+		dependencies: [],
+		labels: [],
+	},
 	content: {
 		description: "",
 		acceptance_criteria: [],
 		implementation_details: "",
 		notes: "",
 		attachments: [],
-		due_date: "",
-		assignee: "",
 	},
-	status_history: [],
 });
 
 const priorityOptions = [
@@ -95,6 +133,36 @@ const typeOptions = [
 	{ value: "chore", label: "Chore" },
 ];
 
+// Helper function to convert null to undefined for string fields
+const nullToUndefined = (
+	criterion: Partial<AcceptanceCriterion>,
+): Partial<AcceptanceCriterion> => ({
+	...criterion,
+	completed_at:
+		criterion.completed_at === null ? undefined : criterion.completed_at,
+	completed_by:
+		criterion.completed_by === null ? undefined : criterion.completed_by,
+	category: criterion.category === null ? undefined : criterion.category,
+	notes: criterion.notes === null ? undefined : criterion.notes,
+});
+
+const convertCriterion = (
+	c: Partial<AcceptanceCriterion>,
+): AcceptanceCriterion => ({
+	id: c.id || crypto.randomUUID(),
+	description: c.description || "",
+	order: typeof c.order === "number" ? c.order : 0,
+	completed: !!c.completed,
+	completed_at: c.completed
+		? c.completed_at || new Date().toISOString()
+		: undefined,
+	completed_by: c.completed ? c.completed_by || "user" : undefined,
+	created_at: c.created_at || new Date().toISOString(),
+	updated_at: new Date().toISOString(),
+	category: c.category === null ? undefined : c.category,
+	notes: c.notes === null ? undefined : c.notes,
+});
+
 export const TaskForm: FC<TaskFormProps> = ({
 	isOpen,
 	onClose,
@@ -102,9 +170,43 @@ export const TaskForm: FC<TaskFormProps> = ({
 	task,
 	allTasks = [],
 }) => {
-	const [formData, setFormData] = useState<TaskFormState>(
-		getInitialFormState(),
-	);
+	const [formData, setFormData] = useState<TaskFormState>(() => {
+		if (!task) return getInitialFormState();
+
+		const defaultContent = getInitialFormState().content;
+		return {
+			title: task.title,
+			description: task.description,
+			status: task.status,
+			priority: task.priority,
+			type: task.type,
+			order: task.order,
+			metadata: task.metadata,
+			relationships: task.relationships,
+			content: {
+				...defaultContent,
+				description: task.content?.description ?? defaultContent.description,
+				acceptance_criteria:
+					task.content?.acceptance_criteria.map((c) => ({
+						id: c.id || crypto.randomUUID(),
+						description: c.description || "",
+						order: typeof c.order === "number" ? c.order : 0,
+						completed: !!c.completed,
+						completed_at: c.completed_at || undefined,
+						completed_by: c.completed_by || undefined,
+						created_at: c.created_at || new Date().toISOString(),
+						updated_at: c.updated_at || new Date().toISOString(),
+						category: c.category || undefined,
+						notes: c.notes || undefined,
+					})) ?? defaultContent.acceptance_criteria,
+				implementation_details: task.content?.implementation_details,
+				notes: task.content?.notes,
+				attachments: task.content?.attachments ?? defaultContent.attachments,
+				due_date: task.content?.due_date,
+				assignee: task.content?.assignee,
+			},
+		};
+	});
 	const [isLoading, setIsLoading] = useState(false);
 	const [taskDetails, setTaskDetails] = useState<TaskDetails | null>(null);
 
@@ -128,8 +230,9 @@ export const TaskForm: FC<TaskFormProps> = ({
 					status: details.status,
 					priority: details.priority,
 					type: details.type,
-					labels: details.labels,
-					dependencies: details.dependencies,
+					order: details.order,
+					metadata: details.metadata,
+					relationships: details.relationships,
 					content: {
 						description: details.description,
 						acceptance_criteria: details.content.acceptance_criteria
@@ -160,8 +263,10 @@ export const TaskForm: FC<TaskFormProps> = ({
 										description: description.trim(),
 										order: index,
 										completed,
-										completed_at: completed ? new Date().toISOString() : null,
-										completed_by: completed ? "user" : null,
+										completed_at: completed
+											? new Date().toISOString()
+											: undefined,
+										completed_by: completed ? "user" : undefined,
 										created_at: new Date().toISOString(),
 										updated_at: new Date().toISOString(),
 									};
@@ -173,8 +278,8 @@ export const TaskForm: FC<TaskFormProps> = ({
 									description: c.description || "",
 									order: typeof c.order === "number" ? c.order : index,
 									completed: !!c.completed,
-									completed_at: c.completed_at || null,
-									completed_by: c.completed_by || null,
+									completed_at: c.completed_at || undefined,
+									completed_by: c.completed_by || undefined,
 									created_at: c.created_at || new Date().toISOString(),
 									updated_at: c.updated_at || new Date().toISOString(),
 								};
@@ -196,10 +301,9 @@ export const TaskForm: FC<TaskFormProps> = ({
 							details.content.implementation_details || "",
 						notes: details.content.notes || "",
 						attachments: details.content.attachments || [],
-						due_date: details.content.due_date || "",
-						assignee: details.content.assignee || "",
+						due_date: details.content.due_date || undefined,
+						assignee: details.content.assignee || undefined,
 					},
-					status_history: details.status_history,
 				});
 			} catch (error) {
 				console.error("Error loading task details:", error);
@@ -231,7 +335,7 @@ export const TaskForm: FC<TaskFormProps> = ({
 		e.preventDefault();
 
 		// Clean and validate dependencies
-		const cleanDependencies = formData.dependencies
+		const cleanDependencies = formData.relationships.dependencies
 			.map((dep) => {
 				const match = dep.match(/^(task-\d{3}(-\d{1,2})?)/);
 				return match ? match[1] : null;
@@ -283,7 +387,12 @@ export const TaskForm: FC<TaskFormProps> = ({
 			...formData,
 			title: formData.title.trim(),
 			description: formData.description.trim(),
-			dependencies: cleanDependencies,
+			order: formData.order,
+			metadata: formData.metadata,
+			relationships: {
+				...formData.relationships,
+				dependencies: cleanDependencies,
+			},
 			content: {
 				...formData.content,
 				description: formData.description.trim(),
@@ -308,40 +417,66 @@ export const TaskForm: FC<TaskFormProps> = ({
 			"Submitting task with data:",
 			JSON.stringify(submitData, null, 2),
 		);
-		onSubmit(submitData);
+		onSubmit(submitData as Task);
 		onClose();
 	};
 
 	const openEditForm = (task: Task) => {
+		const defaultContent = getInitialFormState().content;
 		setFormData({
 			title: task.title,
 			description: task.description,
 			status: task.status,
 			priority: task.priority,
 			type: task.type,
-			labels: task.labels,
-			dependencies: task.dependencies,
+			order: task.order,
+			metadata: task.metadata,
+			relationships: task.relationships,
 			content: {
-				...task.content,
-				description: task.description,
-				acceptance_criteria: task.content.acceptance_criteria.map(
-					(c, index) => ({
-						...c,
+				...defaultContent,
+				description: task.content?.description ?? defaultContent.description,
+				acceptance_criteria:
+					task.content?.acceptance_criteria.map((c) => ({
 						id: c.id || crypto.randomUUID(),
 						description: c.description || "",
-						order: typeof c.order === "number" ? c.order : index,
+						order: typeof c.order === "number" ? c.order : 0,
 						completed: !!c.completed,
-						completed_at: c.completed_at || null,
-						completed_by: c.completed_by || null,
+						completed_at: c.completed_at || undefined,
+						completed_by: c.completed_by || undefined,
 						created_at: c.created_at || new Date().toISOString(),
 						updated_at: c.updated_at || new Date().toISOString(),
-					}),
-				),
-				due_date: task.content.due_date || "",
-				assignee: task.content.assignee || "",
+						category: c.category || undefined,
+						notes: c.notes || undefined,
+					})) ?? defaultContent.acceptance_criteria,
+				implementation_details: task.content?.implementation_details,
+				notes: task.content?.notes,
+				attachments: task.content?.attachments ?? defaultContent.attachments,
+				due_date: task.content?.due_date,
+				assignee: task.content?.assignee,
 			},
-			status_history: task.status_history,
 		});
+	};
+
+	const handleAcceptanceCriteriaUpdate = (criteria: AcceptanceCriterion[]) => {
+		setFormData((prev) => ({
+			...prev,
+			content: {
+				...prev.content,
+				acceptance_criteria: criteria.map((c) => ({
+					...nullToUndefined(c),
+					id: c.id || crypto.randomUUID(),
+					description: c.description || "",
+					order: typeof c.order === "number" ? c.order : 0,
+					completed: !!c.completed,
+					completed_at: c.completed
+						? c.completed_at || new Date().toISOString()
+						: undefined,
+					completed_by: c.completed ? c.completed_by || "user" : undefined,
+					created_at: c.created_at || new Date().toISOString(),
+					updated_at: new Date().toISOString(),
+				})),
+			},
+		}));
 	};
 
 	return (
@@ -468,39 +603,7 @@ export const TaskForm: FC<TaskFormProps> = ({
 								<AcceptanceCriteria
 									criteria={formData.content.acceptance_criteria}
 									taskId={task?.id}
-									onUpdate={(criteria) => {
-										setFormData((prev) => {
-											const updated = {
-												...prev,
-												content: {
-													...prev.content,
-													acceptance_criteria: criteria.map((c, index) => {
-														const description = c.description || "";
-														if (!description) {
-															console.warn(
-																"Empty description found for criterion:",
-																c.id,
-															);
-														}
-														return {
-															...c,
-															id: c.id || crypto.randomUUID(),
-															description,
-															order:
-																typeof c.order === "number" ? c.order : index,
-															completed: !!c.completed,
-															completed_at: c.completed_at || null,
-															completed_by: c.completed_by || null,
-															created_at:
-																c.created_at || new Date().toISOString(),
-															updated_at: new Date().toISOString(),
-														};
-													}),
-												},
-											};
-											return updated;
-										});
-									}}
+									onUpdate={handleAcceptanceCriteriaUpdate}
 								/>
 							</div>
 
@@ -530,7 +633,7 @@ export const TaskForm: FC<TaskFormProps> = ({
 									<h3 className="text-sm font-medium text-gray-900 mb-3">
 										Metadata
 									</h3>
-									<TaskMetadata
+									<TaskMetadataEditor
 										task={{
 											...task,
 											content: formData.content,
@@ -553,7 +656,7 @@ export const TaskForm: FC<TaskFormProps> = ({
 									<h3 className="text-sm font-medium text-gray-900 mb-3">
 										Relationships
 									</h3>
-									<TaskRelationships
+									<TaskRelationshipsEditor
 										task={task}
 										allTasks={allTasks}
 										onTaskClick={(taskId) => {

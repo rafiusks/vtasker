@@ -1,6 +1,7 @@
 import type { Task, AcceptanceCriterion } from "../types";
 
-const API_BASE = "http://localhost:8000/api/v1";
+// Use relative path to work with Vite proxy
+const API_BASE = "/api";
 
 export interface TaskMoveRequest {
 	status: string;

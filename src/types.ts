@@ -11,13 +11,28 @@ export interface AcceptanceCriterion {
 	id: string;
 	description: string;
 	completed: boolean;
-	completed_at: string | null;
-	completed_by: string | null;
+	completed_at?: string;
+	completed_by?: string;
 	created_at: string;
 	updated_at: string;
 	order: number;
 	category?: string;
 	notes?: string;
+}
+
+export interface TaskMetadata {
+	created_at: string;
+	updated_at: string;
+	board?: string;
+	column?: string;
+}
+
+export interface TaskProgress {
+	acceptance_criteria: {
+		total: number;
+		completed: number;
+	};
+	percentage: number;
 }
 
 export interface TaskContent {
@@ -30,28 +45,35 @@ export interface TaskContent {
 	assignee?: string;
 }
 
+export interface TaskRelationships {
+	parent?: string;
+	dependencies: string[];
+	labels: string[];
+}
+
+export interface StatusChange {
+	from: TaskStatus;
+	to: TaskStatus;
+	timestamp: string;
+	comment?: string;
+}
+
 export interface Task {
 	id: string;
+	external_id: string;
 	title: string;
 	description: string;
 	status: TaskStatus;
 	priority: TaskPriority;
 	type: TaskType;
-	labels: string[];
-	dependencies: string[];
-	parent?: string;
-	board?: string;
-	column?: string;
-	created_at: string;
-	updated_at: string;
 	order: number;
-	content: TaskContent;
-	status_history: Array<{
-		from: TaskStatus;
-		to: TaskStatus;
-		timestamp: string;
-		comment?: string;
-	}>;
+
+	// Grouped fields
+	metadata: TaskMetadata;
+	progress: TaskProgress;
+	content?: TaskContent;
+	relationships: TaskRelationships;
+	status_history?: StatusChange[];
 }
 
 // Board related types

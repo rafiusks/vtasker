@@ -56,8 +56,14 @@ export function Select({
 					<Listbox.Button className="relative w-full cursor-default rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-left shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 sm:text-sm">
 						<span className="block truncate">
 							{Array.isArray(selectedOptions)
-								? selectedOptions.map((opt) => opt.label).join(", ") ||
-									"Select..."
+								? selectedOptions.length > 0
+									? selectedOptions.map((opt, index) => (
+											<React.Fragment key={opt.value}>
+												{opt.label}
+												{index < selectedOptions.length - 1 ? ", " : ""}
+											</React.Fragment>
+										))
+									: "Select..."
 								: selectedOptions?.label || "Select..."}
 						</span>
 						<span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
@@ -71,7 +77,7 @@ export function Select({
 					<Listbox.Options className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
 						{options.map((option) => (
 							<Listbox.Option
-								key={option.value}
+								key={`${option.value}-${option.label}`}
 								value={option.value}
 								className={({ active }) =>
 									`relative cursor-default select-none py-2 pl-3 pr-9 ${
