@@ -2,43 +2,24 @@
  * Core type definitions for vTasker
  */
 
-// Task related types
-export type TaskStatusCode = "backlog" | "in-progress" | "review" | "done";
-export type TaskPriority = "low" | "normal" | "high";
-export type TaskType = "feature" | "bug" | "docs" | "chore";
+import type {
+	TaskStatusId,
+	TaskPriorityId,
+	TaskTypeId,
+	TaskStatus,
+	TaskPriority,
+	TaskType,
+} from "./typeReference";
 
-export interface TaskStatus {
-	id: number;
-	code: TaskStatusCode;
-	name: string;
-	description?: string;
-	display_order: number;
-	created_at: string;
-	updated_at: string;
-}
-
-export interface TaskPriorityEntity {
-	id: number;
-	code: TaskPriority;
-	name: string;
-	description?: string;
-	display_order: number;
-	created_at: string;
-	updated_at: string;
-}
-
-export interface AcceptanceCriterion {
-	id: string;
-	description: string;
-	completed: boolean;
-	completed_at: string | null;
-	completed_by: string | null;
-	created_at: string;
-	updated_at: string;
-	order: number;
-	category?: string;
-	notes?: string;
-}
+// Re-export the type aliases we need
+export type {
+	TaskStatusId,
+	TaskPriorityId,
+	TaskTypeId,
+	TaskStatus,
+	TaskPriority,
+	TaskType,
+};
 
 export interface TaskContent {
 	description: string;
@@ -71,34 +52,78 @@ export interface TaskProgress {
 	percentage: number;
 }
 
-export interface Task {
+export interface BaseTask {
 	id: string;
-	external_id: string;
 	title: string;
 	description: string;
-	status_id: number;
-	status?: TaskStatus;
-	priority_id: number;
-	priority?: TaskPriorityEntity;
-	type: TaskType;
 	order: number;
 	content: TaskContent;
 	relationships: TaskRelationships;
 	metadata: TaskMetadata;
 	progress: TaskProgress;
+}
+
+// Raw task from API with numeric IDs
+export interface RawTask extends BaseTask {
+	status_id: number;
+	priority_id: number;
+	type_id: number;
+}
+
+// Validated task with branded type IDs
+export interface ValidatedTask extends BaseTask {
+	status_id: TaskStatusId;
+	priority_id: TaskPriorityId;
+	type_id: TaskTypeId;
+
+	// Optional references to full entities
+	status?: TaskStatus;
+	priority?: TaskPriority;
+	type?: TaskType;
+}
+
+// Task type used in the application
+export interface Task {
+	id: string;
+	title: string;
+	description: string;
+	status_id: string;
+	status?: TaskStatus;
+	priority_id: string;
+	priority?: TaskPriority;
+	type_id: string;
+	type?: TaskType;
+	order: number;
+	content?: TaskContent;
+	relationships: TaskRelationships;
+	metadata: TaskMetadata;
+	progress: TaskProgress;
 	status_history?: StatusChange[];
-	labels?: string[];
-	created_at?: string;
-	updated_at?: string;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface AcceptanceCriterion {
+	id: string;
+	description: string;
+	completed: boolean;
+	completed_at?: string;
+	completed_by?: string;
+	created_at: string;
+	updated_at: string;
+	order: number;
+	category?: string;
+	notes?: string;
 }
 
 export interface StatusChange {
 	task_id: string;
-	from_status_id: number;
-	to_status_id: number;
+	from_status_id: TaskStatusId;
+	to_status_id: TaskStatusId;
 	from_status?: TaskStatus;
 	to_status?: TaskStatus;
 	comment?: string;
+	timestamp: string;
 	changed_at: string;
 }
 
@@ -172,9 +197,9 @@ export interface StorageAdapter {
 export interface TaskFormData {
 	title: string;
 	description: string;
-	status_id: number;
-	priority_id: number;
-	type: TaskType;
+	status_id: TaskStatusId;
+	priority_id: TaskPriorityId;
+	type_id: TaskTypeId;
 	order: number;
 	content: TaskContent;
 	relationships: TaskRelationships;

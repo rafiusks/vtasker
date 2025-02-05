@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Dialog } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import { Select } from "./Select";
@@ -9,30 +9,58 @@ import type {
 	TaskContent,
 	TaskRelationships,
 	AcceptanceCriterion,
-	TaskPriority,
-	TaskType,
 } from "../types";
+import type { TaskPriorityId, TaskTypeId } from "../types/typeReference";
 import { TaskRelationships as TaskRelationshipsEditor } from "./TaskRelationships";
 import { TaskMetadata as TaskMetadataEditor } from "./TaskMetadata";
 import { AcceptanceCriteria } from "./AcceptanceCriteria";
 import { toast } from "react-hot-toast";
+import { taskAPI } from "../api/client";
+import { TASK_STATUS, TASK_PRIORITY, TASK_TYPE } from "../types/typeReference";
+import { Input } from "./Input";
+import { TextArea } from "./TextArea";
+import { Button } from "./Button";
+import {
+	getTaskStatus,
+	getTaskPriority,
+	getTaskType,
+	isTaskStatusId,
+} from "../types/typeReference";
+import {
+	ensureValidPriorityId,
+	ensureValidTypeId,
+	createTaskUpdateRequest,
+} from "../utils/typeConverters";
+
+import type {
+	TaskStatusId,
+	TaskPriority,
+	TaskType,
+	TaskPriorityEntity,
+	TaskTypeEntity,
+} from "../types/typeReference";
 
 const API_BASE_URL = "http://localhost:8000/api";
 
 interface TaskFormProps {
 	isOpen: boolean;
 	onClose: () => void;
-	onSubmit: (task: Task) => void;
+	onSubmit: (task: Partial<Task>) => void;
 	task?: Task;
-	allTasks?: Task[];
+	allTasks: Task[];
+}
+
+interface Option {
+	value: string;
+	label: string;
 }
 
 interface TaskFormData {
 	title: string;
 	description: string;
-	status_id: number;
-	priority_id: number;
-	type: TaskType;
+	status_id: string;
+	priority_id: string;
+	type_id: string;
 	order: number;
 	content: TaskContent;
 	relationships: TaskRelationships;
@@ -52,7 +80,7 @@ interface TaskDetails {
 	due_date?: string;
 	assignee?: string;
 	status_history?: Array<{
-		status: Task["status"];
+		status_id: number;
 		timestamp: string;
 	}>;
 }
@@ -63,132 +91,128 @@ const defaultContent: TaskContent = {
 	implementation_details: "",
 	notes: "",
 	attachments: [],
+	due_date: "",
+	assignee: "",
 };
 
-const getInitialFormState = (): TaskFormData => ({
-	title: "",
-	description: "",
-	status_id: 1, // Default to backlog
-	priority_id: 2, // Default to normal
-	type: "feature",
-	order: 0,
-	content: {
-		description: "",
-		acceptance_criteria: [],
-		implementation_details: "",
-		notes: "",
-		attachments: [],
-	},
-	relationships: {
-		dependencies: [],
-		labels: [],
-	},
-	metadata: {
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-	},
-});
+const getNextOrder = (tasks: Task[], statusId: string): number => {
+	if (!tasks.length) return 0;
+	const tasksInSameStatus = tasks.filter((t) => t.status_id === statusId);
+	if (!tasksInSameStatus.length) return 0;
+	const maxOrder = Math.max(...tasksInSameStatus.map((t) => t.order));
+	return maxOrder + 1;
+};
 
-const priorityOptions = [
-	{ value: 1, label: "Low Priority" },
-	{ value: 2, label: "Normal Priority" },
-	{ value: 3, label: "High Priority" },
-];
+const getInitialFormData = (
+	task?: Task,
+	allTasks: Task[] = [],
+): TaskFormData => {
+	// Default values for new tasks
+	const defaultStatus = "e8a6ff18-36cd-4bec-be61-97a5cd31fcf9"; // To Do status
+	const defaultPriority = "1"; // Default priority as string
+	const defaultType = "1"; // Default type as string
 
-const statusOptions = [
-	{ value: 1, label: "Backlog" },
-	{ value: 2, label: "In Progress" },
-	{ value: 3, label: "Review" },
-	{ value: 4, label: "Done" },
-];
+	const statusId = task?.status_id || defaultStatus;
+	const nextOrder = getNextOrder(allTasks, statusId);
 
-const typeOptions = [
-	{ value: "feature", label: "Feature" },
-	{ value: "bug", label: "Bug" },
-	{ value: "docs", label: "Documentation" },
-	{ value: "chore", label: "Chore" },
-];
-
-// Helper function to convert null to undefined for string fields
-const nullToUndefined = (
-	criterion: Partial<AcceptanceCriterion>,
-): Partial<AcceptanceCriterion> => ({
-	...criterion,
-	completed_at:
-		criterion.completed_at === null ? undefined : criterion.completed_at,
-	completed_by:
-		criterion.completed_by === null ? undefined : criterion.completed_by,
-	category: criterion.category === null ? undefined : criterion.category,
-	notes: criterion.notes === null ? undefined : criterion.notes,
-});
-
-const convertCriterion = (
-	c: Partial<AcceptanceCriterion>,
-): AcceptanceCriterion => ({
-	id: c.id || crypto.randomUUID(),
-	description: c.description || "",
-	order: typeof c.order === "number" ? c.order : 0,
-	completed: !!c.completed,
-	completed_at: c.completed
-		? c.completed_at || new Date().toISOString()
-		: undefined,
-	completed_by: c.completed ? c.completed_by || "user" : undefined,
-	created_at: c.created_at || new Date().toISOString(),
-	updated_at: new Date().toISOString(),
-	category: c.category === null ? undefined : c.category,
-	notes: c.notes === null ? undefined : c.notes,
-});
+	return {
+		title: task?.title ?? "",
+		description: task?.description ?? "",
+		status_id: statusId,
+		priority_id: task?.priority_id?.toString() || defaultPriority,
+		type_id: task?.type_id?.toString() || defaultType,
+		order: task?.order ?? nextOrder,
+		content: task?.content ?? {
+			description: "",
+			acceptance_criteria: [],
+			implementation_details: "",
+			notes: "",
+			attachments: [],
+			due_date: "",
+			assignee: "",
+		},
+		relationships: task?.relationships ?? {
+			parent: undefined,
+			dependencies: [],
+			labels: [],
+		},
+		metadata: task?.metadata ?? {
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+			board: undefined,
+			column: undefined,
+		},
+	};
+};
 
 export const TaskForm: FC<TaskFormProps> = ({
 	isOpen,
 	onClose,
 	onSubmit,
 	task,
-	allTasks = [],
+	allTasks,
 }) => {
-	const [formData, setFormData] = useState<TaskFormData>(() => {
-		const now = new Date().toISOString();
-		const defaultData: TaskFormData = {
-			title: "",
-			description: "",
-			status_id: 1, // Default to backlog
-			priority_id: 2, // Default to normal
-			type: "feature",
-			order: 0,
-			content: {
-				description: "",
-				acceptance_criteria: [],
-				implementation_details: "",
-				notes: "",
-				attachments: [],
-				due_date: "",
-				assignee: "",
-			},
-			relationships: {
-				dependencies: [],
-				labels: [],
-			},
-			metadata: {
-				created_at: now,
-				updated_at: now,
-			},
-		};
-
-		if (task) {
-			const taskData = task as unknown as TaskFormData;
-			return {
-				...defaultData,
-				...taskData,
-			};
-		}
-
-		return defaultData;
-	});
+	const [formData, setFormData] = useState<TaskFormData>(() =>
+		getInitialFormData(task, allTasks),
+	);
+	const [priorityOptions, setPriorityOptions] = useState<Option[]>([]);
+	const [typeOptions, setTypeOptions] = useState<Option[]>([]);
+	const [loading, setLoading] = useState(true);
 	const [isLoading, setIsLoading] = useState(false);
 	const [taskDetails, setTaskDetails] = useState<TaskDetails | null>(null);
 
+	const loadOptions = useCallback(async () => {
+		setLoading(true);
+		try {
+			const [priorities, types] = await Promise.all([
+				taskAPI.listPriorities(),
+				taskAPI.listTaskTypes(),
+			]);
+
+			const priorityOpts = priorities.map((priority) => ({
+				value: String(priority.id),
+				label: priority.name || priority.code,
+			}));
+
+			const typeOpts = types.map((t) => ({
+				value: String(t.id),
+				label: t.name,
+			}));
+
+			setPriorityOptions(priorityOpts);
+			setTypeOptions(typeOpts);
+		} catch (error) {
+			console.error("Failed to load options:", error);
+			toast.error("Failed to load form options");
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	// Ensure options are loaded when form opens
 	useEffect(() => {
-		const fetchTaskDetails = async (taskId: string) => {
+		if (isOpen) {
+			loadOptions();
+		}
+	}, [loadOptions, isOpen]);
+
+	// Wait for options to be loaded
+	useEffect(() => {
+		if (priorityOptions.length === 0 || typeOptions.length === 0) {
+			setLoading(true);
+		} else {
+			setLoading(false);
+		}
+	}, [priorityOptions, typeOptions]);
+
+	useEffect(() => {
+		if (isOpen) {
+			loadOptions();
+		}
+	}, [loadOptions, isOpen]);
+
+	const fetchTaskDetails = useCallback(
+		async (taskId: string) => {
 			setIsLoading(true);
 			try {
 				const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`);
@@ -208,41 +232,18 @@ export const TaskForm: FC<TaskFormProps> = ({
 				};
 
 				setTaskDetails(fullTask);
-				// Update form data with the fetched task details
-				setFormData({
-					title: fullTask.title,
-					description: fullTask.description,
-					status_id: fullTask.status_id,
-					priority_id: fullTask.priority_id,
-					type: fullTask.type,
-					order: fullTask.order,
-					content: {
-						description: fullTask.description,
-						acceptance_criteria: fullTask.content?.acceptance_criteria ?? [],
-						implementation_details:
-							fullTask.content?.implementation_details ?? "",
-						notes: fullTask.content?.notes ?? "",
-						attachments: fullTask.content?.attachments ?? [],
-						due_date: fullTask.content?.due_date ?? "",
-						assignee: fullTask.content?.assignee ?? "",
-					},
-					relationships: fullTask.relationships ?? {
-						dependencies: [],
-						labels: [],
-					},
-					metadata: fullTask.metadata ?? {
-						created_at: new Date().toISOString(),
-						updated_at: new Date().toISOString(),
-					},
-				});
+				setFormData(getInitialFormData(fullTask, allTasks));
 			} catch (error) {
 				console.error("Error fetching task details:", error);
 				toast.error("Failed to load task details");
 			} finally {
 				setIsLoading(false);
 			}
-		};
+		},
+		[task, allTasks],
+	);
 
+	useEffect(() => {
 		if (task?.id) {
 			fetchTaskDetails(task.id);
 		} else {
@@ -257,117 +258,60 @@ export const TaskForm: FC<TaskFormProps> = ({
 				assignee: "",
 				status_history: [],
 			});
-			setFormData(getInitialFormState());
+			setFormData(getInitialFormData(undefined, allTasks));
 			setIsLoading(false);
 		}
-	}, [task?.id]);
+	}, [task, fetchTaskDetails, allTasks]);
 
-	const handleSubmit = (e: React.FormEvent) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-
-		console.log("Task before update:", task); // Debug log
-
-		// Clean and validate dependencies
-		const cleanDependencies = (formData.relationships?.dependencies ?? [])
-			.map((dep) => {
-				const match = dep.match(/^(task-\d{3}(-\d{1,2})?)/);
-				return match ? match[1] : null;
-			})
-			.filter((dep): dep is string => {
-				if (!dep) return false;
-				// Ensure the dependency exists in allTasks
-				return allTasks?.some((t) => t.id === dep) ?? false;
-			});
-
-		const now = new Date().toISOString();
-
-		// Clean and deduplicate acceptance criteria
-		const uniqueCriteria = new Map();
-		for (const criterion of formData.content?.acceptance_criteria ?? []) {
-			const description =
-				typeof criterion.description === "string"
-					? criterion.description.trim()
-					: "";
-
-			if (!description) continue;
-
-			// If we already have this criterion (by ID), keep the most recent one
-			if (uniqueCriteria.has(criterion.id)) {
-				const existing = uniqueCriteria.get(criterion.id);
-				if (new Date(criterion.updated_at) > new Date(existing.updated_at)) {
-					uniqueCriteria.set(criterion.id, criterion);
-				}
-			} else {
-				uniqueCriteria.set(criterion.id, {
-					...criterion,
-					id: criterion.id || crypto.randomUUID(),
-					description,
-					order: criterion.order ?? uniqueCriteria.size,
-					completed: !!criterion.completed,
-					completed_at: criterion.completed
-						? criterion.completed_at || now
-						: null,
-					completed_by: criterion.completed
-						? criterion.completed_by || "user"
-						: null,
-					created_at: criterion.created_at || now,
-					updated_at: now,
-				});
-			}
+		try {
+			const taskData: Partial<Task> = {
+				...formData,
+				priority_id: Number(formData.priority_id),
+				type_id: Number(formData.type_id),
+			};
+			await onSubmit(taskData);
+			onClose();
+		} catch (error) {
+			console.error("Failed to submit task:", error);
+			toast.error("Failed to create task");
 		}
+	};
 
-		const submitData: Partial<Task> = {
-			...formData,
-			title: formData.title?.trim() || "",
-			description: formData.description?.trim() || "",
-			order: formData.order || 0,
-			metadata: formData.metadata || {},
-			relationships: {
-				...formData.relationships,
-				dependencies: cleanDependencies,
-			},
-			content: {
-				...formData.content,
-				description: formData.description?.trim() || "",
-				acceptance_criteria: Array.from(uniqueCriteria.values()),
-				implementation_details:
-					formData.content.implementation_details?.trim() || undefined,
-				notes: formData.content.notes?.trim() || undefined,
-				attachments: formData.content.attachments || [],
-				due_date: formData.content.due_date || undefined,
-				assignee: formData.content.assignee || undefined,
-			},
-		};
+	const handlePriorityChange = (value: string | string[]) => {
+		if (Array.isArray(value)) return;
+		setFormData((prev) => ({
+			...prev,
+			priority_id: value,
+		}));
+	};
 
-		console.log("Submitting update:", submitData); // Debug log
-
-		// Remove any undefined values to prevent undefined tags
-		for (const key of Object.keys(submitData)) {
-			if (submitData[key as keyof typeof submitData] === undefined) {
-				delete submitData[key as keyof typeof submitData];
-			}
-		}
-
-		onSubmit(submitData as Task);
-		onClose();
+	const handleTypeChange = (value: string | string[]) => {
+		if (Array.isArray(value)) return;
+		setFormData((prev) => ({
+			...prev,
+			type_id: value,
+		}));
 	};
 
 	const openEditForm = (task: Task) => {
-		const defaultContent = getInitialFormState().content;
+		const defaultStatus = TASK_STATUS.BACKLOG;
+		const defaultPriority = TASK_PRIORITY.NORMAL;
+		const defaultType = TASK_TYPE.FEATURE;
+
 		setFormData({
 			title: task.title,
 			description: task.description,
-			status_id: task.status_id,
-			priority_id: task.priority_id,
-			type: task.type,
-			order: task.order,
-			metadata: task.metadata,
-			relationships: task.relationships,
+			status_id: (task.status_id || defaultStatus.id) as TaskStatusId,
+			priority_id: (task.priority_id || defaultPriority.id) as TaskPriorityId,
+			type_id: (task.type_id || defaultType.id) as TaskTypeId,
+			order: task.order || 0,
 			content: {
 				...defaultContent,
 				description: task.content?.description ?? defaultContent.description,
 				acceptance_criteria:
-					task.content?.acceptance_criteria.map((c) => ({
+					task.content?.acceptance_criteria.map((c: AcceptanceCriterion) => ({
 						id: c.id || crypto.randomUUID(),
 						description: c.description || "",
 						order: typeof c.order === "number" ? c.order : 0,
@@ -385,6 +329,14 @@ export const TaskForm: FC<TaskFormProps> = ({
 				due_date: task.content?.due_date,
 				assignee: task.content?.assignee,
 			},
+			relationships: task.relationships || {
+				dependencies: [],
+				labels: [],
+			},
+			metadata: task.metadata || {
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+			},
 		});
 	};
 
@@ -393,209 +345,152 @@ export const TaskForm: FC<TaskFormProps> = ({
 			...prev,
 			content: {
 				...prev.content,
-				acceptance_criteria: criteria.map((c) => ({
-					...nullToUndefined(c),
-					id: c.id || crypto.randomUUID(),
-					description: c.description || "",
-					order: typeof c.order === "number" ? c.order : 0,
-					completed: !!c.completed,
-					completed_at: c.completed
-						? c.completed_at || new Date().toISOString()
-						: undefined,
-					completed_by: c.completed ? c.completed_by || "user" : undefined,
-					created_at: c.created_at || new Date().toISOString(),
-					updated_at: new Date().toISOString(),
-				})),
+				acceptance_criteria: criteria,
 			},
 		}));
 	};
 
+	const handleInputChange = (field: string, value: number | string) => {
+		setFormData((prev) => ({
+			...prev,
+			[field]: value,
+		}));
+	};
+
 	return (
-		<Dialog open={isOpen} onClose={onClose} className="relative z-50">
-			{/* Backdrop */}
-			<div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-
-			{/* Full-screen container */}
-			<div className="fixed inset-0 flex items-center justify-center p-4">
-				<Dialog.Panel className="mx-auto max-w-4xl w-full rounded-lg bg-white p-6 shadow-xl">
-					<div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-						<Dialog.Title className="text-lg font-semibold text-gray-900">
-							{task ? "Edit Task" : "Create New Task"}
-						</Dialog.Title>
-						<button
-							type="button"
-							onClick={onClose}
-							className="text-gray-400 hover:text-gray-500"
+		<Dialog
+			open={isOpen}
+			onClose={onClose}
+			className="fixed inset-0 z-50 overflow-y-auto"
+			data-testid="task-form"
+			aria-modal="true"
+		>
+			<div className="flex min-h-screen items-center justify-center p-4 text-center sm:p-0">
+				<Dialog.Overlay className="fixed inset-0 bg-black/30" />
+				<Dialog.Panel className="relative w-full transform overflow-hidden rounded-lg bg-white p-6 text-left align-middle shadow-xl transition-all sm:my-8 sm:max-w-2xl">
+					{loading || !priorityOptions.length || !typeOptions.length ? (
+						<div
+							className="flex items-center justify-center p-4"
+							aria-label="Loading form options"
 						>
-							<XMarkIcon className="h-5 w-5" aria-hidden="true" />
-						</button>
-					</div>
-
-					<div className="mt-4 grid grid-cols-3 gap-6">
-						<form className="col-span-2 space-y-4" onSubmit={handleSubmit}>
-							{/* Title */}
-							<div>
-								<label
-									htmlFor="title"
-									className="block text-sm font-medium text-gray-700"
+							<div
+								className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"
+								role="progressbar"
+							/>
+						</div>
+					) : (
+						<>
+							<div className="flex items-center justify-between">
+								<Dialog.Title
+									className="text-lg font-medium"
+									id="task-form-title"
 								>
-									Title
-								</label>
-								<input
-									type="text"
-									id="title"
-									value={formData.title}
-									onChange={(e) =>
-										setFormData((prev) => ({ ...prev, title: e.target.value }))
-									}
-									className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-									placeholder="Enter task title"
-									required
-								/>
-							</div>
-
-							{/* Description */}
-							<div>
-								<label
-									htmlFor="description"
-									className="block text-sm font-medium text-gray-700"
-								>
-									Description
-								</label>
-								<textarea
-									id="description"
-									value={formData.description}
-									onChange={(e) =>
-										setFormData((prev) => ({
-											...prev,
-											description: e.target.value,
-										}))
-									}
-									rows={3}
-									className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-									placeholder="Enter task description"
-									required
-								/>
-							</div>
-
-							{/* Status, Priority, and Type */}
-							<div className="grid grid-cols-3 gap-4">
-								<Select
-									label="Status"
-									value={formData.status_id}
-									onChange={(value) => {
-										const statusId = Number(value);
-										if (statusOptions.some((opt) => opt.value === statusId)) {
-											setFormData((prev) => ({ ...prev, status_id: statusId }));
-										}
-									}}
-									options={statusOptions}
-								/>
-								<Select
-									label="Priority"
-									value={formData.priority_id}
-									onChange={(value) => {
-										if (value === 1 || value === 2 || value === 3) {
-											setFormData((prev) => ({ ...prev, priority_id: value }));
-										}
-									}}
-									options={priorityOptions}
-								/>
-								<Select
-									label="Type"
-									value={formData.type}
-									onChange={(value) => {
-										if (
-											value === "feature" ||
-											value === "bug" ||
-											value === "docs" ||
-											value === "chore"
-										) {
-											setFormData((prev) => ({ ...prev, type: value }));
-										}
-									}}
-									options={typeOptions}
-								/>
-							</div>
-
-							{/* Acceptance Criteria */}
-							<div>
-								<h3 className="text-sm font-medium text-gray-900 mb-3">
-									Acceptance Criteria
-								</h3>
-								<AcceptanceCriteria
-									criteria={formData.content.acceptance_criteria}
-									taskId={task?.id}
-									onUpdate={handleAcceptanceCriteriaUpdate}
-								/>
-							</div>
-
-							{/* Submit Button */}
-							<div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+									{task ? "Edit Task" : "Create Task"}
+								</Dialog.Title>
 								<button
 									type="button"
 									onClick={onClose}
-									className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+									className="rounded-full p-1 hover:bg-gray-100"
+									aria-label="Close"
 								>
-									Cancel
-								</button>
-								<button
-									type="submit"
-									className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-								>
-									{task ? "Save Changes" : "Create Task"}
+									<XMarkIcon className="h-5 w-5" />
 								</button>
 							</div>
-						</form>
 
-						{/* Right Column - Metadata and Relationships */}
-						{task && (
-							<div className="col-span-1 space-y-6">
-								{/* Metadata Section */}
+							<form
+								onSubmit={handleSubmit}
+								className="mt-4 space-y-4"
+								aria-busy={loading}
+								aria-labelledby="task-form-title"
+							>
 								<div>
-									<h3 className="text-sm font-medium text-gray-900 mb-3">
-										Metadata
-									</h3>
-									<TaskMetadataEditor
-										task={{
-											...task,
-											content: formData.content,
-										}}
-										onUpdate={(updates) => {
-											setFormData((prev) => ({
-												...prev,
-												...updates,
+									<Input
+										id="title"
+										label="Title"
+										value={formData.title}
+										onChange={(e) =>
+											setFormData({ ...formData, title: e.target.value })
+										}
+										required
+										data-testid="task-title-input"
+										aria-label="Title"
+									/>
+								</div>
+
+								<div>
+									<TextArea
+										id="description"
+										label="Description"
+										value={formData.description}
+										onChange={(e) =>
+											setFormData({ ...formData, description: e.target.value })
+										}
+										required
+										data-testid="task-description-input"
+										aria-label="Description"
+									/>
+								</div>
+
+								<div>
+									<Select
+										id="priority"
+										label="Task Priority"
+										value={formData.priority_id}
+										onChange={handlePriorityChange}
+										options={priorityOptions}
+										data-testid="task-priority-select"
+										required
+									/>
+								</div>
+
+								<div>
+									<Select
+										id="type"
+										label="Type"
+										value={formData.type_id}
+										onChange={handleTypeChange}
+										options={typeOptions}
+										required
+										data-testid="task-type-select"
+									/>
+								</div>
+
+								<div>
+									<AcceptanceCriteria
+										criteria={formData.content.acceptance_criteria}
+										onUpdate={(criteria) =>
+											setFormData({
+												...formData,
 												content: {
-													...prev.content,
-													...updates.content,
+													...formData.content,
+													acceptance_criteria: criteria,
 												},
-											}));
-										}}
+											})
+										}
+										taskId={task?.id}
 									/>
 								</div>
 
-								{/* Relationships Section */}
-								<div>
-									<h3 className="text-sm font-medium text-gray-900 mb-3">
-										Relationships
-									</h3>
-									<TaskRelationshipsEditor
-										task={task}
-										allTasks={allTasks}
-										onTaskClick={(taskId) => {
-											const targetTask = allTasks.find((t) => t.id === taskId);
-											if (targetTask) {
-												onClose();
-												setTimeout(() => {
-													openEditForm(targetTask);
-												}, 100);
-											}
-										}}
-									/>
+								<div className="mt-4 flex justify-end space-x-2">
+									<Button
+										type="button"
+										variant="secondary"
+										onClick={onClose}
+										aria-label="Cancel"
+									>
+										Cancel
+									</Button>
+									<Button
+										type="submit"
+										variant="primary"
+										aria-label="Save Task"
+									>
+										Save
+									</Button>
 								</div>
-							</div>
-						)}
-					</div>
+							</form>
+						</>
+					)}
 				</Dialog.Panel>
 			</div>
 		</Dialog>

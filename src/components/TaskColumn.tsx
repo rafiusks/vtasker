@@ -1,26 +1,26 @@
-import React, { useState } from "react";
+import type { FC } from "react";
 import { useDrop } from "react-dnd";
-import type { Task, TaskStatus } from "../types";
+import type { Task } from "../types";
+import type { TaskStatusId } from "../types/typeReference";
+import type { TASK_STATUS } from "../types/typeReference";
 import { TaskCard } from "./TaskCard";
 
 interface TaskColumnProps {
-	status: TaskStatus;
+	status: (typeof TASK_STATUS)[keyof typeof TASK_STATUS];
 	tasks: Task[];
-	onDrop: (taskId: string, statusId: number, order: number) => void;
-	onEdit: (taskId: string) => void;
+	onDrop: (taskId: string, statusId: TaskStatusId, order: number) => void;
+	onEdit: (taskId: string, updates: Partial<Task>) => void;
 	onDelete: (taskId: string) => void;
 	onTaskClick: (task: Task) => void;
-	allTasks: Task[];
 }
 
-export const TaskColumn: React.FC<TaskColumnProps> = ({
+export const TaskColumn: FC<TaskColumnProps> = ({
 	status,
 	tasks,
 	onDrop,
 	onEdit,
 	onDelete,
 	onTaskClick,
-	allTasks,
 }) => {
 	const [{ isOver }, drop] = useDrop({
 		accept: "task",
@@ -30,15 +30,7 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
 				return;
 			}
 
-			// When dropping at the end of a column, use the current length as the order
-			const order = tasks.length;
-			console.log("Dropping at end of column:", {
-				taskId: item.id,
-				statusId: status.id,
-				order,
-				tasksInColumn: tasks.length,
-			});
-			onDrop(item.id, status.id, order);
+			onDrop(item.id, status.id, tasks.length);
 		},
 		collect: (monitor) => ({
 			isOver: monitor.isOver({ shallow: true }),
@@ -46,14 +38,14 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
 	});
 
 	const handleTaskDrop = (taskId: string, index: number) => {
-		// When dropping on a task, use its index as the order
-		console.log("Dropping on task:", {
-			taskId,
-			statusId: status.id,
-			index,
-			tasksInColumn: tasks.length,
-		});
 		onDrop(taskId, status.id, index);
+	};
+
+	const handleTaskEdit = (taskId: string) => {
+		const task = tasks.find((t) => t.id === taskId);
+		if (task) {
+			onTaskClick(task);
+		}
 	};
 
 	return (
@@ -65,7 +57,9 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
 		>
 			<div className="mb-4 flex items-center justify-between">
 				<div>
-					<h2 className="text-lg font-semibold text-gray-900">{status.name}</h2>
+					<h2 className="text-lg font-semibold text-gray-900">
+						{status.label}
+					</h2>
 					<p className="text-sm text-gray-500">
 						{tasks.length} task{tasks.length !== 1 ? "s" : ""}
 					</p>
@@ -79,10 +73,10 @@ export const TaskColumn: React.FC<TaskColumnProps> = ({
 						task={task}
 						index={index}
 						onDrop={handleTaskDrop}
-						onEdit={onEdit}
+						onEdit={handleTaskEdit}
 						onDelete={onDelete}
 						onTaskClick={onTaskClick}
-						allTasks={allTasks}
+						allTasks={tasks}
 					/>
 				))}
 			</div>

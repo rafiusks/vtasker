@@ -1,25 +1,58 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { PlusIcon } from "@heroicons/react/20/solid";
 import { TaskForm } from "./components/TaskForm";
 import { TaskColumn } from "./components/TaskColumn";
 import { Select, type Option } from "./components/Select";
-import type { Task, TaskStatus, TaskPriority, TaskStatusCode } from "./types";
+import type { Task } from "./types";
+import {
+	TASK_STATUS,
+	SELECT_OPTIONS,
+	STATUS_MAP,
+	isTaskStatusId,
+	createTaskStatusId,
+	createTaskPriorityId,
+	type TaskStatusId,
+	type TaskStatus,
+} from "./types/typeReference";
 import { StatusNotification } from "./components/StatusNotification";
 import { toast } from "react-hot-toast";
 import { taskAPI } from "./api/client";
 import type { TaskMoveRequest } from "./api/client";
+import {
+	ensureValidStatusId,
+	ensureValidPriorityId,
+	ensureValidTypeId,
+	convertArrayToStrings,
+	createTaskUpdateRequest,
+} from "./utils/typeConverters";
+import { ensureTaskArray } from "./utils/apiTypes";
 
-type FilterValue = number[] | string[] | string;
+// ============================================================================
+// Types
+// ============================================================================
+
+type SortByField = "created_at" | "priority_id";
+type SortOrder = "asc" | "desc";
 
 interface FilterState {
-	status: number[];
+	status: string[];
 	priority: string[];
 	labels: string[];
-	sortBy: string;
-	sortOrder: "asc" | "desc";
+	sortBy: SortByField;
+	sortOrder: SortOrder;
 }
+
+interface NotificationState {
+	show: boolean;
+	taskTitle?: string;
+	status?: TaskStatus;
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
 
 const defaultFilters: FilterState = {
 	status: [],
@@ -29,101 +62,42 @@ const defaultFilters: FilterState = {
 	sortOrder: "desc",
 };
 
-const statusOptions: TaskStatus[] = [
-	{
-		id: 1,
-		code: "backlog" as TaskStatusCode,
-		name: "Backlog",
-		display_order: 0,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-	},
-	{
-		id: 2,
-		code: "in-progress" as TaskStatusCode,
-		name: "In Progress",
-		display_order: 1,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-	},
-	{
-		id: 3,
-		code: "review" as TaskStatusCode,
-		name: "Review",
-		display_order: 2,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-	},
-	{
-		id: 4,
-		code: "done" as TaskStatusCode,
-		name: "Done",
-		display_order: 3,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
-	},
-];
-
-const priorityOptions: { value: TaskPriority; label: string }[] = [
-	{ value: "low", label: "Low" },
-	{ value: "normal", label: "Normal" },
-	{ value: "high", label: "High" },
-];
-
-const sortOptions: { value: FilterState["sortBy"]; label: string }[] = [
+const sortOptions: Option[] = [
 	{ value: "created_at", label: "Creation Date" },
-	{ value: "priority", label: "Priority" },
+	{ value: "priority_id", label: "Priority" },
 ];
 
-const sortOrderOptions: { value: FilterState["sortOrder"]; label: string }[] = [
+const sortOrderOptions: Option[] = [
 	{ value: "asc", label: "↑" },
 	{ value: "desc", label: "↓" },
 ];
 
+// ============================================================================
+// Component
+// ============================================================================
+
 export function App() {
+	// ============================================================================
+	// State
+	// ============================================================================
 	const [tasks, setTasks] = useState<Task[]>([]);
-	const [statuses, setStatuses] = useState<TaskStatus[]>([]);
-	const [error, setError] = useState<string>();
+	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [filtersLoading, setFiltersLoading] = useState(true);
-	const [filters, setFilters] = useState<FilterState>({
-		status: [],
-		priority: [],
-		labels: [],
-		sortBy: "created_at",
-		sortOrder: "desc",
-	});
+	const [filters, setFilters] = useState<FilterState>(defaultFilters);
 	const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task>();
-	const [notification, setNotification] = useState<{
-		show: boolean;
-		taskTitle?: string;
-		fromStatus?: string;
-		toStatus?: string;
-	}>({ show: false });
+	const [notification, setNotification] = useState<NotificationState>({
+		show: false,
+	});
 
-	// Fetch tasks and statuses on mount
+	// ============================================================================
+	// Effects
+	// ============================================================================
+
+	// Fetch tasks on mount
 	useEffect(() => {
-		const fetchData = async () => {
-			try {
-				setLoading(true);
-				const [tasksData, statusesData] = await Promise.all([
-					taskAPI.listTasks(),
-					taskAPI.listStatuses().catch((err) => {
-						console.error("Failed to fetch task statuses:", err);
-						return statusOptions; // Fall back to hardcoded statuses
-					}),
-				]);
-				setTasks(tasksData);
-				setStatuses(statusesData);
-			} catch (err) {
-				console.error("Failed to fetch data:", err);
-				setError(err instanceof Error ? err.message : "Failed to fetch data");
-			} finally {
-				setLoading(false);
-			}
-		};
-		fetchData();
+		loadTasks();
 	}, []);
 
 	// Load filters from URL on mount
@@ -142,14 +116,12 @@ export function App() {
 						["backlog", "in-progress", "review", "done"].includes(v),
 					);
 					if (validStatuses.length > 0) {
-						urlFilters.status = validStatuses.map((s) =>
-							Number.parseInt(s, 10),
-						);
+						urlFilters.status = validStatuses;
 					}
 				} else if (key === "priority") {
 					const validPriorities = values.filter((v) =>
-						["low", "normal", "high"].includes(v),
-					) as TaskPriority[];
+						["1", "2", "3"].includes(v),
+					);
 					if (validPriorities.length > 0) {
 						urlFilters.priority = validPriorities;
 					}
@@ -161,7 +133,7 @@ export function App() {
 
 		// Parse single value parameters
 		const sortBy = params.get("sortBy");
-		if (sortBy === "created_at" || sortBy === "priority") {
+		if (sortBy === "created_at" || sortBy === "priority_id") {
 			urlFilters.sortBy = sortBy;
 		}
 
@@ -196,118 +168,91 @@ export function App() {
 		globalThis.history.replaceState({}, "", newUrl);
 	}, [filters, filtersLoading]);
 
-	useEffect(() => {
-		loadTasks();
-	}, []);
+	// ============================================================================
+	// Data Loading
+	// ============================================================================
 
-	const loadTasks = async () => {
+	const loadTasks = useCallback(async () => {
+		console.log("Loading tasks...");
+		setLoading(true);
 		try {
-			setLoading(true);
-			const response = await fetch("http://localhost:8000/api/tasks", {
-				headers: {
-					"Content-Type": "application/json",
-				},
-			});
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
-			}
-			const data = await response.json();
-			setTasks(Array.isArray(data) ? data : []);
-		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to load tasks");
-			console.error(err);
-			setTasks([]);
+			// Add a small delay to ensure the loading state is visible
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			const loadedTasks = await taskAPI.listTasks();
+			console.log("Loaded tasks:", loadedTasks);
+			setTasks(loadedTasks);
+			setError(null);
+		} catch (error) {
+			console.error("Error loading tasks:", error);
+			setError("Failed to load tasks. Please try again later.");
 		} finally {
 			setLoading(false);
 		}
-	};
+	}, []);
 
-	const filteredTasks = tasks
-		.filter((task) => {
-			if (filters.status.length && !filters.status.includes(task.status_id))
-				return false;
-			if (
-				filters.priority.length &&
-				!filters.priority.includes(task.priority?.code)
-			)
-				return false;
-			if (
-				filters.labels.length &&
-				!filters.labels.some((label) =>
-					task.relationships.labels.includes(label),
-				)
-			)
-				return false;
-			return true;
-		})
-		.sort((a, b) => {
-			const priorityOrder: Record<TaskPriority, number> = {
-				high: 3,
-				normal: 2,
-				low: 1,
-			};
-			const getValue = (task: Task) => {
-				if (filters.sortBy === "created_at") {
-					return new Date(task.created_at ?? "").getTime();
+	// ============================================================================
+	// Task Filtering and Sorting
+	// ============================================================================
+
+	const filteredTasks = React.useMemo(() => {
+		return (tasks || [])
+			.filter((task) => {
+				// Status filter
+				if (filters.status.length) {
+					const statusId = isTaskStatusId(task.status_id)
+						? task.status_id
+						: createTaskStatusId(task.status_id);
+					if (!statusId || !filters.status.includes(String(statusId))) {
+						return false;
+					}
 				}
-				const priorityCode = (task.priority?.code ?? "normal") as TaskPriority;
-				return priorityOrder[priorityCode];
-			};
-			const aValue = getValue(a);
-			const bValue = getValue(b);
-			return filters.sortOrder === "desc" ? bValue - aValue : aValue - bValue;
-		});
 
-	const columns = {
-		backlog: filteredTasks
-			.filter((t) => t.status_id === 1)
-			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
-		"in-progress": filteredTasks
-			.filter((t) => t.status_id === 2)
-			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
-		review: filteredTasks
-			.filter((t) => t.status_id === 3)
-			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
-		done: filteredTasks
-			.filter((t) => t.status_id === 4)
-			.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
-	};
-
-	const allLabels = Array.from(
-		new Set(tasks.flatMap((t) => t.relationships.labels)),
-	);
-
-	const handleFilterChange = (type: keyof FilterState, value: FilterValue) => {
-		setFilters((prev) => {
-			const newFilters = { ...prev };
-			if (Array.isArray(value)) {
-				if (type === "status") {
-					newFilters.status = value as number[];
-				} else if (type === "priority") {
-					newFilters.priority = value as string[];
-				} else if (type === "labels") {
-					newFilters.labels = value as string[];
+				// Priority filter
+				if (
+					filters.priority.length &&
+					!filters.priority.includes(String(task.priority_id))
+				) {
+					return false;
 				}
-			} else if (type === "sortBy") {
-				newFilters.sortBy = value;
-			} else if (type === "sortOrder") {
-				newFilters.sortOrder =
-					value === "asc" || value === "desc" ? value : "desc";
-			}
-			return newFilters;
-		});
-	};
 
-	const clearFilters = () => {
-		setFilters(defaultFilters);
-	};
+				// Labels filter
+				if (
+					filters.labels.length &&
+					!task.relationships?.labels?.some((label) =>
+						filters.labels.includes(label),
+					)
+				) {
+					return false;
+				}
 
-	const activeFilterCount =
-		filters.status.length + filters.priority.length + filters.labels.length;
+				return true;
+			})
+			.sort((a, b) => {
+				const getValue = (task: Task) => {
+					switch (filters.sortBy) {
+						case "created_at":
+							return new Date(task.metadata.created_at).getTime();
+						case "priority_id":
+							return Number(task.priority_id);
+						default:
+							return new Date(task.metadata.created_at).getTime();
+					}
+				};
+
+				const aValue = getValue(a);
+				const bValue = getValue(b);
+
+				return filters.sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+			});
+	}, [tasks, filters]);
+
+	// ============================================================================
+	// Task Operations
+	// ============================================================================
 
 	const handleTaskMove = async (
 		taskId: string,
-		newStatusId: number,
+		newStatusId: TaskStatusId,
 		newIndex?: number,
 	) => {
 		const originalTasks = [...tasks];
@@ -316,20 +261,22 @@ export function App() {
 			const taskToUpdate = tasks.find((t) => t.id === taskId);
 			if (!taskToUpdate) throw new Error("Task not found");
 
-			// Calculate new order and get target status
-			const targetStatus = statuses.find((s) => s.id === newStatusId);
+			// Get target status
+			const targetStatus = STATUS_MAP.get(newStatusId);
+			if (!targetStatus) throw new Error("Invalid status ID");
+
+			// Calculate new order
 			const tasksInTargetColumn = tasks.filter(
-				(t) => t.status_id === newStatusId,
+				(t) => isTaskStatusId(t.status_id) && t.status_id === newStatusId,
 			);
 			const newOrder =
 				typeof newIndex === "number" ? newIndex : tasksInTargetColumn.length;
 
-			// Create optimized task version for UI
-			const optimisticTask = {
+			// Create optimistic task version for UI
+			const optimisticTask: Task = {
 				...taskToUpdate,
 				status_id: newStatusId,
 				order: newOrder,
-				status: targetStatus,
 			};
 
 			// Immediately update UI state
@@ -354,13 +301,14 @@ export function App() {
 			});
 
 			// Send move request to server
-			const moveRequest = {
+			const moveRequest: TaskMoveRequest = {
 				status_id: newStatusId,
 				order: newOrder,
-				previous_status_id: taskToUpdate.status_id,
-				comment: `Moved from ${taskToUpdate.status?.name} to ${targetStatus?.name}`,
-				type: taskToUpdate.type,
-				_moveOperation: true,
+				previous_status_id: isTaskStatusId(taskToUpdate.status_id)
+					? taskToUpdate.status_id
+					: createTaskStatusId(taskToUpdate.status_id),
+				comment: `Task moved to ${targetStatus.label}`,
+				type: taskToUpdate.type?.code,
 			};
 
 			const updatedTask = await taskAPI.moveTask(taskId, moveRequest);
@@ -368,8 +316,15 @@ export function App() {
 			// Only update if server returns valid response
 			if (updatedTask?.id) {
 				setTasks((prev) =>
-					prev.map((t) => (t.id === taskId ? { ...t, ...updatedTask } : t)),
+					prev.map((t) => (t.id === taskId ? updatedTask : t)),
 				);
+
+				// Show notification
+				setNotification({
+					show: true,
+					taskTitle: updatedTask.title,
+					status: targetStatus,
+				});
 			}
 		} catch (err) {
 			console.error("Move failed:", err);
@@ -386,9 +341,10 @@ export function App() {
 			});
 			setTasks((prev) => [...prev, newTask]);
 			setIsTaskFormOpen(false);
+			toast.success("Task created successfully");
 		} catch (err) {
 			console.error("Failed to create task:", err);
-			setError(err instanceof Error ? err.message : "Failed to create task");
+			toast.error(err instanceof Error ? err.message : "Failed to create task");
 		}
 	};
 
@@ -396,35 +352,14 @@ export function App() {
 		if (!taskId) return;
 
 		try {
-			// Find the existing task
 			const existingTask = tasks.find((t) => t.id === taskId);
 			if (!existingTask) {
 				throw new Error("Task not found");
 			}
 
-			// Clean up dependencies - ensure they are valid task IDs
-			const cleanDependencies =
-				updates.dependencies?.filter((dep) => {
-					// Check if the dependency exists in the tasks list and is a valid string
-					return typeof dep === "string" && tasks.some((t) => t.id === dep);
-				}) ?? existingTask.dependencies;
+			const updateRequest = createTaskUpdateRequest(updates, existingTask);
+			const updatedTask = await taskAPI.updateTask(taskId, updateRequest);
 
-			// Merge updates with existing task data
-			const mergedUpdates = {
-				...updates,
-				dependencies: cleanDependencies,
-				content: updates.content
-					? {
-							...existingTask.content,
-							...updates.content,
-						}
-					: existingTask.content,
-			};
-
-			// Send update to server
-			const updatedTask = await taskAPI.updateTask(taskId, mergedUpdates);
-
-			// Update local state
 			setTasks((prevTasks) =>
 				prevTasks.map((t) => (t.id === taskId ? updatedTask : t)),
 			);
@@ -436,42 +371,104 @@ export function App() {
 		}
 	};
 
-	const closeTaskForm = () => {
-		setIsTaskFormOpen(false);
-		setEditingTask(undefined);
-	};
-
 	const handleDeleteTask = async (taskId: string) => {
 		try {
 			await taskAPI.deleteTask(taskId);
-			// Remove task from state
 			setTasks((prev) => prev.filter((task) => task.id !== taskId));
+			toast.success("Task deleted successfully");
 		} catch (err) {
 			console.error("Failed to delete task:", err);
-			setError(err instanceof Error ? err.message : "Failed to delete task");
+			toast.error(err instanceof Error ? err.message : "Failed to delete task");
 		}
 	};
+
+	// ============================================================================
+	// Event Handlers
+	// ============================================================================
 
 	const handleTaskClick = (task: Task) => {
 		setEditingTask(task);
 		setIsTaskFormOpen(true);
 	};
 
-	if (loading || filtersLoading) {
-		return (
-			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
-				<div className="text-center">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4" />
-					<p className="text-gray-600">Loading tasks...</p>
-				</div>
+	const handleTaskSubmit = (task: Partial<Task>) => {
+		if (editingTask) {
+			handleEditTask(editingTask.id, task);
+		} else {
+			handleCreateTask(task);
+		}
+	};
+
+	const handleFilterChange = (
+		type: keyof FilterState,
+		value: string | string[],
+	) => {
+		setFilters((prev) => {
+			const newFilters = { ...prev };
+			if (Array.isArray(value)) {
+				if (type === "status" || type === "priority" || type === "labels") {
+					newFilters[type] = value;
+				}
+			} else {
+				if (type === "sortBy") {
+					newFilters.sortBy = value as SortByField;
+				} else if (type === "sortOrder") {
+					newFilters.sortOrder = value as SortOrder;
+				}
+			}
+			return newFilters;
+		});
+	};
+
+	const clearFilters = () => {
+		setFilters(defaultFilters);
+	};
+
+	// ============================================================================
+	// Computed Values
+	// ============================================================================
+
+	const activeFilterCount = React.useMemo(
+		() =>
+			filters.status.length + filters.priority.length + filters.labels.length,
+		[filters],
+	);
+
+	const uniqueLabels = React.useMemo(
+		() => Array.from(new Set(tasks.flatMap((t) => t.relationships.labels))),
+		[tasks],
+	);
+
+	// ============================================================================
+	// Loading and Error States
+	// ============================================================================
+
+	const loadingState = (
+		<div
+			data-testid="loading-state"
+			className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center"
+			style={{
+				position: "absolute",
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				opacity: loading || filtersLoading ? 1 : 0,
+				visibility: loading || filtersLoading ? "visible" : "hidden",
+				transition: "opacity 0.2s, visibility 0.2s",
+			}}
+		>
+			<div className="flex flex-col items-center space-y-4">
+				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+				<div className="text-gray-500">Loading...</div>
 			</div>
-		);
-	}
+		</div>
+	);
 
 	if (error) {
 		return (
 			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
-				<div className="text-center">
+				<div className="text-center" data-testid="error-state">
 					<div className="text-red-500 mb-4">⚠️</div>
 					<p className="text-gray-600">{error}</p>
 				</div>
@@ -479,9 +476,18 @@ export function App() {
 		);
 	}
 
+	// ============================================================================
+	// Render
+	// ============================================================================
+
 	return (
 		<DndProvider backend={HTML5Backend}>
-			<div className="min-h-screen bg-gray-50 p-4 md:p-6">
+			{loadingState}
+			<div
+				className="min-h-screen bg-gray-50 p-4 md:p-6"
+				data-testid="task-list"
+				style={{ visibility: loading || filtersLoading ? "hidden" : "visible" }}
+			>
 				<header className="max-w-7xl mx-auto mb-8">
 					<div className="flex items-center justify-between mb-4">
 						<div>
@@ -496,10 +502,10 @@ export function App() {
 							type="button"
 							onClick={() => setIsTaskFormOpen(true)}
 							className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-							aria-label="New Task"
+							aria-label="Create Task"
 						>
 							<PlusIcon className="h-5 w-5" aria-hidden="true" />
-							New Task
+							Create Task
 						</button>
 					</div>
 				</header>
@@ -522,16 +528,26 @@ export function App() {
 								<Select
 									label="Status"
 									value={filters.status}
-									onChange={(value) => handleFilterChange("status", value)}
-									options={statusOptions}
-									multiple
+									onChange={(value) => {
+										if (typeof value === "string") {
+											handleFilterChange("status", [value]);
+										} else {
+											handleFilterChange("status", value);
+										}
+									}}
+									options={SELECT_OPTIONS.STATUS}
 								/>
 								<Select
 									label="Priority"
 									value={filters.priority}
-									onChange={(value) => handleFilterChange("priority", value)}
-									options={priorityOptions}
-									multiple
+									onChange={(value) => {
+										if (typeof value === "string") {
+											handleFilterChange("priority", [value]);
+										} else {
+											handleFilterChange("priority", value);
+										}
+									}}
+									options={SELECT_OPTIONS.PRIORITY}
 								/>
 							</div>
 
@@ -539,12 +555,17 @@ export function App() {
 							<Select
 								label="Labels"
 								value={filters.labels}
-								onChange={(value) => handleFilterChange("labels", value)}
-								options={allLabels.map((label) => ({
+								onChange={(value) => {
+									if (typeof value === "string") {
+										handleFilterChange("labels", [value]);
+									} else {
+										handleFilterChange("labels", value);
+									}
+								}}
+								options={uniqueLabels.map((label) => ({
 									value: label,
 									label,
 								}))}
-								multiple
 							/>
 
 							{/* Sort Controls */}
@@ -552,15 +573,22 @@ export function App() {
 								<Select
 									label="Sort By"
 									value={filters.sortBy}
-									onChange={(value) => handleFilterChange("sortBy", value)}
+									onChange={(value) => {
+										if (typeof value === "string") {
+											handleFilterChange("sortBy", value);
+										}
+									}}
 									options={sortOptions}
 								/>
 								<Select
 									label="Sort Order"
 									value={filters.sortOrder}
-									onChange={(value) => handleFilterChange("sortOrder", value)}
+									onChange={(value) => {
+										if (typeof value === "string") {
+											handleFilterChange("sortOrder", value);
+										}
+									}}
 									options={sortOrderOptions}
-									isIconOnly
 								/>
 							</div>
 						</div>
@@ -581,39 +609,70 @@ export function App() {
 				</div>
 
 				<main className="max-w-7xl mx-auto">
-					<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-						{statuses.map((status) => (
-							<TaskColumn
-								key={status.id}
-								status={status}
-								tasks={tasks.filter((t) => t.status_id === status.id)}
-								onDrop={handleTaskMove}
-								onEdit={handleEditTask}
-								onDelete={handleDeleteTask}
-								onTaskClick={handleTaskClick}
-							/>
-						))}
+					<div
+						className="grid grid-cols-1 md:grid-cols-4 gap-4"
+						data-testid="task-list"
+					>
+						{error ? (
+							<div
+								className="col-span-4 text-center py-12"
+								data-testid="error-state"
+							>
+								<p className="text-red-500">{error}</p>
+							</div>
+						) : filteredTasks.length === 0 ? (
+							<div
+								className="col-span-4 text-center py-12"
+								data-testid="empty-state"
+							>
+								<p className="text-gray-500">No tasks found</p>
+							</div>
+						) : (
+							Object.values(TASK_STATUS).map((status) => {
+								// Filter tasks for this column
+								const tasksInColumn = filteredTasks.filter((task) => {
+									// If status_id is already a TaskStatusId, use it directly
+									if (isTaskStatusId(task.status_id)) {
+										return task.status_id === status.id;
+									}
+
+									// Otherwise, try to convert it
+									const taskStatusId = createTaskStatusId(task.status_id);
+									return taskStatusId === status.id;
+								});
+
+								return (
+									<TaskColumn
+										key={status.columnId}
+										status={status}
+										tasks={tasksInColumn}
+										onDrop={handleTaskMove}
+										onEdit={handleEditTask}
+										onDelete={handleDeleteTask}
+										onTaskClick={handleTaskClick}
+									/>
+								);
+							})
+						)}
 					</div>
 				</main>
 
 				{/* Task Form - used for create/edit/view */}
 				<TaskForm
 					isOpen={isTaskFormOpen}
-					onClose={closeTaskForm}
-					onSubmit={
-						editingTask
-							? (task) => handleEditTask(editingTask.id, task)
-							: handleCreateTask
-					}
+					onClose={() => {
+						setIsTaskFormOpen(false);
+						setEditingTask(undefined);
+					}}
+					onSubmit={handleTaskSubmit}
 					task={editingTask}
 					allTasks={tasks}
 				/>
 				<StatusNotification
 					show={notification.show}
 					onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
-					taskTitle={notification.taskTitle}
-					fromStatus={notification.fromStatus}
-					toStatus={notification.toStatus}
+					taskTitle={notification.taskTitle ?? ""}
+					status={notification.status}
 				/>
 			</div>
 		</DndProvider>

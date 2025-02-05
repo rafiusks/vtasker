@@ -11,8 +11,8 @@ export interface TaskMoveRequest {
 export interface TaskUpdateRequest {
 	title?: string;
 	description?: string;
-	priority?: string;
-	type?: string;
+	priority_id?: number;
+	type_id?: number;
 	labels?: string[];
 	dependencies?: string[];
 	content?: {
@@ -42,12 +42,11 @@ class TaskAPI {
 			},
 		});
 
+		const data = await response.json().catch(() => null);
+
 		if (!response.ok) {
-			const errorData = await response.json().catch(() => null);
 			throw new Error(
-				errorData?.error ||
-					errorData?.message ||
-					`HTTP error! status: ${response.status}`,
+				data?.message || data?.error || `HTTP error! status: ${response.status}`,
 			);
 		}
 
@@ -55,7 +54,7 @@ class TaskAPI {
 			return {} as T;
 		}
 
-		return response.json();
+		return data;
 	}
 
 	async listTasks(
@@ -71,14 +70,52 @@ class TaskAPI {
 	async createTask(task: Partial<Task>): Promise<Task> {
 		return this.request<Task>("/tasks", {
 			method: "POST",
-			body: JSON.stringify(task),
+			body: JSON.stringify({
+				...task,
+				status_id: task.status_id ? String(task.status_id) : "1",
+				priority_id: task.priority_id ? String(task.priority_id) : "1",
+				type_id: task.type_id ? String(task.type_id) : "1",
+				content: {
+					...task.content,
+					description: task.content?.description || task.description,
+					acceptance_criteria: task.content?.acceptance_criteria || [],
+					implementation_details: task.content?.implementation_details || null,
+					notes: task.content?.notes || null,
+					attachments: task.content?.attachments || [],
+					due_date: task.content?.due_date || null,
+					assignee: task.content?.assignee || null,
+				},
+				relationships: {
+					parent: task.relationships?.parent || null,
+					dependencies: task.relationships?.dependencies || [],
+					labels: task.relationships?.labels || [],
+				},
+				metadata: {
+					created_at: task.metadata?.created_at || new Date().toISOString(),
+					updated_at: task.metadata?.updated_at || new Date().toISOString(),
+					board: task.metadata?.board || null,
+					column: task.metadata?.column || null,
+				},
+				progress: {
+					acceptance_criteria: {
+						total: task.progress?.acceptance_criteria?.total || 0,
+						completed: task.progress?.acceptance_criteria?.completed || 0,
+					},
+					percentage: task.progress?.percentage || 0,
+				},
+			}),
 		});
 	}
 
 	async updateTask(id: string, updates: TaskUpdateRequest): Promise<Task> {
 		return this.request<Task>(`/tasks/${id}`, {
 			method: "PUT",
-			body: JSON.stringify(updates),
+			body: JSON.stringify({
+				...updates,
+				status_id: updates.status_id ? String(updates.status_id) : undefined,
+				priority_id: updates.priority_id ? String(updates.priority_id) : undefined,
+				type_id: updates.type_id ? String(updates.type_id) : undefined,
+			}),
 		});
 	}
 

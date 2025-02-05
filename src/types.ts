@@ -3,9 +3,28 @@
  */
 
 // Task related types
-export type TaskStatus = "backlog" | "in-progress" | "review" | "done";
+export interface TaskStatus {
+	id: string;
+	code: string;
+	name: string;
+	description?: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
+
 export type TaskPriority = "low" | "normal" | "high";
-export type TaskType = "feature" | "bug" | "docs" | "chore";
+export type TaskTypeCode = "feature" | "bug" | "docs" | "chore";
+
+export interface TaskTypeEntity {
+	id: number;
+	code: TaskTypeCode;
+	name: string;
+	description?: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
 
 export interface AcceptanceCriterion {
 	id: string;
@@ -23,8 +42,8 @@ export interface AcceptanceCriterion {
 export interface TaskMetadata {
 	created_at: string;
 	updated_at: string;
-	board?: string;
-	column?: string;
+	board?: string | null;
+	column?: string | null;
 }
 
 export interface TaskProgress {
@@ -46,34 +65,39 @@ export interface TaskContent {
 }
 
 export interface TaskRelationships {
-	parent?: string;
+	parent?: string | null;
 	dependencies: string[];
 	labels: string[];
 }
 
-export interface StatusChange {
-	from: TaskStatus;
-	to: TaskStatus;
-	timestamp: string;
-	comment?: string;
-}
-
 export interface Task {
 	id: string;
-	external_id: string;
 	title: string;
 	description: string;
-	status: TaskStatus;
-	priority: TaskPriority;
-	type: TaskType;
+	status_id: string;
+	priority_id: number;
+	type_id: number;
 	order: number;
-
-	// Grouped fields
+	content: TaskContent;
+	relationships: TaskRelationships;
 	metadata: TaskMetadata;
 	progress: TaskProgress;
-	content?: TaskContent;
-	relationships: TaskRelationships;
+	status?: TaskStatus;
+	type?: TaskTypeEntity;
 	status_history?: StatusChange[];
+	created_at: string;
+	updated_at: string;
+}
+
+export interface StatusChange {
+	task_id: string;
+	from_status_id: string;
+	to_status_id: string;
+	from_status?: TaskStatus;
+	to_status?: TaskStatus;
+	comment?: string;
+	timestamp: string;
+	changed_at: string;
 }
 
 // Board related types

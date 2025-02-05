@@ -1,4 +1,5 @@
 import { join } from 'path';
+import fs from 'node:fs';
 import type { Task } from '../../types';
 
 const tasksDir = '.vtask/tasks';
@@ -172,9 +173,9 @@ export async function writeTask(task: Task): Promise<void> {
 
   // Write the file
   const filePath = join(tasksDir, `${task.id}.md`);
-  await Deno.writeTextFile(filePath, content);
+  await fs.promises.writeFile(filePath, content, 'utf-8');
   
   // Verify the write
-  const writtenContent = await Deno.readTextFile(filePath);
+  const writtenContent = await fs.promises.readFile(filePath, 'utf-8');
   console.log('Verified file content:', writtenContent);
-} 
+}
