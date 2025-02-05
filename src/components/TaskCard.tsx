@@ -1,6 +1,12 @@
 import type { FC } from "react";
 import { useDrag } from "react-dnd";
 import type { Task } from "../types";
+import {
+	getTaskPriority,
+	getTaskType,
+	TASK_PRIORITY,
+	TASK_TYPE,
+} from "../types/typeReference";
 
 interface TaskCardProps {
 	task: Task;
@@ -37,6 +43,21 @@ export const TaskCard: FC<TaskCardProps> = ({
 		onDelete(task.id);
 	};
 
+	// Convert numeric IDs to string codes
+	const priorityCode =
+		task.priority_id === 1 ? "low" : task.priority_id === 2 ? "normal" : "high";
+	const typeCode =
+		task.type_id === 1
+			? "feature"
+			: task.type_id === 2
+				? "bug"
+				: task.type_id === 3
+					? "docs"
+					: "chore";
+
+	const priority = getTaskPriority(priorityCode);
+	const type = getTaskType(typeCode);
+
 	return (
 		<div
 			ref={drag}
@@ -52,6 +73,14 @@ export const TaskCard: FC<TaskCardProps> = ({
 					<p className="mt-1 text-sm text-gray-500 line-clamp-2">
 						{task.description}
 					</p>
+					<div className="mt-2 flex items-center gap-2">
+						<span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+							{priority?.name}
+						</span>
+						<span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
+							{type?.name}
+						</span>
+					</div>
 				</div>
 				<div className="ml-4 flex-shrink-0">
 					<button
@@ -59,7 +88,7 @@ export const TaskCard: FC<TaskCardProps> = ({
 						onClick={handleEdit}
 						className="text-gray-400 hover:text-gray-500"
 					>
-						<span className="sr-only">Edit</span>
+						<span className="sr-only">Edit task</span>
 						<svg
 							className="h-5 w-5"
 							xmlns="http://www.w3.org/2000/svg"

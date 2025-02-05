@@ -13,6 +13,7 @@ export interface SelectProps {
 	options: Option[];
 	required?: boolean;
 	"data-testid"?: string;
+	error?: string;
 }
 
 export const Select: FC<SelectProps> = ({
@@ -23,6 +24,7 @@ export const Select: FC<SelectProps> = ({
 	options = [], // Provide default empty array
 	required,
 	"data-testid": testId,
+	error,
 }) => {
 	const isMultiple = Array.isArray(value);
 	const currentValue = isMultiple ? value : value || "";
@@ -51,6 +53,9 @@ export const Select: FC<SelectProps> = ({
 				required={required}
 				data-testid={testId}
 				multiple={isMultiple}
+				aria-required={required}
+				aria-invalid={!!error}
+				aria-describedby={error ? `${id}-error` : undefined}
 			>
 				{!isMultiple && (
 					<option key="default" value="">
@@ -63,6 +68,11 @@ export const Select: FC<SelectProps> = ({
 					</option>
 				))}
 			</select>
+			{error && (
+				<p id={`${id}-error`} className="mt-1 text-sm text-red-600">
+					{error}
+				</p>
+			)}
 		</div>
 	);
 };

@@ -7,6 +7,7 @@ export interface TaskStatus {
 	id: string;
 	code: string;
 	name: string;
+	label: string;
 	description?: string;
 	display_order: number;
 	created_at: string;
@@ -74,14 +75,14 @@ export interface Task {
 	id: string;
 	title: string;
 	description: string;
-	status_id: string;
+	status_id: number;
 	priority_id: number;
 	type_id: number;
 	order: number;
 	content: TaskContent;
 	relationships: TaskRelationships;
 	metadata: TaskMetadata;
-	progress: TaskProgress;
+	progress?: TaskProgress;
 	status?: TaskStatus;
 	type?: TaskTypeEntity;
 	status_history?: StatusChange[];
@@ -134,3 +135,6 @@ export interface AIMetadata {
 	dependencies_graph: string[];
 	related_components: string[];
 }
+
+// Re-export RawTask from types/index
+export type { RawTask } from "./types/index";

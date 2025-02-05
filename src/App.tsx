@@ -5,7 +5,7 @@ import { PlusIcon } from "@heroicons/react/20/solid";
 import { TaskForm } from "./components/TaskForm";
 import { TaskColumn } from "./components/TaskColumn";
 import { Select, type Option } from "./components/Select";
-import type { Task } from "./types";
+import type { Task, RawTask } from "./types";
 import {
 	TASK_STATUS,
 	SELECT_OPTIONS,
@@ -307,7 +307,7 @@ export function App() {
 				previous_status_id: isTaskStatusId(taskToUpdate.status_id)
 					? taskToUpdate.status_id
 					: createTaskStatusId(taskToUpdate.status_id),
-				comment: `Task moved to ${targetStatus.label}`,
+				comment: `Task moved to ${targetStatus.name}`,
 				type: taskToUpdate.type?.code,
 			};
 
@@ -333,18 +333,32 @@ export function App() {
 		}
 	};
 
-	const handleCreateTask = async (task: Partial<Task>) => {
+	const handleCreateTask = async (task: Partial<RawTask>) => {
 		try {
+			setLoading(true);
 			const newTask = await taskAPI.createTask({
 				...task,
 				order: tasks.length,
+				content: {
+					description: task.content?.description || "",
+					acceptance_criteria: task.content?.acceptance_criteria || [],
+					implementation_details: task.content?.implementation_details,
+					notes: task.content?.notes,
+					attachments: task.content?.attachments || [],
+					due_date: task.content?.due_date,
+					assignee: task.content?.assignee,
+				},
 			});
 			setTasks((prev) => [...prev, newTask]);
 			setIsTaskFormOpen(false);
 			toast.success("Task created successfully");
+			return newTask;
 		} catch (err) {
 			console.error("Failed to create task:", err);
 			toast.error(err instanceof Error ? err.message : "Failed to create task");
+			throw err;
+		} finally {
+			setLoading(false);
 		}
 	};
 
@@ -360,10 +374,17 @@ export function App() {
 			const updateRequest = createTaskUpdateRequest(updates, existingTask);
 			const updatedTask = await taskAPI.updateTask(taskId, updateRequest);
 
-			setTasks((prevTasks) =>
-				prevTasks.map((t) => (t.id === taskId ? updatedTask : t)),
-			);
+			// Update the tasks list with the new task
+			setTasks((prevTasks) => {
+				const index = prevTasks.findIndex((t) => t.id === taskId);
+				if (index === -1) return prevTasks;
+				const newTasks = [...prevTasks];
+				newTasks[index] = updatedTask;
+				return newTasks;
+			});
 
+			// Close the form
+			setIsTaskFormOpen(false);
 			toast.success("Task updated successfully");
 		} catch (err) {
 			console.error("Failed to update task:", err);
@@ -395,7 +416,31 @@ export function App() {
 		if (editingTask) {
 			handleEditTask(editingTask.id, task);
 		} else {
-			handleCreateTask(task);
+			// Convert Task to RawTask format
+			const rawTask: Partial<RawTask> = {
+				...task,
+				status_id: Number(task.status_id),
+				priority_id: Number(task.priority_id),
+				type_id: Number(task.type_id),
+				content: {
+					...task.content,
+					description: task.content?.description || "",
+					acceptance_criteria: task.content?.acceptance_criteria || [],
+					attachments: task.content?.attachments || [],
+				},
+				relationships: {
+					parent: task.relationships?.parent || undefined,
+					dependencies: task.relationships?.dependencies || [],
+					labels: task.relationships?.labels || [],
+				},
+				metadata: {
+					created_at: task.metadata?.created_at || new Date().toISOString(),
+					updated_at: task.metadata?.updated_at || new Date().toISOString(),
+					board: task.metadata?.board || undefined,
+					column: task.metadata?.column || undefined,
+				},
+			};
+			handleCreateTask(rawTask);
 		}
 	};
 

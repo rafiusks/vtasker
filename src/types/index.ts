@@ -197,9 +197,9 @@ export interface StorageAdapter {
 export interface TaskFormData {
 	title: string;
 	description: string;
-	status_id: TaskStatusId;
-	priority_id: TaskPriorityId;
-	type_id: TaskTypeId;
+	status_id: string;
+	priority_id: string;
+	type_id: string;
 	order: number;
 	content: TaskContent;
 	relationships: TaskRelationships;

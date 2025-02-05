@@ -52,8 +52,8 @@ export function AcceptanceCriteria({
 				const updatedCriterion = {
 					...c,
 					completed: !c.completed,
-					completed_at: !c.completed ? now : null,
-					completed_by: !c.completed ? "user" : null,
+					completed_at: !c.completed ? now : undefined,
+					completed_by: !c.completed ? "user" : undefined,
 					updated_at: now,
 				};
 				console.log(
@@ -118,8 +118,8 @@ export function AcceptanceCriteria({
 			id: crypto.randomUUID(),
 			description: description,
 			completed: false,
-			completed_at: null,
-			completed_by: null,
+			completed_at: undefined,
+			completed_by: undefined,
 			created_at: now,
 			updated_at: now,
 			order: safeCriteria.length,
@@ -171,7 +171,10 @@ export function AcceptanceCriteria({
 			</div>
 
 			{/* Criteria List */}
-			<ul className="space-y-2">
+			<ul
+				className="space-y-2 min-h-[1px]"
+				data-testid="acceptance-criteria-list"
+			>
 				{safeCriteria.map((criterion) => {
 					if (!criterion.description) {
 						console.warn(
@@ -229,6 +232,7 @@ export function AcceptanceCriteria({
 									}
 								}}
 								placeholder="Add acceptance criterion..."
+								data-testid="acceptance-criteria-input"
 								className={`block w-full rounded-md border-0 py-1.5 pl-3 text-gray-900 shadow-sm ring-1 ring-inset ${
 									showError ? "ring-red-500" : "ring-gray-300"
 								} placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6`}
@@ -245,8 +249,9 @@ export function AcceptanceCriteria({
 							type="button"
 							onClick={() => handleAdd()}
 							className="rounded-md bg-blue-600 p-2 text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+							data-testid="add-criterion-button"
 						>
-							<PlusIcon className="h-4 w-4" />
+							<PlusIcon className="h-4 w-4" data-testid="plus-icon" />
 						</button>
 					</div>
 				</div>

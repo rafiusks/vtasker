@@ -10,6 +10,7 @@ export const TextArea: FC<TextAreaProps> = ({
 	error,
 	className = "",
 	id,
+	required,
 	...props
 }) => {
 	const textareaId =
@@ -28,11 +29,18 @@ export const TextArea: FC<TextAreaProps> = ({
 			<textarea
 				{...props}
 				id={textareaId}
+				aria-required={required}
+				aria-invalid={!!error}
+				aria-describedby={error ? `${textareaId}-error` : undefined}
 				className={`block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm ${
 					error ? "border-red-300" : ""
 				} ${className}`}
 			/>
-			{error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+			{error && (
+				<p id={`${textareaId}-error`} className="mt-1 text-sm text-red-600">
+					{error}
+				</p>
+			)}
 		</div>
 	);
 };
