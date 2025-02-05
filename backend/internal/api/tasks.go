@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,12 +27,55 @@ func NewTaskHandler(pool *pgxpool.Pool) *TaskHandler {
 
 // ListTasks returns a list of tasks with optional filtering
 func (h *TaskHandler) ListTasks(c *gin.Context) {
-	tasks, err := h.repo.ListTasks(c.Request.Context(), c.Query("status"), c.Query("priority"))
+	log.Printf("Starting ListTasks with status=%v, priority=%v, type=%v", 
+		c.Query("status"), c.Query("priority"), c.Query("type"))
+	
+	filters := repository.TaskFilters{}
+	
+	if status := c.Query("status"); status != "" {
+		log.Printf("Converting status %q to integer", status)
+		statusID, err := strconv.Atoi(status)
+		if err != nil {
+			log.Printf("Error converting status to integer: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status ID"})
+			return
+		}
+		log.Printf("Converted status to %d (type: %T)", statusID, statusID)
+		filters.Status = int32(statusID)
+	}
+	
+	if priority := c.Query("priority"); priority != "" {
+		log.Printf("Converting priority %q to integer", priority)
+		priorityID, err := strconv.Atoi(priority)
+		if err != nil {
+			log.Printf("Error converting priority to integer: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid priority ID"})
+			return
+		}
+		log.Printf("Converted priority to %d (type: %T)", priorityID, priorityID)
+		filters.Priority = int32(priorityID)
+	}
+	
+	if taskType := c.Query("type"); taskType != "" {
+		log.Printf("Converting type %q to integer", taskType)
+		typeID, err := strconv.Atoi(taskType)
+		if err != nil {
+			log.Printf("Error converting type to integer: %v", err)
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid type ID"})
+			return
+		}
+		log.Printf("Converted type to %d (type: %T)", typeID, typeID)
+		filters.Type = int32(typeID)
+	}
+	
+	log.Printf("Calling GetTasks with filters: %+v", filters)
+	tasks, err := h.repo.GetTasks(c.Request.Context(), filters)
 	if err != nil {
 		log.Printf("Error listing tasks: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "error listing tasks: " + err.Error()})
 		return
 	}
+	log.Printf("Retrieved %d tasks", len(tasks))
 	c.JSON(http.StatusOK, tasks)
 }
 
@@ -88,9 +132,9 @@ func (h *TaskHandler) MoveTask(c *gin.Context) {
 	
 	var req struct {
 		StatusID         int    `json:"status_id" binding:"required"`
-		Order            int    `json:"order" binding:"required,min=0"`
+		Order           int    `json:"order" binding:"required,min=0"`
 		PreviousStatusID int    `json:"previous_status_id"`
-		Type             string `json:"type" binding:"required,oneof=feature bug chore"`
+		Type            string `json:"type" binding:"required,oneof=feature bug chore"`
 	}
 	
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -99,92 +143,114 @@ func (h *TaskHandler) MoveTask(c *gin.Context) {
 		return
 	}
 
+	// Get task ID from URL parameter
 	taskID := c.Param("id")
-	log.Printf("Processing move for task: %s", taskID)
-	
-	ctx := c.Request.Context()
+	if taskID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Task ID is required"})
+		return
+	}
 
+	// Start a transaction
+	ctx := c.Request.Context()
 	tx, err := h.repo.BeginTx(ctx)
 	if err != nil {
-		log.Printf("Transaction error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not start transaction"})
+		log.Printf("Transaction start error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start transaction"})
 		return
 	}
 	defer tx.Rollback(ctx)
 
-	// 1. Lock task with extended logging
-	var currentOrder int
+	// 1. Get current task status
 	var currentStatusID int
-	lockQuery := `SELECT status_id, "order" FROM tasks WHERE id = $1 FOR UPDATE`
-	log.Printf("Executing lock query: %s with ID: %s", lockQuery, taskID)
-	
-	err = tx.QueryRow(ctx, lockQuery, taskID).Scan(&currentStatusID, &currentOrder)
+	err = tx.QueryRow(ctx, "SELECT status_id FROM tasks WHERE id = $1", taskID).Scan(&currentStatusID)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			log.Printf("Task not found: %s", taskID)
-			c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
-		} else {
-			log.Printf("Lock error: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not lock task"})
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": "Task not found",
+				"details": gin.H{
+					"task_id": taskID,
+				},
+			})
+			return
 		}
+		log.Printf("Task query error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get task status",
+			"details": gin.H{
+				"task_id": taskID,
+			},
+		})
 		return
 	}
-	log.Printf("Lock acquired for task: %s (current status: %d, order: %d)", 
-		taskID, currentStatusID, currentOrder)
 
 	// 2. Previous column update with logging
 	if req.PreviousStatusID != 0 && currentStatusID != req.StatusID {
 		prevUpdateQuery := `UPDATE tasks SET "order" = "order" - 1 
 						  WHERE status_id = $1 AND "order" > $2`
 		log.Printf("Updating previous column (status %d) for order > %d", 
-			currentStatusID, currentOrder)
+			currentStatusID, req.Order)
 		
-		res, err := tx.Exec(ctx, prevUpdateQuery, currentStatusID, currentOrder)
+		res, err := tx.Exec(ctx, prevUpdateQuery, currentStatusID, req.Order)
 		if err != nil {
 			log.Printf("Previous column update error: %v", err)
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not update previous column"})
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to update previous column",
+				"details": gin.H{
+					"task_id": taskID,
+					"status_id": currentStatusID,
+					"order": req.Order,
+				},
+			})
 			return
 		}
-		rows := res.RowsAffected()
-		log.Printf("Updated %d rows in previous column", rows)
+		log.Printf("Updated %d rows in previous column", res.RowsAffected())
 	}
 
 	// 3. Target column update with logging
 	targetUpdateQuery := `UPDATE tasks SET "order" = "order" + 1 
-						 WHERE status_id = $1 AND "order" >= $2`
-	log.Printf("Making space in target column (status %d) for order >= %d", 
+						WHERE status_id = $1 AND "order" >= $2`
+	log.Printf("Updating target column (status %d) for order >= %d", 
 		req.StatusID, req.Order)
-		
+	
 	res, err := tx.Exec(ctx, targetUpdateQuery, req.StatusID, req.Order)
 	if err != nil {
 		log.Printf("Target column update error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not update target column"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update target column",
+			"details": gin.H{
+				"task_id": taskID,
+				"status_id": req.StatusID,
+				"order": req.Order,
+			},
+		})
 		return
 	}
-	rows := res.RowsAffected()
-	log.Printf("Updated %d rows in target column", rows)
+	log.Printf("Updated %d rows in target column", res.RowsAffected())
 
-	// 4. Main task update with detailed logging
+	// 4. Update task with logging
 	updateQuery := `UPDATE tasks 
-				   SET status_id = $1, "order" = $2, type = $3
-				   WHERE id = $4`
-	log.Printf("Updating task with: status=%d, order=%d, type=%s, id=%s",
-		req.StatusID, req.Order, req.Type, taskID)
-		
-	res, err = tx.Exec(ctx, updateQuery, 
-		req.StatusID, req.Order, req.Type, taskID)
+					SET status_id = $1, "order" = $2, type_id = $3, updated_at = NOW() 
+					WHERE id = $4`
+	log.Printf("Updating task %s to status %d, order %d, type %s", 
+		taskID, req.StatusID, req.Order, req.Type)
+	
+	res, err = tx.Exec(ctx, updateQuery, req.StatusID, req.Order, req.Type, taskID)
 	if err != nil {
 		log.Printf("Task update error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not update task"})
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update task",
+			"details": gin.H{
+				"task_id": taskID,
+				"status_id": req.StatusID,
+				"order": req.Order,
+				"type": req.Type,
+			},
+		})
 		return
 	}
-	rows = res.RowsAffected()
-	log.Printf("Updated %d rows in main task update", rows)
-
-	if rows == 0 {
-		log.Printf("Critical error: No rows affected in main task update")
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Task update failed - no rows affected",
+	if res.RowsAffected() == 0 {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Task not found",
 			"details": gin.H{
 				"task_id": taskID,
 				"status_id": req.StatusID,
@@ -195,33 +261,27 @@ func (h *TaskHandler) MoveTask(c *gin.Context) {
 		return
 	}
 
+	// Commit transaction
 	if err := tx.Commit(ctx); err != nil {
-		log.Printf("Commit error: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Transaction failed"})
-		return
-	}
-	log.Printf("Transaction committed successfully")
-
-	// Return updated task with status details
-	task, err := h.repo.GetTaskWithStatus(ctx, taskID)
-	if err != nil {
-		log.Printf("Fetch error: %v", err)
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Task moved successfully",
-			"task_id": taskID,
-			"status_id": req.StatusID,
-			"order": req.Order,
-		})
+		log.Printf("Transaction commit error: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to commit transaction"})
 		return
 	}
 
+	// Return success response
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Task moved successfully",
+		"task_id": taskID,
+		"status_id": req.StatusID,
+		"order": req.Order,
+	})
+
+	// Log the audit event
 	h.logTaskAudit(ctx, "moved", taskID, map[string]interface{}{
 		"from_status": currentStatusID,
 		"to_status":   req.StatusID,
 		"new_order":   req.Order,
 	})
-
-	c.JSON(http.StatusOK, task)
 }
 
 // DeleteTask deletes a task
@@ -266,6 +326,40 @@ func (h *TaskHandler) ListTaskPriorities(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, priorities)
+}
+
+// ListTaskTypes returns all available task types
+func (h *TaskHandler) ListTaskTypes(c *gin.Context) {
+	types, err := h.repo.ListTaskTypes(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, types)
+}
+
+// ClearTasks clears all tasks (for testing purposes only)
+func (h *TaskHandler) ClearTasks(c *gin.Context) {
+	err := h.repo.ClearTasks(c.Request.Context())
+	if err != nil {
+		log.Printf("Error clearing tasks: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+// Register registers all task-related routes
+func (h *TaskHandler) Register(router *gin.RouterGroup) {
+	router.GET("/tasks", h.ListTasks)
+	router.GET("/tasks/:id", h.GetTask)
+	router.POST("/tasks", h.CreateTask)
+	router.PUT("/tasks/:id", h.UpdateTask)
+	router.DELETE("/tasks/:id", h.DeleteTask)
+	router.POST("/tasks/clear", h.ClearTasks)
+	router.GET("/task-statuses", h.ListTaskStatuses)
+	router.GET("/task-priorities", h.ListTaskPriorities)
+	router.GET("/task-types", h.ListTaskTypes)
 }
 
 func (h *TaskHandler) logTaskAudit(ctx context.Context, event string, taskID string, payload interface{}) {

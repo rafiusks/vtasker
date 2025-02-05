@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -49,6 +50,20 @@ func RunMigrations(direction string) error {
 		return fmt.Errorf("error creating migrate instance: %v", err)
 	}
 	defer m.Close()
+
+	// Check if we need to force a version
+	forceVersion := os.Getenv("FORCE_VERSION")
+	if forceVersion != "" {
+		version, err := strconv.ParseUint(forceVersion, 10, 32)
+		if err != nil {
+			return fmt.Errorf("invalid force version: %v", err)
+		}
+		if err := m.Force(int(version)); err != nil {
+			return fmt.Errorf("error forcing version: %v", err)
+		}
+		log.Printf("Successfully forced version to %d", version)
+		return nil
+	}
 
 	if direction == "down" {
 		if err := m.Down(); err != nil && !errors.Is(err, migrate.ErrNoChange) {

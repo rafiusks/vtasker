@@ -10,14 +10,14 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"github.com/joho/godotenv"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/joho/godotenv"
 	"github.com/rafaelzasas/vtasker/internal/api"
 )
 
 func main() {
 	// Load environment variables
-	if err := godotenv.Load("../.env"); err != nil {
+	if err := godotenv.Load(".env"); err != nil {
 		log.Printf("Warning: .env file not found")
 	}
 
@@ -40,6 +40,7 @@ func main() {
 	if err := pool.Ping(ctx); err != nil {
 		log.Fatal("Database unreachable: ", err)
 	}
+	log.Printf("Successfully connected to database")
 
 	// Initialize Gin router
 	router := gin.Default()
@@ -48,10 +49,10 @@ func main() {
 	configCors := cors.DefaultConfig()
 	allowedOrigins := os.Getenv("CORS_ALLOWED_ORIGINS")
 	if allowedOrigins == "" {
-		allowedOrigins = "http://localhost:5173,http://localhost:3000" // Default to development ports
+		allowedOrigins = "http://localhost:3000" // Default to development port
 	}
 	configCors.AllowOrigins = strings.Split(allowedOrigins, ",")
-	configCors.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
+	configCors.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 	configCors.AllowHeaders = []string{
 		"Origin",
 		"Content-Type",
@@ -59,12 +60,15 @@ func main() {
 		"Accept-Encoding",
 		"X-CSRF-Token",
 		"Authorization",
+		"Accept",
+		"Cache-Control",
 	}
 	configCors.ExposeHeaders = []string{
 		"Content-Length",
 		"Content-Type",
 	}
 	configCors.AllowCredentials = true
+	configCors.MaxAge = 12 * time.Hour
 	router.Use(cors.New(configCors))
 
 	// Setup routes

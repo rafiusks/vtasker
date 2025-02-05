@@ -19,6 +19,7 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 		legacy.PUT("/tasks/:id", taskHandler.UpdateTask)
 		legacy.PUT("/tasks/:id/move", taskHandler.MoveTask)
 		legacy.DELETE("/tasks/:id", taskHandler.DeleteTask)
+		legacy.POST("/tasks/clear", taskHandler.ClearTasks)
 		legacy.GET("/task-statuses", taskHandler.ListTaskStatuses)
 		legacy.GET("/task-priorities", taskHandler.ListTaskPriorities)
 	}
@@ -35,10 +36,12 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 			tasks.PUT("/:id", taskHandler.UpdateTask)
 			tasks.PUT("/:id/move", taskHandler.MoveTask)
 			tasks.DELETE("/:id", taskHandler.DeleteTask)
+			tasks.POST("/clear", taskHandler.ClearTasks)
 		}
 
 		// Task status routes
 		v1.GET("/task-statuses", taskHandler.ListTaskStatuses)
 		v1.GET("/task-priorities", taskHandler.ListTaskPriorities)
+		v1.GET("/task-types", taskHandler.ListTaskTypes)
 	}
 } 
