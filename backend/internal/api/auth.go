@@ -1,6 +1,9 @@
 package api
 
 import (
+	"bytes"
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -45,7 +48,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	token, err := h.authService.Login(c.Request.Context(), input)
+	tokenPair, err := h.authService.Login(c.Request.Context(), input)
 	if err != nil {
 		if err == services.ErrInvalidCredentials {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
@@ -55,7 +58,53 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"token": token})
+	c.JSON(http.StatusOK, tokenPair)
+}
+
+type RefreshTokenInput struct {
+	RefreshToken string `json:"refreshToken" binding:"required"`
+}
+
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	// Log the raw request body for debugging
+	body, err := c.GetRawData()
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+		return
+	}
+	fmt.Printf("Raw request body: %s\n", string(body))
+
+	// Since we read the body, we need to restore it for binding
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	var input RefreshTokenInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Missing refresh token",
+			"details": fmt.Sprintf("Request body: %s", string(body)),
+		})
+		return
+	}
+
+	if input.RefreshToken == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Refresh token cannot be empty"})
+		return
+	}
+
+	tokenPair, err := h.authService.RefreshToken(c.Request.Context(), input.RefreshToken)
+	if err != nil {
+		switch err {
+		case services.ErrInvalidToken:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
+		case services.ErrTokenExpired:
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Token expired"})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, tokenPair)
 }
 
 func (h *AuthHandler) AuthMiddleware() gin.HandlerFunc {
@@ -75,6 +124,10 @@ func (h *AuthHandler) AuthMiddleware() gin.HandlerFunc {
 
 		claims, err := h.authService.ValidateToken(tokenString)
 		if err != nil {
+			if err == services.ErrTokenExpired {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Token expired"})
+				return
+			}
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 			return
 		}

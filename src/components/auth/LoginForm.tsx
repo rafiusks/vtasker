@@ -35,10 +35,10 @@ export const LoginForm = () => {
 			const response = await login(formData);
 			authLogin(
 				response.token,
-				response.refreshToken,
+				response.refresh_token,
 				response.user,
-				response.expiresIn,
-				response.expiresIn * 24, // Refresh token expires in 24 times the access token
+				response.expires_in,
+				response.refresh_expires_in,
 				formData.rememberMe,
 			);
 			navigate("/tasks");

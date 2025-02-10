@@ -19,14 +19,15 @@ export interface UserLogin {
 
 export interface LoginResponse {
 	token: string;
-	refreshToken: string;
+	refresh_token: string;
+	expires_in: number;
+	refresh_expires_in: number;
 	user: User;
-	expiresIn: number;
 }
 
 export interface RefreshTokenResponse {
 	token: string;
-	expiresIn: number;
+	expires_in: number;
 }
 
 export interface AuthState {
@@ -37,7 +38,7 @@ export interface AuthState {
 
 export interface StoredAuthData {
 	token: string;
-	refreshToken: string;
+	refresh_token: string;
 	user: User;
 	expiresAt: number;
 	refreshExpiresAt: number;

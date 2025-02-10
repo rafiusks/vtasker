@@ -33,6 +33,7 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 		// Auth routes
 		legacy.POST("/auth/register", authHandler.Register)
 		legacy.POST("/auth/login", authHandler.Login)
+		legacy.POST("/auth/refresh", authHandler.RefreshToken)
 	}
 
 	// API v1 group
@@ -58,6 +59,7 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
+			auth.POST("/refresh", authHandler.RefreshToken)
 		}
 	}
 }
