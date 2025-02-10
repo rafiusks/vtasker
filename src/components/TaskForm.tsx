@@ -9,6 +9,7 @@ import type {
 	TaskRelationships,
 } from "../types";
 import { AcceptanceCriteria } from "./AcceptanceCriteria";
+import { Labels } from "./Labels";
 import { toast } from "react-hot-toast";
 import { Input } from "./Input";
 import { TextArea } from "./TextArea";
@@ -87,11 +88,11 @@ const getInitialFormData = (
 			dependencies: [],
 			labels: [],
 		},
-		metadata: task?.metadata ?? {
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-			board: undefined,
-			column: undefined,
+		metadata: {
+			created_at: task?.metadata?.created_at ?? new Date().toISOString(),
+			updated_at: task?.metadata?.updated_at ?? new Date().toISOString(),
+			board: task?.metadata?.board,
+			column: task?.metadata?.column,
 		},
 	};
 };
@@ -103,9 +104,30 @@ export const TaskForm: FC<TaskFormProps> = ({
 	task,
 	allTasks,
 }) => {
-	const [formData, setFormData] = useState<TaskFormData>(() =>
-		getInitialFormData(task, allTasks),
-	);
+	const [formData, setFormData] = useState<TaskFormData>({
+		title: task?.title ?? "",
+		description: task?.description ?? "",
+		status_id: task?.status_id?.toString() ?? "",
+		priority_id: task?.priority_id?.toString() ?? "",
+		type_id: task?.type_id?.toString() ?? "",
+		order: task?.order ?? 0,
+		content: {
+			description: task?.content?.description ?? "",
+			acceptance_criteria: task?.content?.acceptance_criteria ?? [],
+			attachments: task?.content?.attachments ?? [],
+		},
+		relationships: {
+			parent: task?.relationships?.parent ?? undefined,
+			dependencies: task?.relationships?.dependencies ?? [],
+			labels: task?.relationships?.labels ?? [],
+		},
+		metadata: {
+			created_at: task?.metadata?.created_at ?? new Date().toISOString(),
+			updated_at: task?.metadata?.updated_at ?? new Date().toISOString(),
+			board: task?.metadata?.board,
+			column: task?.metadata?.column,
+		},
+	});
 
 	// Update form data when task changes
 	useEffect(() => {
@@ -297,6 +319,21 @@ export const TaskForm: FC<TaskFormProps> = ({
 									))}
 								</select>
 							</div>
+						</div>
+
+						<div>
+							<Labels
+								labels={formData.relationships.labels ?? []}
+								onUpdate={(labels) =>
+									setFormData({
+										...formData,
+										relationships: {
+											...formData.relationships,
+											labels,
+										},
+									})
+								}
+							/>
 						</div>
 
 						<div>
