@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		if (refreshTimeoutRef.current) {
 			window.clearTimeout(refreshTimeoutRef.current);
 		}
+		setIsLoading(false);
 		navigate("/login");
 	}, [navigate]);
 
@@ -96,9 +97,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 				// Schedule next refresh
 				scheduleTokenRefresh(newStoredData);
+				setIsLoading(false);
 			} catch (error) {
 				console.error("Token refresh failed:", error);
 				handleLogout();
+				setIsLoading(false);
 			}
 		},
 		[handleLogout],
@@ -175,6 +178,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 						setAuthToken(data.token);
 						scheduleTokenRefresh(data);
 					}
+					setIsLoading(false);
 					return;
 				}
 
@@ -200,6 +204,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 						setAuthToken(data.token);
 						scheduleTokenRefresh(data);
 					}
+					setIsLoading(false);
 					return;
 				}
 
@@ -208,6 +213,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 			} catch (error) {
 				console.error("Error initializing auth:", error);
 				handleLogout();
+				setIsLoading(false);
 			}
 		};
 
@@ -248,6 +254,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 			storage.setItem("auth", JSON.stringify(authData));
 
 			scheduleTokenRefresh(authData);
+			setIsLoading(false);
 		},
 		[scheduleTokenRefresh],
 	);

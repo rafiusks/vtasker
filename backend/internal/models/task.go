@@ -8,33 +8,37 @@ import (
 
 // Task represents a task in the system
 type Task struct {
-	ID          uuid.UUID    `json:"id" db:"id"`
-	Title       string       `json:"title" db:"title"`
-	Status      StatusCode   `json:"status" db:"status"`
-	Priority    PriorityCode `json:"priority" db:"priority"`
-	Type        TypeCode     `json:"type" db:"type"`
-	Content     TaskContent  `json:"content" db:"content"`
-	Metadata    TaskMetadata `json:"metadata" db:"metadata"`
-	Progress    TaskProgress `json:"progress" db:"progress"`
-	CreatedBy   uuid.UUID    `json:"created_by" db:"created_by"`
-	UpdatedBy   uuid.UUID    `json:"updated_by" db:"updated_by"`
+	ID           uuid.UUID    `json:"id" db:"id"`
+	Title        string       `json:"title" db:"title"`
+	Description  string       `json:"description" db:"description"`
+	StatusID     int32        `json:"status_id" db:"status_id"`
+	PriorityID   int32        `json:"priority_id" db:"priority_id"`
+	TypeID       int32        `json:"type_id" db:"type_id"`
+	OwnerID      *uuid.UUID   `json:"owner_id,omitempty" db:"owner_id"`
+	ParentID     *uuid.UUID   `json:"parent_id,omitempty" db:"parent_id"`
+	OrderIndex   int32        `json:"order_index" db:"order_index"`
+	Content      TaskContent  `json:"content"`
+	CreatedAt    time.Time    `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time    `json:"updated_at" db:"updated_at"`
 }
 
 // CreateTaskInput represents the input for creating a task
 type CreateTaskInput struct {
 	Title       string                `json:"title" validate:"required"`
-	Status      StatusCode            `json:"status" validate:"required"`
-	Priority    PriorityCode          `json:"priority" validate:"required"`
-	Type        TypeCode              `json:"type" validate:"required"`
+	Description string                `json:"description"`
+	StatusID    int32                 `json:"status_id" validate:"required"`
+	PriorityID  int32                 `json:"priority_id" validate:"required"`
+	TypeID      int32                 `json:"type_id" validate:"required"`
 	Content     CreateTaskContentInput `json:"content" validate:"required"`
 }
 
 // UpdateTaskInput represents the input for updating a task
 type UpdateTaskInput struct {
 	Title       *string                `json:"title,omitempty"`
-	Status      *StatusCode            `json:"status,omitempty"`
-	Priority    *PriorityCode          `json:"priority,omitempty"`
-	Type        *TypeCode              `json:"type,omitempty"`
+	Description *string                `json:"description,omitempty"`
+	StatusID    *int32                 `json:"status_id,omitempty"`
+	PriorityID  *int32                 `json:"priority_id,omitempty"`
+	TypeID      *int32                 `json:"type_id,omitempty"`
 	Content     *UpdateTaskContentInput `json:"content,omitempty"`
 }
 
@@ -42,37 +46,25 @@ type UpdateTaskInput struct {
 func NewTask(input CreateTaskInput, createdBy uuid.UUID) *Task {
 	now := time.Now().UTC()
 	return &Task{
-		ID:        uuid.New(),
-		Title:     input.Title,
-		Status:    input.Status,
-		Priority:  input.Priority,
-		Type:      input.Type,
-		Content:   TaskContent{},  // Will be populated separately
-		Metadata: TaskMetadata{
-			CreatedAt: now,
-			UpdatedAt: now,
-		},
-		Progress: TaskProgress{
-			AcceptanceCriteria: struct {
-				Total     int `json:"total"`
-				Completed int `json:"completed"`
-			}{
-				Total:     0,
-				Completed: 0,
-			},
-			Percentage: 0,
-		},
-		CreatedBy: createdBy,
-		UpdatedBy: createdBy,
+		ID:          uuid.New(),
+		Title:       input.Title,
+		Description: input.Description,
+		StatusID:    input.StatusID,
+		PriorityID:  input.PriorityID,
+		TypeID:      input.TypeID,
+		OwnerID:     &createdBy,
+		Content:     TaskContent{},  // Will be populated separately
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 }
 
 // CanUserEdit checks if a user has edit permissions for the task
 func (t *Task) CanUserEdit(userID uuid.UUID) bool {
-	return t.CreatedBy == userID
+	return t.OwnerID != nil && *t.OwnerID == userID
 }
 
 // CanUserAdmin checks if a user has admin permissions for the task
 func (t *Task) CanUserAdmin(userID uuid.UUID) bool {
-	return t.CreatedBy == userID
+	return t.OwnerID != nil && *t.OwnerID == userID
 }

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -37,34 +38,52 @@ func (r *TaskRepository) GetPool() *pgxpool.Pool {
 // GetTask retrieves a task by ID
 func (r *TaskRepository) GetTask(ctx context.Context, id string) (*models.Task, error) {
 	var task models.Task
-	var taskContent, metadata, progress []byte
+	var contentDescription, implementationDetails, notes sql.NullString
+	var attachments []byte
+	var dueDate sql.NullTime
+	var assignee sql.NullString
 
 	query := `
 		SELECT 
 			t.id, 
 			t.title,
-			t.status,
-			t.priority,
-			t.type,
-			t.content,
-			t.metadata,
-			t.progress,
-			t.created_by,
-			t.updated_by
+			t.description,
+			t.status_id,
+			t.priority_id,
+			t.type_id,
+			t.owner_id,
+			t.parent_id,
+			t.order_index,
+			t.created_at,
+			t.updated_at,
+			tc.description as content_description,
+			tc.implementation_details,
+			tc.notes,
+			tc.attachments,
+			tc.due_date,
+			tc.assignee
 		FROM tasks t
+		LEFT JOIN task_contents tc ON t.id = tc.task_id
 		WHERE t.id = $1`
 
 	err := r.db.QueryRow(ctx, query, id).Scan(
 		&task.ID,
 		&task.Title,
-		&task.Status,
-		&task.Priority,
-		&task.Type,
-		&taskContent,
-		&metadata,
-		&progress,
-		&task.CreatedBy,
-		&task.UpdatedBy,
+		&task.Description,
+		&task.StatusID,
+		&task.PriorityID,
+		&task.TypeID,
+		&task.OwnerID,
+		&task.ParentID,
+		&task.OrderIndex,
+		&task.CreatedAt,
+		&task.UpdatedAt,
+		&contentDescription,
+		&implementationDetails,
+		&notes,
+		&attachments,
+		&dueDate,
+		&assignee,
 	)
 	if err != nil {
 		if err == pgx.ErrNoRows {
@@ -74,24 +93,100 @@ func (r *TaskRepository) GetTask(ctx context.Context, id string) (*models.Task, 
 		return nil, fmt.Errorf("error getting task: %v", err)
 	}
 
-	// Parse JSON fields
-	if len(taskContent) > 0 {
-		if err := json.Unmarshal(taskContent, &task.Content); err != nil {
-			log.Printf("Error unmarshaling task content: %v", err)
-			return nil, fmt.Errorf("error unmarshaling task content: %v", err)
+	// Set content fields
+	task.Content = models.TaskContent{
+		Description: contentDescription.String,
+		ImplementationDetails: implementationDetails.String,
+		Notes: notes.String,
+		AcceptanceCriteria: make([]models.AcceptanceCriterion, 0),
+	}
+
+	// Parse attachments JSON if present
+	if len(attachments) > 0 {
+		if err := json.Unmarshal(attachments, &task.Content.Attachments); err != nil {
+			return nil, fmt.Errorf("error unmarshaling attachments: %v", err)
 		}
 	}
-	if len(metadata) > 0 {
-		if err := json.Unmarshal(metadata, &task.Metadata); err != nil {
-			log.Printf("Error unmarshaling metadata: %v", err)
-			return nil, fmt.Errorf("error unmarshaling metadata: %v", err)
-		}
+
+	if dueDate.Valid {
+		task.Content.DueDate = &dueDate.Time
 	}
-	if len(progress) > 0 {
-		if err := json.Unmarshal(progress, &task.Progress); err != nil {
-			log.Printf("Error unmarshaling progress: %v", err)
-			return nil, fmt.Errorf("error unmarshaling progress: %v", err)
+
+	if assignee.Valid {
+		assigneeUUID, err := uuid.Parse(assignee.String)
+		if err != nil {
+			return nil, fmt.Errorf("error parsing assignee UUID: %v", err)
 		}
+		task.Content.Assignee = &assigneeUUID
+	}
+
+	// Get acceptance criteria
+	acQuery := `
+		SELECT 
+			id,
+			description,
+			completed,
+			completed_at,
+			completed_by,
+			order_index,
+			category,
+			notes,
+			created_at,
+			updated_at
+		FROM acceptance_criteria
+		WHERE task_id = $1
+		ORDER BY order_index`
+
+	acRows, err := r.db.Query(ctx, acQuery, task.ID)
+	if err != nil {
+		return nil, fmt.Errorf("error querying acceptance criteria: %v", err)
+	}
+	defer acRows.Close()
+
+	for acRows.Next() {
+		var ac models.AcceptanceCriterion
+		var category, notes sql.NullString
+		var completedAt sql.NullTime
+		var completedBy sql.NullString
+
+		err := acRows.Scan(
+			&ac.ID,
+			&ac.Description,
+			&ac.Completed,
+			&completedAt,
+			&completedBy,
+			&ac.Order,
+			&category,
+			&notes,
+			&ac.CreatedAt,
+			&ac.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning acceptance criterion row: %v", err)
+		}
+
+		if category.Valid {
+			ac.Category = &category.String
+		}
+		if notes.Valid {
+			ac.Notes = &notes.String
+		}
+		if completedAt.Valid {
+			ac.CompletedAt = &completedAt.Time
+		}
+		if completedBy.Valid {
+			completedByUUID, err := uuid.Parse(completedBy.String)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing completed_by UUID: %v", err)
+			}
+			ac.CompletedBy = &completedByUUID
+		}
+
+		task.Content.AcceptanceCriteria = append(task.Content.AcceptanceCriteria, ac)
+	}
+
+	if err = acRows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating acceptance criteria rows: %v", err)
 	}
 
 	return &task, nil
@@ -106,63 +201,112 @@ func (r *TaskRepository) CreateTask(ctx context.Context, input *models.CreateTas
 
 	task := models.NewTask(*input, createdByUUID)
 
+	// Create task
 	query := `
 		INSERT INTO tasks (
 			id, 
 			title,
-			status,
-			priority,
-			type,
-			content,
-			metadata,
-			progress,
-			created_by,
-			updated_by
+			description,
+			status_id,
+			priority_id,
+			type_id,
+			owner_id,
+			order_index,
+			created_at,
+			updated_at
 		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		RETURNING id`
-
-	contentJSON, err := json.Marshal(task.Content)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling content: %v", err)
-	}
-
-	metadataJSON, err := json.Marshal(task.Metadata)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling metadata: %v", err)
-	}
-
-	progressJSON, err := json.Marshal(task.Progress)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling progress: %v", err)
-	}
 
 	err = r.db.QueryRow(ctx, query,
 		task.ID,
 		task.Title,
-		task.Status,
-		task.Priority,
-		task.Type,
-		contentJSON,
-		metadataJSON,
-		progressJSON,
-		task.CreatedBy,
-		task.UpdatedBy,
+		task.Description,
+		task.StatusID,
+		task.PriorityID,
+		task.TypeID,
+		task.OwnerID,
+		task.OrderIndex,
+		task.CreatedAt,
+		task.UpdatedAt,
 	).Scan(&task.ID)
 
 	if err != nil {
 		return nil, fmt.Errorf("error creating task: %v", err)
 	}
 
-	return task, nil
+	// Create task content
+	contentQuery := `
+		INSERT INTO task_contents (
+			task_id,
+			description,
+			implementation_details,
+			notes,
+			attachments,
+			due_date,
+			assignee,
+			created_at,
+			updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+
+	attachmentsJSON, err := json.Marshal(input.Content.Attachments)
+	if err != nil {
+		return nil, fmt.Errorf("error marshaling attachments: %v", err)
+	}
+
+	_, err = r.db.Exec(ctx, contentQuery,
+		task.ID,
+		input.Content.Description,
+		input.Content.ImplementationDetails,
+		input.Content.Notes,
+		attachmentsJSON,
+		input.Content.DueDate,
+		input.Content.Assignee,
+		task.CreatedAt,
+		task.UpdatedAt,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("error creating task content: %v", err)
+	}
+
+	// Create acceptance criteria if provided
+	if len(input.Content.AcceptanceCriteria) > 0 {
+		acQuery := `
+			INSERT INTO acceptance_criteria (
+				id,
+				task_id,
+				description,
+				completed,
+				order_index,
+				category,
+				notes,
+				created_at,
+				updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+
+		for _, ac := range input.Content.AcceptanceCriteria {
+			_, err = r.db.Exec(ctx, acQuery,
+				uuid.New(),
+				task.ID,
+				ac.Description,
+				false,
+				ac.Order,
+				ac.Category,
+				ac.Notes,
+				task.CreatedAt,
+				task.UpdatedAt,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("error creating acceptance criterion: %v", err)
+			}
+		}
+	}
+
+	return r.GetTask(ctx, task.ID.String())
 }
 
 // UpdateTask updates an existing task
 func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *models.UpdateTaskInput, updatedBy string) (*models.Task, error) {
-	updatedByUUID, err := uuid.Parse(updatedBy)
-	if err != nil {
-		return nil, fmt.Errorf("invalid updated_by UUID: %v", err)
-	}
-
 	task, err := r.GetTask(ctx, id)
 	if err != nil {
 		return nil, err
@@ -172,76 +316,37 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *model
 	if input.Title != nil {
 		task.Title = *input.Title
 	}
-	if input.Status != nil {
-		task.Status = *input.Status
+	if input.Description != nil {
+		task.Description = *input.Description
 	}
-	if input.Priority != nil {
-		task.Priority = *input.Priority
+	if input.StatusID != nil {
+		task.StatusID = *input.StatusID
 	}
-	if input.Type != nil {
-		task.Type = *input.Type
+	if input.PriorityID != nil {
+		task.PriorityID = *input.PriorityID
 	}
-	if input.Content != nil {
-		// Update content fields if provided
-		if input.Content.Description != nil {
-			task.Content.Description = *input.Content.Description
-		}
-		if input.Content.ImplementationDetails != nil {
-			task.Content.ImplementationDetails = *input.Content.ImplementationDetails
-		}
-		if input.Content.Notes != nil {
-			task.Content.Notes = *input.Content.Notes
-		}
-		if input.Content.Attachments != nil {
-			task.Content.Attachments = input.Content.Attachments
-		}
-		if input.Content.DueDate != nil {
-			task.Content.DueDate = input.Content.DueDate
-		}
-		if input.Content.Assignee != nil {
-			task.Content.Assignee = input.Content.Assignee
-		}
+	if input.TypeID != nil {
+		task.TypeID = *input.TypeID
 	}
 
-	task.UpdatedBy = updatedByUUID
-
+	// Update task
 	query := `
 		UPDATE tasks 
 		SET 
 			title = $1,
-			status = $2,
-			priority = $3,
-			type = $4,
-			content = $5,
-			metadata = $6,
-			progress = $7,
-			updated_by = $8
-		WHERE id = $9`
-
-	contentJSON, err := json.Marshal(task.Content)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling content: %v", err)
-	}
-
-	metadataJSON, err := json.Marshal(task.Metadata)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling metadata: %v", err)
-	}
-
-	progressJSON, err := json.Marshal(task.Progress)
-	if err != nil {
-		return nil, fmt.Errorf("error marshaling progress: %v", err)
-	}
+			description = $2,
+			status_id = $3,
+			priority_id = $4,
+			type_id = $5,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $6`
 
 	_, err = r.db.Exec(ctx, query,
 		task.Title,
-		task.Status,
-		task.Priority,
-		task.Type,
-		contentJSON,
-		metadataJSON,
-		progressJSON,
-		task.UpdatedBy,
+		task.Description,
+		task.StatusID,
+		task.PriorityID,
+		task.TypeID,
 		task.ID,
 	)
 
@@ -249,7 +354,48 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *model
 		return nil, fmt.Errorf("error updating task: %v", err)
 	}
 
-	return task, nil
+	// Update task content if provided
+	if input.Content != nil {
+		contentQuery := `
+			INSERT INTO task_contents (
+				task_id,
+				description,
+				implementation_details,
+				notes,
+				attachments,
+				due_date,
+				assignee
+			) VALUES ($1, $2, $3, $4, $5, $6, $7)
+			ON CONFLICT (task_id) DO UPDATE SET
+				description = EXCLUDED.description,
+				implementation_details = EXCLUDED.implementation_details,
+				notes = EXCLUDED.notes,
+				attachments = EXCLUDED.attachments,
+				due_date = EXCLUDED.due_date,
+				assignee = EXCLUDED.assignee,
+				updated_at = CURRENT_TIMESTAMP`
+
+		attachmentsJSON, err := json.Marshal(input.Content.Attachments)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling attachments: %v", err)
+		}
+
+		_, err = r.db.Exec(ctx, contentQuery,
+			task.ID,
+			input.Content.Description,
+			input.Content.ImplementationDetails,
+			input.Content.Notes,
+			attachmentsJSON,
+			input.Content.DueDate,
+			input.Content.Assignee,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("error updating task content: %v", err)
+		}
+	}
+
+	return r.GetTask(ctx, id)
 }
 
 // DeleteTask deletes a task by ID
@@ -271,19 +417,28 @@ func (r *TaskRepository) DeleteTask(ctx context.Context, id string) error {
 func (r *TaskRepository) GetTasks(ctx context.Context, filters TaskFilters) ([]*models.Task, error) {
 	var tasks []*models.Task
 
+	// First get all tasks with their content
 	query := `
 		SELECT 
 			t.id, 
 			t.title,
-			t.status,
-			t.priority,
-			t.type,
-			t.content,
-			t.metadata,
-			t.progress,
-			t.created_by,
-			t.updated_by
+			t.description,
+			t.status_id,
+			t.priority_id,
+			t.type_id,
+			t.owner_id,
+			t.parent_id,
+			t.order_index,
+			t.created_at,
+			t.updated_at,
+			tc.description as content_description,
+			tc.implementation_details,
+			tc.notes,
+			tc.attachments,
+			tc.due_date,
+			tc.assignee
 		FROM tasks t
+		LEFT JOIN task_contents tc ON t.id = tc.task_id
 		WHERE 1=1`
 
 	args := []interface{}{}
@@ -291,17 +446,17 @@ func (r *TaskRepository) GetTasks(ctx context.Context, filters TaskFilters) ([]*
 
 	// Add filters
 	if filters.Status != "" {
-		query += fmt.Sprintf(" AND t.status = $%d", argNum)
+		query += fmt.Sprintf(" AND t.status_id = $%d", argNum)
 		args = append(args, filters.Status)
 		argNum++
 	}
 	if filters.Priority != "" {
-		query += fmt.Sprintf(" AND t.priority = $%d", argNum)
+		query += fmt.Sprintf(" AND t.priority_id = $%d", argNum)
 		args = append(args, filters.Priority)
 		argNum++
 	}
 	if filters.Type != "" {
-		query += fmt.Sprintf(" AND t.type = $%d", argNum)
+		query += fmt.Sprintf(" AND t.type_id = $%d", argNum)
 		args = append(args, filters.Type)
 		argNum++
 	}
@@ -312,48 +467,152 @@ func (r *TaskRepository) GetTasks(ctx context.Context, filters TaskFilters) ([]*
 	}
 	defer rows.Close()
 
+	taskMap := make(map[uuid.UUID]*models.Task)
+
 	for rows.Next() {
 		var task models.Task
-		var taskContent, metadata, progress []byte
+		var contentDescription, implementationDetails, notes sql.NullString
+		var attachments []byte
+		var dueDate sql.NullTime
+		var assignee sql.NullString
 
 		err := rows.Scan(
 			&task.ID,
 			&task.Title,
-			&task.Status,
-			&task.Priority,
-			&task.Type,
-			&taskContent,
-			&metadata,
-			&progress,
-			&task.CreatedBy,
-			&task.UpdatedBy,
+			&task.Description,
+			&task.StatusID,
+			&task.PriorityID,
+			&task.TypeID,
+			&task.OwnerID,
+			&task.ParentID,
+			&task.OrderIndex,
+			&task.CreatedAt,
+			&task.UpdatedAt,
+			&contentDescription,
+			&implementationDetails,
+			&notes,
+			&attachments,
+			&dueDate,
+			&assignee,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("error scanning task row: %v", err)
 		}
 
-		// Parse JSON fields
-		if len(taskContent) > 0 {
-			if err := json.Unmarshal(taskContent, &task.Content); err != nil {
-				return nil, fmt.Errorf("error unmarshaling task content: %v", err)
-			}
+		// Set content fields
+		task.Content = models.TaskContent{
+			Description: contentDescription.String,
+			ImplementationDetails: implementationDetails.String,
+			Notes: notes.String,
+			AcceptanceCriteria: make([]models.AcceptanceCriterion, 0),
 		}
-		if len(metadata) > 0 {
-			if err := json.Unmarshal(metadata, &task.Metadata); err != nil {
-				return nil, fmt.Errorf("error unmarshaling metadata: %v", err)
-			}
-		}
-		if len(progress) > 0 {
-			if err := json.Unmarshal(progress, &task.Progress); err != nil {
-				return nil, fmt.Errorf("error unmarshaling progress: %v", err)
+
+		// Parse attachments JSON if present
+		if len(attachments) > 0 {
+			if err := json.Unmarshal(attachments, &task.Content.Attachments); err != nil {
+				return nil, fmt.Errorf("error unmarshaling attachments: %v", err)
 			}
 		}
 
+		if dueDate.Valid {
+			task.Content.DueDate = &dueDate.Time
+		}
+
+		if assignee.Valid {
+			assigneeUUID, err := uuid.Parse(assignee.String)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing assignee UUID: %v", err)
+			}
+			task.Content.Assignee = &assigneeUUID
+		}
+
+		taskMap[task.ID] = &task
 		tasks = append(tasks, &task)
 	}
 
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating task rows: %v", err)
+	}
+
+	// Get acceptance criteria for all tasks
+	if len(tasks) > 0 {
+		acQuery := `
+			SELECT 
+				id,
+				task_id,
+				description,
+				completed,
+				completed_at,
+				completed_by,
+				order_index,
+				category,
+				notes,
+				created_at,
+				updated_at
+			FROM acceptance_criteria
+			WHERE task_id = ANY($1)
+			ORDER BY task_id, order_index`
+
+		taskIDs := make([]uuid.UUID, len(tasks))
+		for i, task := range tasks {
+			taskIDs[i] = task.ID
+		}
+
+		acRows, err := r.db.Query(ctx, acQuery, taskIDs)
+		if err != nil {
+			return nil, fmt.Errorf("error querying acceptance criteria: %v", err)
+		}
+		defer acRows.Close()
+
+		for acRows.Next() {
+			var ac models.AcceptanceCriterion
+			var taskID uuid.UUID
+			var category, notes sql.NullString
+			var completedAt sql.NullTime
+			var completedBy sql.NullString
+
+			err := acRows.Scan(
+				&ac.ID,
+				&taskID,
+				&ac.Description,
+				&ac.Completed,
+				&completedAt,
+				&completedBy,
+				&ac.Order,
+				&category,
+				&notes,
+				&ac.CreatedAt,
+				&ac.UpdatedAt,
+			)
+			if err != nil {
+				return nil, fmt.Errorf("error scanning acceptance criterion row: %v", err)
+			}
+
+			if category.Valid {
+				ac.Category = &category.String
+			}
+			if notes.Valid {
+				ac.Notes = &notes.String
+			}
+			if completedAt.Valid {
+				ac.CompletedAt = &completedAt.Time
+			}
+			if completedBy.Valid {
+				completedByUUID, err := uuid.Parse(completedBy.String)
+				if err != nil {
+					return nil, fmt.Errorf("error parsing completed_by UUID: %v", err)
+				}
+				ac.CompletedBy = &completedByUUID
+			}
+
+			if task, ok := taskMap[taskID]; ok {
+				task.Content.AcceptanceCriteria = append(task.Content.AcceptanceCriteria, ac)
+			}
+		}
+
+		if err = acRows.Err(); err != nil {
+			return nil, fmt.Errorf("error iterating acceptance criteria rows: %v", err)
+		}
 	}
 
 	return tasks, nil
