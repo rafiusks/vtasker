@@ -1,50 +1,35 @@
 # VTasker
 
-VTasker is a modern, Kubernetes-native service management platform that provides a comprehensive solution for managing, monitoring, and maintaining containerized services.
-
-![VTasker Dashboard](docs/images/dashboard.png)
+VTasker is a modern task management system built with Go and React, designed to help teams organize and track their work efficiently.
 
 ## Features
 
-- 🚀 **Service Management**
-  - Deploy, start, stop, and restart services
-  - Scale services up/down
-  - Monitor service health and metrics
-  - Real-time log streaming
+- 🎯 **Task Management**
+  - Create and manage tasks with rich content
+  - Organize tasks with statuses, priorities, and types
+  - Track task progress and updates
+  - Detailed task descriptions and implementation notes
 
-- 📊 **Monitoring & Metrics**
-  - Real-time resource usage metrics
-  - Custom metric collection
-  - Prometheus integration
-  - Configurable alerts
-
-- 📝 **Logging**
-  - Centralized log aggregation
-  - Real-time log streaming
-  - Log filtering and search
-  - Loki integration
-
-- 🔒 **Security**
+- 🔒 **User Management**
+  - Secure JWT authentication
   - Role-based access control
-  - JWT authentication
-  - Audit logging
-  - Secure API endpoints
+  - User profiles and avatars
+  - Session management
 
-- 🔄 **GitOps Ready**
-  - Version controlled configurations
-  - Automated deployments
-  - Rollback support
-  - Configuration validation
+- 🎨 **Modern UI**
+  - Clean and intuitive interface
+  - Real-time updates
+  - Responsive design
+  - Dark/Light mode support
 
 ## Quick Start
 
 ### Prerequisites
 
-- Kubernetes cluster (1.21+)
 - Go 1.21+
 - Node.js 20+
-- Docker
-- Make
+- PostgreSQL 15+
+- pnpm (for package management)
 
 ### Installation
 
@@ -54,148 +39,86 @@ git clone https://github.com/yourusername/vtasker.git
 cd vtasker
 ```
 
-2. Install dependencies:
+2. Set up the database:
 ```bash
-make install
+# Create PostgreSQL database
+createdb vtasker
 ```
 
-3. Deploy to Kubernetes:
+3. Start the backend:
 ```bash
-make deploy
+cd backend
+go run cmd/main.go
 ```
 
-4. Access the dashboard:
+4. Start the frontend:
 ```bash
-# Port forward the service
-kubectl port-forward svc/vtasker-dashboard 3000:3000
-
-# Open in browser
-open http://localhost:3000
-```
-
-## Documentation
-
-- [Architecture Overview](docs/architecture.md)
-- [API Documentation](docs/api.md)
-- [Development Guide](docs/CONTRIBUTING.md)
-- [Security](docs/security.md)
-
-## Development
-
-### Project Status
-
-#### Completed
-- ✅ Initial project structure setup
-- ✅ Backend API implementation with Go
-- ✅ Frontend React application setup
-- ✅ Database schema and migrations
-- ✅ Basic Dockerfile for production builds
-- ✅ Makefile with essential development commands
-
-#### In Progress
-- 🔄 Containerization and deployment setup
-  - Production Dockerfile (completed)
-  - Development environment containerization
-  - Docker Compose configuration
-  - Kubernetes deployment manifests
-
-#### Next Steps
-1. **Development Environment**
-   - Create `Dockerfile.dev` for development with hot reloading
-   - Set up Docker Compose with:
-     - Backend service (Go)
-     - Frontend service (React)
-     - PostgreSQL database
-     - Prometheus (metrics)
-     - Loki (logging)
-
-2. **Kubernetes Deployment**
-   - Create deployment manifests
-   - Configure services and ingress
-   - Set up ConfigMaps and Secrets
-   - Configure monitoring stack
-
-3. **CI/CD Pipeline**
-   - Set up GitHub Actions
-   - Configure automated testing
-   - Implement deployment automation
-   - Add security scanning
-
-### Local Development
-
-1. Start development environment:
+pnpm install
+pnpm run dev
 ```
 
 ## Project Structure
 
 ```
 vtasker/
-├── backend/           # Go backend service
-│   ├── cmd/          # Application entrypoints
-│   ├── internal/     # Internal packages
-│   └── migrations/   # Database migrations
-├── src/              # Main Vite/React application
-│   ├── components/   # React components
-│   ├── hooks/        # Custom React hooks
-│   └── styles/       # Application styles
-├── web/              # NextJS admin dashboard
-│   ├── src/          # Dashboard components and logic
-│   ├── public/       # Static assets
-│   └── pages/        # NextJS pages
-├── deploy/           # Kubernetes deployment manifests
-│   ├── base/         # Base configurations
-│   └── overlays/     # Environment-specific overlays
-├── docs/             # Documentation
-│   ├── api/          # API documentation
-│   └── guides/       # User and development guides
-└── scripts/          # Development and deployment scripts
+├── backend/                 # Go backend service
+│   ├── cmd/                # Application entrypoints
+│   │   ├── main.go        # Main server
+│   │   └── migrate/       # Database migrations
+│   └── internal/          # Internal packages
+│       ├── api/           # API handlers
+│       ├── auth/          # Authentication
+│       ├── config/        # Configuration
+│       ├── database/      # Database connection
+│       ├── models/        # Data models
+│       └── repository/    # Data access
+├── src/                    # Frontend React application
+│   ├── components/        # React components
+│   ├── contexts/          # React contexts
+│   ├── hooks/             # Custom hooks
+│   ├── pages/             # Application pages
+│   └── styles/            # TailwindCSS styles
+├── e2e/                    # End-to-end tests
+│   └── tests/             # Playwright tests
+└── docs/                   # Documentation
+    ├── database.md        # Database schema
+    └── project-todo.md    # Project roadmap
 ```
 
-### Directory Organization
+## Development Status
 
-- **Backend (`/backend`)**: Contains all Go service code
-  - Clean architecture pattern
-  - Internal packages for business logic
-  - Database migrations and models
+### Implemented Features
+- ✅ User authentication with JWT
+- ✅ Basic task management (CRUD operations)
+- ✅ Task categorization (status, priority, type)
+- ✅ Database migrations and schema
+- ✅ Frontend foundation with Vite and TailwindCSS
 
-- **Main Application (`/src`)**: Vite/React application
-  - Main user-facing application
-  - Built with Vite for optimal development experience
-  - React components and business logic
+### In Progress
+- 🔄 Task content management
+- 🔄 Task labels and filtering
+- 🔄 Task dependencies
+- 🔄 Team collaboration features
 
-- **Admin Dashboard (`/web`)**: NextJS application
-  - Project management interface
-  - Monitoring and logging dashboard
-  - Built with NextJS for optimal admin experience
+### Planned Features
+- 📋 Task acceptance criteria
+- 📊 Task analytics and reporting
+- 🔔 Notifications system
+- 📱 Mobile responsive design
 
-- **Deployment (`/deploy`)**: Kubernetes resources
-  - Base configurations
-  - Environment-specific overlays
-  - Monitoring and logging setup
+## Documentation
 
-- **Documentation (`/docs`)**: Project documentation
-  - Architecture overview
-  - API specifications
-  - Development guides
+- [Database Schema](docs/database.md)
+- [Project Todo](docs/project-todo.md)
 
-### Optimization Notes
+## Contributing
 
-1. **Main Application Organization (`/src`)**
-   - Vite/React application structure
-   - Component-based architecture
-   - State management for main application features
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
-2. **Admin Dashboard Organization (`/web`)**
-   - NextJS pages and components
-   - Monitoring and logging integration
-   - Project management features
+## License
 
-3. **Backend Structure**
-   - Clean architecture pattern
-   - Clear separation of concerns
-   - Efficient dependency management
-
-4. **Development Workflow**
-   - Separate development servers for main app and admin
-   - Consistent coding standards
-   - Automated testing and linting
+This project is licensed under the MIT License - see the LICENSE file for details.
