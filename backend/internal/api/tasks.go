@@ -428,7 +428,7 @@ func (h *TaskHandler) ListTaskPriorities(c *gin.Context) {
 	c.JSON(http.StatusOK, priorities)
 }
 
-// ListTaskTypes returns all available task types
+// ListTaskTypes returns a list of all task types
 func (h *TaskHandler) ListTaskTypes(c *gin.Context) {
 	types, err := h.repo.ListTaskTypes(c.Request.Context())
 	if err != nil {

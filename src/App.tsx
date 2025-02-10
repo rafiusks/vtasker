@@ -351,8 +351,9 @@ export function App() {
 	const handleCreateTask = async (task: Partial<RawTask>) => {
 		try {
 			setLoading(true);
+			const { metadata, ...taskWithoutMetadata } = task;
 			const newTask = await taskAPI.createTask({
-				...task,
+				...taskWithoutMetadata,
 				order: tasks.length,
 				content: {
 					description: task.content?.description || "",
@@ -362,6 +363,11 @@ export function App() {
 					attachments: task.content?.attachments || [],
 					due_date: task.content?.due_date,
 					assignee: task.content?.assignee,
+				},
+				relationships: {
+					parent: task.relationships?.parent || undefined,
+					dependencies: task.relationships?.dependencies || [],
+					labels: task.relationships?.labels || [],
 				},
 			});
 			setTasks((prev) => [...prev, newTask]);
@@ -389,6 +395,16 @@ export function App() {
 			const updateRequest = createTaskUpdateRequest(updates, existingTask);
 			const updatedTask = await taskAPI.updateTask(taskId, updateRequest);
 
+			// Update the tasks list immediately
+			setTasks((prevTasks) => {
+				const index = prevTasks.findIndex((t) => t.id === taskId);
+				if (index === -1) return prevTasks;
+				const newTasks = [...prevTasks];
+				newTasks[index] = updatedTask;
+				return newTasks;
+			});
+
+			// Close the form
 			// Update the tasks list with the new task and wait for the state to be updated
 			await new Promise<void>((resolve) => {
 				setTasks((prevTasks) => {
@@ -413,8 +429,24 @@ export function App() {
 
 	const handleDeleteTask = async (taskId: string) => {
 		try {
+			// Delete from backend
 			await taskAPI.deleteTask(taskId);
-			setTasks((prev) => prev.filter((task) => task.id !== taskId));
+
+			// Update state and wait for both state and DOM updates
+			await new Promise<void>((resolve) => {
+				setTasks((prev) => {
+					const newTasks = prev.filter((task) => task.id !== taskId);
+					// Use requestAnimationFrame to ensure DOM has been updated
+					requestAnimationFrame(() => {
+						// Add another frame to ensure the browser has painted
+						requestAnimationFrame(() => {
+							resolve();
+						});
+					});
+					return newTasks;
+				});
+			});
+
 			toast.success("Task deleted successfully");
 		} catch (err) {
 			console.error("Failed to delete task:", err);
@@ -436,8 +468,9 @@ export function App() {
 			handleEditTask(editingTask.id, task);
 		} else {
 			// Convert Task to RawTask format
+			const { metadata, ...taskWithoutMetadata } = task;
 			const rawTask: Partial<RawTask> = {
-				...task,
+				...taskWithoutMetadata,
 				status_id: Number(task.status_id),
 				priority_id: Number(task.priority_id),
 				type_id: Number(task.type_id),
@@ -452,11 +485,12 @@ export function App() {
 					dependencies: task.relationships?.dependencies || [],
 					labels: task.relationships?.labels || [],
 				},
-				metadata: {
-					created_at: task.metadata?.created_at || new Date().toISOString(),
-					updated_at: task.metadata?.updated_at || new Date().toISOString(),
-					board: task.metadata?.board || undefined,
-					column: task.metadata?.column || undefined,
+				progress: {
+					acceptance_criteria: {
+						total: task.content?.acceptance_criteria?.length || 0,
+						completed: 0,
+					},
+					percentage: 0,
 				},
 			};
 			handleCreateTask(rawTask);

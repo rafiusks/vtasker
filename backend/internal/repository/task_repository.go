@@ -689,29 +689,30 @@ func (r *TaskRepository) initializeDefaultTaskTypes(ctx context.Context) error {
 
 // ListTaskTypes returns a list of all task types
 func (r *TaskRepository) ListTaskTypes(ctx context.Context) ([]models.TaskTypeEntity, error) {
-	query := `
-		SELECT id, name, code, description, display_order
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, code, name, description, display_order, created_at, updated_at
 		FROM task_types
 		ORDER BY display_order ASC
-	`
-	rows, err := r.pool.Query(ctx, query)
+	`)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query task types: %w", err)
+		return nil, fmt.Errorf("error listing task types: %v", err)
 	}
 	defer rows.Close()
 
 	var types []models.TaskTypeEntity
 	for rows.Next() {
 		var t models.TaskTypeEntity
-		err := rows.Scan(&t.ID, &t.Name, &t.Code, &t.Description, &t.DisplayOrder)
+		err := rows.Scan(&t.ID, &t.Code, &t.Name, &t.Description, &t.DisplayOrder, &t.CreatedAt, &t.UpdatedAt)
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan task type: %w", err)
+			return nil, fmt.Errorf("error scanning task type: %v", err)
 		}
 		types = append(types, t)
 	}
+
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating task types: %w", err)
+		return nil, fmt.Errorf("error iterating task types: %v", err)
 	}
+
 	return types, nil
 }
 

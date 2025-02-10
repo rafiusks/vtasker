@@ -25,6 +25,7 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 		legacy.POST("/tasks/clear", taskHandler.ClearTasks)
 		legacy.GET("/task-statuses", taskHandler.ListTaskStatuses)
 		legacy.GET("/task-priorities", taskHandler.ListTaskPriorities)
+		legacy.GET("/task-types", taskHandler.ListTaskTypes)
 	}
 
 	// API v1 group

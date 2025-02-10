@@ -16,7 +16,6 @@ import { formatTaskTypeForApi } from "./taskTypeHelpers";
 
 // Constants for validation
 const VALID_STATUS_CODES = ["backlog", "in-progress", "review", "done"];
-const VALID_TYPE_CODES = ["feature", "bug", "docs", "chore"];
 
 // Get default values function
 function getDefaults() {
@@ -39,10 +38,6 @@ function getDefaults() {
 // Validation functions
 export function isValidStatusCode(code: string): boolean {
 	return VALID_STATUS_CODES.includes(code);
-}
-
-export function isValidTypeCode(code: string): boolean {
-	return VALID_TYPE_CODES.includes(code);
 }
 
 // Type guards
@@ -77,9 +72,15 @@ export function createTaskUpdateRequest(
 	updates: Partial<Task>,
 	existingTask: Task,
 ): TaskUpdateRequest {
+	// Get the type ID from either the updates or existing task
+	const typeId = updates.type_id || existingTask.type_id;
+
+	// Remove type from updates to avoid sending it
+	const { type: _, ...updatesWithoutType } = updates;
+
 	return {
-		...updates,
-		type: updates.type?.code || existingTask.type?.code || "feature",
+		...updatesWithoutType,
+		type_id: typeId,
 		status_id: updates.status_id,
 		priority_id: updates.priority_id,
 		dependencies:

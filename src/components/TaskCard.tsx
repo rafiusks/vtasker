@@ -6,10 +6,27 @@ import {
 	getTaskType,
 	TASK_PRIORITY,
 	TASK_TYPE,
+	type TaskPriorityEntity,
+	type TaskTypeEntity,
 } from "../types/typeReference";
 
 interface TaskCardProps {
-	task: Task;
+	task: Task & {
+		priority?: {
+			id: number;
+			name: string;
+			display_order: number;
+		};
+		type?: {
+			id: number;
+			code: string;
+			name: string;
+			description?: string;
+			display_order: number;
+			created_at: string;
+			updated_at: string;
+		};
+	};
 	index: number;
 	onDrop: (taskId: string, index: number) => void;
 	onEdit: (taskId: string) => void;
@@ -43,20 +60,13 @@ export const TaskCard: FC<TaskCardProps> = ({
 		onDelete(task.id);
 	};
 
-	// Convert numeric IDs to string codes
-	const priorityCode =
-		task.priority_id === 1 ? "low" : task.priority_id === 2 ? "normal" : "high";
-	const typeCode =
-		task.type_id === 1
-			? "feature"
-			: task.type_id === 2
-				? "bug"
-				: task.type_id === 3
-					? "docs"
-					: "chore";
-
-	const priority = getTaskPriority(priorityCode);
-	const type = getTaskType(typeCode);
+	// Get priority and type information
+	const priorityName =
+		task.priority?.name ||
+		getTaskPriority(Number(task.priority_id))?.name ||
+		"Normal";
+	const typeName =
+		task.type?.name || getTaskType(Number(task.type_id))?.name || "Feature";
 
 	return (
 		<div
@@ -75,10 +85,10 @@ export const TaskCard: FC<TaskCardProps> = ({
 					</p>
 					<div className="mt-2 flex items-center gap-2">
 						<span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
-							{priority?.name}
+							{priorityName}
 						</span>
 						<span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800">
-							{type?.name}
+							{typeName}
 						</span>
 					</div>
 				</div>

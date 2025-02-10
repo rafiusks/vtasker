@@ -11,13 +11,21 @@ import type {
 	AcceptanceCriterion,
 	RawTask,
 } from "../types";
-import type { TaskPriorityId, TaskTypeId } from "../types/typeReference";
+import {
+	TASK_STATUS,
+	TASK_PRIORITY,
+	TASK_TYPE,
+	type TaskStatusId,
+	type TaskPriorityId,
+	type TaskTypeId,
+	type TaskPriorityEntity,
+	type TaskTypeEntity,
+} from "../types/typeReference";
 import { TaskRelationships as TaskRelationshipsEditor } from "./TaskRelationships";
 import { TaskMetadata as TaskMetadataEditor } from "./TaskMetadata";
 import { AcceptanceCriteria } from "./AcceptanceCriteria";
 import { toast } from "react-hot-toast";
 import { taskAPI } from "../api/client";
-import { TASK_STATUS, TASK_PRIORITY, TASK_TYPE } from "../types/typeReference";
 import { Input } from "./Input";
 import { TextArea } from "./TextArea";
 import { Button } from "./Button";
@@ -32,14 +40,6 @@ import {
 	ensureValidTypeId,
 	createTaskUpdateRequest,
 } from "../utils/typeConverters";
-
-import type {
-	TaskStatusId,
-	TaskPriority,
-	TaskType,
-	TaskPriorityEntity,
-	TaskTypeEntity,
-} from "../types/typeReference";
 
 const API_BASE_URL = "http://localhost:8000/api";
 
@@ -92,7 +92,7 @@ const defaultContent: TaskContent = {
 	implementation_details: "",
 	notes: "",
 	attachments: [],
-	due_date: "",
+	due_date: undefined,
 	assignee: "",
 };
 
@@ -131,7 +131,7 @@ const getInitialFormData = (
 			implementation_details: "",
 			notes: "",
 			attachments: [],
-			due_date: "",
+			due_date: undefined,
 			assignee: "",
 		},
 		relationships: task?.relationships ?? {
@@ -139,12 +139,12 @@ const getInitialFormData = (
 			dependencies: [],
 			labels: [],
 		},
-		metadata: task?.metadata ?? {
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-			board: undefined,
-			column: undefined,
-		},
+		metadata: task?.metadata
+			? {
+					board: task.metadata.board,
+					column: task.metadata.column,
+				}
+			: undefined,
 	};
 };
 
@@ -204,18 +204,19 @@ export const TaskForm: FC<TaskFormProps> = ({
 				taskAPI.listTaskTypes(),
 			]);
 
-			const priorityOpts = priorities.map((priority) => ({
-				value: String(priority.id),
-				label: priority.name || priority.code,
-			}));
+			setPriorityOptions(
+				priorities.map((priority) => ({
+					value: String(priority.id),
+					label: priority.name,
+				})),
+			);
 
-			const typeOpts = types.map((t) => ({
-				value: String(t.id),
-				label: t.name,
-			}));
-
-			setPriorityOptions(priorityOpts);
-			setTypeOptions(typeOpts);
+			setTypeOptions(
+				types.map((type) => ({
+					value: String(type.id),
+					label: type.name,
+				})),
+			);
 		} catch (error) {
 			console.error("Failed to load options:", error);
 			toast.error("Failed to load form options");
@@ -251,8 +252,9 @@ export const TaskForm: FC<TaskFormProps> = ({
 
 		try {
 			setIsLoading(true);
+			const { metadata, ...formDataWithoutMetadata } = formData;
 			const updatedTask: Partial<RawTask> = {
-				...formData,
+				...formDataWithoutMetadata,
 				status_id: Number(formData.status_id),
 				priority_id: Number(formData.priority_id),
 				type_id: Number(formData.type_id),
@@ -270,11 +272,6 @@ export const TaskForm: FC<TaskFormProps> = ({
 					parent: formData.relationships?.parent || undefined,
 					dependencies: formData.relationships?.dependencies || [],
 					labels: formData.relationships?.labels || [],
-				},
-				metadata: {
-					...formData.metadata,
-					board: formData.metadata?.board || undefined,
-					column: formData.metadata?.column || undefined,
 				},
 			};
 
@@ -318,9 +315,9 @@ export const TaskForm: FC<TaskFormProps> = ({
 		setFormData({
 			title: task.title,
 			description: task.description,
-			status_id: (task.status_id || defaultStatus.id) as TaskStatusId,
-			priority_id: (task.priority_id || defaultPriority.id) as TaskPriorityId,
-			type_id: (task.type_id || defaultType.id) as TaskTypeId,
+			status_id: String(task.status_id || defaultStatus.id),
+			priority_id: String(task.priority_id || defaultPriority.id),
+			type_id: String(task.type_id || defaultType.id),
 			order: task.order || 0,
 			content: {
 				...defaultContent,

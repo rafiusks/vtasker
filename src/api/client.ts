@@ -22,7 +22,7 @@ export interface TaskUpdateRequest {
 	description?: string;
 	status_id?: number;
 	priority_id?: number;
-	type: string;
+	type_id: number;
 	labels?: string[];
 	dependencies?: string[];
 	content?: {

@@ -61,7 +61,7 @@ export interface BaseTask {
 	order: number;
 	content: TaskContent;
 	relationships: TaskRelationships;
-	metadata: TaskMetadata;
+	metadata?: TaskMetadata;
 	progress: TaskProgress;
 }
 
@@ -232,5 +232,8 @@ export interface TaskFormData {
 	order: number;
 	content: TaskContent;
 	relationships: TaskRelationships;
-	metadata: TaskMetadata;
+	metadata?: {
+		board?: string;
+		column?: string;
+	};
 }

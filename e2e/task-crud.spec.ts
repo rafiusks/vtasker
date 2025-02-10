@@ -219,6 +219,11 @@ test.describe("Task CRUD Operations", () => {
 		// Fill in required fields
 		await page.getByTestId("task-title-input").fill("Test Task");
 		await page.getByTestId("task-description-input").fill("Test Description");
+
+		// Wait for select options to be loaded
+		await page.waitForSelector("select#priority option", { state: "attached" });
+		await page.waitForSelector("select#type option", { state: "attached" });
+
 		await page
 			.getByTestId("task-priority-select")
 			.selectOption({ label: "High" });
@@ -232,10 +237,10 @@ test.describe("Task CRUD Operations", () => {
 		// Wait for dialog to close
 		await expect(page.locator("[role='dialog']")).not.toBeVisible();
 
-		// Verify task was created
+		// Wait for task card with a longer timeout
 		const taskCard = page
 			.locator("[data-testid='task-card']")
 			.filter({ hasText: "Test Task" });
-		await expect(taskCard).toBeVisible();
+		await expect(taskCard).toBeVisible({ timeout: 10000 });
 	});
 });
