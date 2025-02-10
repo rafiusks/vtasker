@@ -7,6 +7,9 @@ import (
 
 // SetupRoutes configures all the routes for the API
 func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
+	// Add detailed error logging middleware
+	router.Use(DetailedErrorLogger())
+
 	// Create handlers
 	taskHandler := NewTaskHandler(pool)
 
@@ -44,4 +47,4 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 		v1.GET("/task-priorities", taskHandler.ListTaskPriorities)
 		v1.GET("/task-types", taskHandler.ListTaskTypes)
 	}
-} 
+}

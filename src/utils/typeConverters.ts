@@ -1,4 +1,4 @@
-import type { Task, TaskStatus } from "../types";
+import type { Task } from "../types";
 import type { TaskUpdateRequest } from "../api/client";
 import {
 	isTaskStatusId,
@@ -10,31 +10,31 @@ import {
 	type TaskStatusId,
 	type TaskPriorityId,
 	type TaskTypeId,
-	type BacklogStatus,
-	type InProgressStatus,
-	type ReviewStatus,
-	type DoneStatus,
+	type TaskStatusUIType,
 } from "../types/typeReference";
+import { formatTaskTypeForApi } from "./taskTypeHelpers";
 
 // Constants for validation
 const VALID_STATUS_CODES = ["backlog", "in-progress", "review", "done"];
 const VALID_TYPE_CODES = ["feature", "bug", "docs", "chore"];
 
-// Default values
-const DEFAULT_STATUS = getTaskStatus(1);
-const DEFAULT_PRIORITY = getTaskPriority("normal"); // Normal priority
-const DEFAULT_TYPE = getTaskType("feature"); // Feature type
+// Get default values function
+function getDefaults() {
+	const status = getTaskStatus(1); // Backlog
+	const priority = getTaskPriority(2); // Normal priority
+	const type = getTaskType(1); // Feature type
 
-if (!DEFAULT_STATUS || !DEFAULT_PRIORITY || !DEFAULT_TYPE) {
-	throw new Error("Failed to initialize default values");
+	if (!status || !priority || !type) {
+		console.warn("Default values not yet initialized");
+		return null;
+	}
+
+	return {
+		STATUS: status,
+		PRIORITY: priority,
+		TYPE: type,
+	} as const;
 }
-
-// After this point, TypeScript knows these values are defined
-const DEFAULTS = {
-	STATUS: DEFAULT_STATUS,
-	PRIORITY: DEFAULT_PRIORITY,
-	TYPE: DEFAULT_TYPE,
-} as const;
 
 // Validation functions
 export function isValidStatusCode(code: string): boolean {
@@ -78,11 +78,10 @@ export function createTaskUpdateRequest(
 	existingTask: Task,
 ): TaskUpdateRequest {
 	return {
-		title: updates.title,
-		description: updates.description,
+		...updates,
+		type: updates.type?.code || existingTask.type?.code || "feature",
 		status_id: updates.status_id,
 		priority_id: updates.priority_id,
-		type: updates.type?.code,
 		dependencies:
 			updates.relationships?.dependencies ??
 			existingTask.relationships.dependencies,
@@ -104,8 +103,8 @@ export function createTaskUpdateRequest(
 					assignee: updates.content.assignee,
 				}
 			: undefined,
-		labels: updates.relationships?.labels,
-		parent: updates.relationships?.parent,
+		labels: updates.relationships?.labels ?? [],
+		parent: updates.relationships?.parent || undefined,
 	};
 }
 
@@ -182,18 +181,18 @@ export function assertIsTaskArray(value: unknown): asserts value is Task[] {
 
 export function assertIsTaskStatus(
 	value: unknown,
-): asserts value is TaskStatus {
-	if (!value || typeof value !== "string") {
+): asserts value is TaskStatusUIType {
+	if (!value || typeof value !== "object") {
 		throw new Error("Value is not a TaskStatus");
 	}
-	if (!isValidStatusCode(value)) {
+	if (!("code" in value) || !("label" in value) || !("columnId" in value)) {
 		throw new Error("Invalid TaskStatus value");
 	}
 }
 
 export function assertIsTaskStatusArray(
 	value: unknown,
-): asserts value is TaskStatus[] {
+): asserts value is TaskStatusUIType[] {
 	if (!Array.isArray(value)) {
 		throw new Error("Value is not a TaskStatus array");
 	}
@@ -208,14 +207,21 @@ export function assertIsTaskStatusArray(
 }
 
 export function generateMockTask(): Task {
+	const defaults = getDefaults();
+	if (!defaults) {
+		throw new Error(
+			"Cannot generate mock task: default values not initialized",
+		);
+	}
+
+	const now = new Date().toISOString();
 	return {
 		id: "mock-task-id",
-		external_id: "mock-external-id",
 		title: "Mock Task",
 		description: "This is a mock task",
-		status_id: DEFAULTS.STATUS.id,
-		priority_id: DEFAULTS.PRIORITY.id,
-		type_id: DEFAULTS.TYPE.id,
+		status_id: defaults.STATUS.id,
+		priority_id: defaults.PRIORITY.id,
+		type_id: defaults.TYPE.id,
 		order: 1,
 		content: {
 			description: "This is a mock task",
@@ -232,8 +238,8 @@ export function generateMockTask(): Task {
 			labels: [],
 		},
 		metadata: {
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
+			created_at: now,
+			updated_at: now,
 			board: undefined,
 			column: undefined,
 		},
@@ -245,5 +251,7 @@ export function generateMockTask(): Task {
 			percentage: 0,
 		},
 		status_history: [],
+		created_at: now,
+		updated_at: now,
 	};
 }

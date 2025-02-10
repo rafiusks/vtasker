@@ -81,7 +81,7 @@ This will:
 
 2. Access the application:
 - Frontend: http://localhost:3000
-- Backend API: http://localhost:8080
+- Backend API: http://localhost:8000
 - Metrics: http://localhost:9090
 - Logs: http://localhost:3100
 

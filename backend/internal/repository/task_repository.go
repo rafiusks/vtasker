@@ -25,6 +25,11 @@ func NewTaskRepository(pool *pgxpool.Pool) *TaskRepository {
 	return &TaskRepository{pool: pool}
 }
 
+// GetPool returns the database connection pool
+func (r *TaskRepository) GetPool() *pgxpool.Pool {
+	return r.pool
+}
+
 // GetTaskStatus retrieves a task status by ID
 func (r *TaskRepository) GetTaskStatus(ctx context.Context, id string) (*models.TaskStatusEntity, error) {
 	var status models.TaskStatusEntity
@@ -449,7 +454,54 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 }
 
 func (r *TaskRepository) UpdateTask(ctx context.Context, taskID string, task *models.Task) error {
-	result, err := r.pool.Exec(ctx, `
+	// Start a transaction
+	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
+
+	// If type_id is not set, get the default task type
+	if task.TypeID == 0 {
+		defaultType, err := r.GetDefaultTaskType(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to get default task type: %v", err)
+		}
+		task.TypeID = defaultType.ID
+	} else {
+		// Verify type_id exists
+		var typeExists bool
+		err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM task_types WHERE id = $1)", task.TypeID).Scan(&typeExists)
+		if err != nil {
+			return fmt.Errorf("error checking type_id existence: %v", err)
+		}
+		if !typeExists {
+			return fmt.Errorf("type_id %d does not exist in task_types table", task.TypeID)
+		}
+	}
+
+	// Marshal JSON fields
+	taskContent, err := json.Marshal(task.Content)
+	if err != nil {
+		return fmt.Errorf("error marshaling task content: %v", err)
+	}
+
+	relationships, err := json.Marshal(task.Relationships)
+	if err != nil {
+		return fmt.Errorf("error marshaling relationships: %v", err)
+	}
+
+	metadata, err := json.Marshal(task.Metadata)
+	if err != nil {
+		return fmt.Errorf("error marshaling metadata: %v", err)
+	}
+
+	progress, err := json.Marshal(task.Progress)
+	if err != nil {
+		return fmt.Errorf("error marshaling progress: %v", err)
+	}
+
+	result, err := tx.Exec(ctx, `
 		UPDATE tasks
 		SET title = $1,
 			description = $2,
@@ -470,10 +522,10 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, taskID string, task *mo
 		task.PriorityID,
 		task.TypeID,
 		task.Order,
-		task.Content,
-		task.Relationships,
-		task.Metadata,
-		task.Progress,
+		taskContent,
+		relationships,
+		metadata,
+		progress,
 		taskID,
 	)
 	if err != nil {
@@ -579,6 +631,60 @@ func (r *TaskRepository) ListTaskPriorities(ctx context.Context) ([]models.TaskP
 		priorities = append(priorities, priority)
 	}
 	return priorities, nil
+}
+
+// GetDefaultTaskType returns the default task type (lowest display_order)
+func (r *TaskRepository) GetDefaultTaskType(ctx context.Context) (*models.TaskTypeEntity, error) {
+	// First try to get the feature type as default
+	var taskType models.TaskTypeEntity
+	err := r.pool.QueryRow(ctx, `
+		SELECT id, name, code, description, display_order
+		FROM task_types
+		WHERE name = 'feature'
+		LIMIT 1
+	`).Scan(&taskType.ID, &taskType.Name, &taskType.Code, &taskType.Description, &taskType.DisplayOrder)
+	if err == nil {
+		return &taskType, nil
+	}
+
+	// If feature type not found, get the first available type
+	err = r.pool.QueryRow(ctx, `
+		SELECT id, name, code, description, display_order
+		FROM task_types
+		ORDER BY display_order ASC
+		LIMIT 1
+	`).Scan(&taskType.ID, &taskType.Name, &taskType.Code, &taskType.Description, &taskType.DisplayOrder)
+	if err != nil {
+		// If no task types exist, create default types
+		if err := r.initializeDefaultTaskTypes(ctx); err != nil {
+			return nil, fmt.Errorf("failed to initialize default task types: %w", err)
+		}
+		// Try one more time to get the default type
+		err = r.pool.QueryRow(ctx, `
+			SELECT id, name, code, description, display_order
+			FROM task_types
+			WHERE name = 'feature'
+			LIMIT 1
+		`).Scan(&taskType.ID, &taskType.Name, &taskType.Code, &taskType.Description, &taskType.DisplayOrder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get default task type after initialization: %w", err)
+		}
+	}
+	return &taskType, nil
+}
+
+// initializeDefaultTaskTypes creates the default task types if they don't exist
+func (r *TaskRepository) initializeDefaultTaskTypes(ctx context.Context) error {
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO task_types (name, code, description, display_order)
+		VALUES 
+		('feature', 'feature', 'New feature or enhancement', 0),
+		('bug', 'bug', 'Bug fix or issue resolution', 1),
+		('docs', 'docs', 'Documentation update', 2),
+		('chore', 'chore', 'Maintenance or cleanup task', 3)
+		ON CONFLICT (name) DO NOTHING
+	`)
+	return err
 }
 
 // ListTaskTypes returns a list of all task types

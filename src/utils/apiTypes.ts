@@ -1,43 +1,48 @@
 import type {
 	Task,
-	TaskStatus,
-	TaskPriority,
-	TaskTypeCode,
-	TaskTypeEntity,
 	TaskContent,
 	TaskRelationships,
 	TaskMetadata,
 	TaskProgress,
 	StatusChange,
 } from "../types";
-import { TASK_STATUS, type TaskStatusId } from "../types/typeReference";
+import { TASK_STATUS, type TaskStatusUIType } from "../types/typeReference";
+
+// API Types
+export interface APITaskStatus {
+	id: number;
+	code: string;
+	name: string;
+	display_order: number;
+}
+
+export interface APITaskPriority {
+	id: number;
+	name: string;
+	display_order: number;
+}
+
+export interface APITaskType {
+	id: number;
+	code: string;
+	name: string;
+	description?: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
 
 // API Response Types
 export interface APITask {
 	id: string;
 	title: string;
 	description: string;
-	status_id: TaskStatusId;
-	status?: {
-		id: TaskStatusId;
-		code: string;
-		name: string;
-		description?: string;
-		display_order: number;
-		created_at: string;
-		updated_at: string;
-	};
+	status_id: number;
+	status?: APITaskStatus;
 	priority_id: number;
+	priority?: APITaskPriority;
 	type_id: number;
-	type?: {
-		id: number;
-		code: string;
-		name: string;
-		description?: string;
-		display_order: number;
-		created_at: string;
-		updated_at: string;
-	};
+	type?: APITaskType;
 	order: number;
 	content: TaskContent;
 	relationships: TaskRelationships;
@@ -49,93 +54,39 @@ export interface APITask {
 }
 
 // Constants and Types
-const STATUS_CODES = ["backlog", "in-progress", "review", "done"] as const;
+const STATUS_CODES = ["backlog", "in-progress", "done"] as const;
 type ValidStatusCode = (typeof STATUS_CODES)[number];
+
+const TYPE_CODES = ["feature", "bug", "docs", "chore"] as const;
+type ValidTypeCode = (typeof TYPE_CODES)[number];
 
 // Type Guards
 export function isTaskStatusCode(code: string): code is ValidStatusCode {
 	return STATUS_CODES.includes(code as ValidStatusCode);
 }
 
-export function isTaskPriority(value: number): boolean {
-	return [1, 2, 3].includes(value);
-}
-
-export function isTaskTypeCode(code: string): boolean {
-	return ["feature", "bug", "docs", "chore"].includes(code);
+export function isTaskTypeCode(code: string): code is ValidTypeCode {
+	return TYPE_CODES.includes(code as ValidTypeCode);
 }
 
 // Helper Functions
-function getStatusFromTaskStatusId(
-	id: TaskStatusId,
-): (typeof TASK_STATUS)[keyof typeof TASK_STATUS] {
-	switch (id) {
-		case 1:
-			return TASK_STATUS.BACKLOG;
-		case 2:
-			return TASK_STATUS.IN_PROGRESS;
-		case 3:
-			return TASK_STATUS.REVIEW;
-		case 4:
-			return TASK_STATUS.DONE;
-		default:
-			return TASK_STATUS.BACKLOG;
-	}
-}
-
-function convertToTaskStatus(apiStatus: {
-	id: TaskStatusId;
-	code: string;
-	name: string;
-	description?: string;
-	display_order: number;
-	created_at: string;
-	updated_at: string;
-}): (typeof TASK_STATUS)[keyof typeof TASK_STATUS] {
-	return getStatusFromTaskStatusId(apiStatus.id);
-}
-
-function convertToTaskTypeEntity(apiType: {
-	id: number;
-	code: string;
-	name: string;
-	description?: string;
-	display_order: number;
-	created_at: string;
-	updated_at: string;
-}): TaskTypeEntity {
-	const validCode = isTaskTypeCode(apiType.code) ? apiType.code : "feature";
-	return {
-		id: apiType.id,
-		code: validCode as TaskTypeCode,
-		name: apiType.name,
-		description: apiType.description,
-		display_order: apiType.display_order,
-		created_at: apiType.created_at,
-		updated_at: apiType.updated_at,
-	} as unknown as TaskTypeEntity;
+function getStatusFromId(id: number): TaskStatusUIType | undefined {
+	const status = Object.values(TASK_STATUS).find((s) => s.id === id);
+	return status;
 }
 
 // Conversion Functions
 export function convertAPITaskToTask(apiTask: APITask): Task {
-	const priority = isTaskPriority(apiTask.priority_id)
-		? apiTask.priority_id
-		: 2;
-
-	const status = apiTask.status
-		? convertToTaskStatus(apiTask.status)
-		: undefined;
-	const type = apiTask.type ? convertToTaskTypeEntity(apiTask.type) : undefined;
-
 	return {
 		id: apiTask.id,
 		title: apiTask.title,
 		description: apiTask.description,
 		status_id: apiTask.status_id,
-		status,
-		priority_id: priority as unknown as TaskPriority,
+		status: apiTask.status,
+		priority_id: apiTask.priority_id,
+		priority: apiTask.priority,
 		type_id: apiTask.type_id,
-		type,
+		type: apiTask.type,
 		order: apiTask.order,
 		content: apiTask.content,
 		relationships: apiTask.relationships,
@@ -144,7 +95,7 @@ export function convertAPITaskToTask(apiTask: APITask): Task {
 		status_history: apiTask.status_history,
 		created_at: apiTask.created_at,
 		updated_at: apiTask.updated_at,
-	} as unknown as Task;
+	};
 }
 
 export function ensureTaskArray(tasks: unknown): Task[] {
@@ -159,9 +110,7 @@ export function ensureTaskArray(tasks: unknown): Task[] {
 	});
 }
 
-export function ensureTaskStatusArray(
-	statuses: unknown,
-): (typeof TASK_STATUS)[keyof typeof TASK_STATUS][] {
+export function ensureTaskStatusArray(statuses: unknown): TaskStatusUIType[] {
 	if (!Array.isArray(statuses)) {
 		return [];
 	}
@@ -169,16 +118,11 @@ export function ensureTaskStatusArray(
 		if (typeof status !== "object" || !status) {
 			throw new Error("Invalid status data");
 		}
-		const apiStatus = status as {
-			id: TaskStatusId;
-			code: string;
-			name: string;
-			display_order: number;
-			created_at: string;
-			updated_at: string;
-			description?: string;
-		};
-
-		return getStatusFromTaskStatusId(apiStatus.id);
+		const apiStatus = status as APITaskStatus;
+		const uiStatus = getStatusFromId(apiStatus.id);
+		if (!uiStatus) {
+			throw new Error(`Invalid status ID: ${apiStatus.id}`);
+		}
+		return uiStatus;
 	});
 }

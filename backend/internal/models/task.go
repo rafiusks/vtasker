@@ -149,3 +149,12 @@ type TaskStatus struct {
 	Name         string    `json:"name"`
 	DisplayOrder int32       `json:"display_order"`
 }
+
+// TaskMoveRequest represents a request to move a task
+type TaskMoveRequest struct {
+	StatusID         int    `json:"status_id" binding:"required"`
+	Order           int    `json:"order" binding:"required"`
+	PreviousStatusID int    `json:"previous_status_id"`
+	Comment         string `json:"comment,omitempty"`
+	Type            string `json:"type" binding:"required,oneof=feature bug chore"`
+}

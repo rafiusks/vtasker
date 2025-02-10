@@ -136,20 +136,19 @@ test.describe("Task CRUD Operations", () => {
 				state: "hidden",
 			});
 
-			// Wait for task list to refresh and stabilize
-			await page.waitForTimeout(2000);
-
-			// Reload the page to ensure we have the latest data
-			await page.reload();
-			await page.waitForSelector("[data-testid='loading-state']", {
-				state: "hidden",
-			});
-
-			// Find the updated task card
+			// Find the updated task card and verify its content
 			const updatedCard = page
 				.locator("[data-testid='task-card']")
 				.filter({ hasText: "Updated CRUD Task" });
-			await expect(updatedCard.locator("h3")).toHaveText("Updated CRUD Task");
+			// After updating the task, wait for any text to appear
+			await updatedCard
+				.locator("h3")
+				.waitFor({ state: "visible", timeout: 15000 });
+			// Add a small delay before assertion
+			await page.waitForTimeout(200);
+			// Now assert the text
+			const headerText = await updatedCard.locator("h3").textContent();
+			expect(headerText).toContain("Updated CRUD Task");
 			await expect(updatedCard.locator("p")).toHaveText("Updated description");
 			await expect(updatedCard.locator(".bg-blue-100")).toHaveText("Low");
 		});

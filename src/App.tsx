@@ -11,10 +11,10 @@ import {
 	SELECT_OPTIONS,
 	STATUS_MAP,
 	isTaskStatusId,
-	createTaskStatusId,
-	createTaskPriorityId,
 	type TaskStatusId,
-	type TaskStatus,
+	type TaskStatusUIType,
+	initializeTaskStatuses,
+	updateStatusMap,
 } from "./types/typeReference";
 import { StatusNotification } from "./components/StatusNotification";
 import { toast } from "react-hot-toast";
@@ -47,7 +47,7 @@ interface FilterState {
 interface NotificationState {
 	show: boolean;
 	taskTitle?: string;
-	status?: TaskStatus;
+	status?: TaskStatusUIType;
 }
 
 // ============================================================================
@@ -90,14 +90,31 @@ export function App() {
 	const [notification, setNotification] = useState<NotificationState>({
 		show: false,
 	});
+	const [statusesLoaded, setStatusesLoaded] = useState(false);
 
 	// ============================================================================
 	// Effects
 	// ============================================================================
 
-	// Fetch tasks on mount
+	// Load task statuses and tasks
 	useEffect(() => {
-		loadTasks();
+		async function initialize() {
+			try {
+				// First load statuses
+				const statuses = await taskAPI.listStatuses();
+				await initializeTaskStatuses(statuses);
+				updateStatusMap();
+				setStatusesLoaded(true);
+
+				// Then load tasks
+				await loadTasks();
+			} catch (error) {
+				console.error("Failed to initialize:", error);
+				setError("Failed to load task statuses");
+			}
+		}
+
+		initialize();
 	}, []);
 
 	// Load filters from URL on mount
@@ -199,10 +216,10 @@ export function App() {
 			.filter((task) => {
 				// Status filter
 				if (filters.status.length) {
-					const statusId = isTaskStatusId(task.status_id)
-						? task.status_id
-						: createTaskStatusId(task.status_id);
-					if (!statusId || !filters.status.includes(String(statusId))) {
+					if (
+						!task.status_id ||
+						!filters.status.includes(String(task.status_id))
+					) {
 						return false;
 					}
 				}
@@ -304,11 +321,9 @@ export function App() {
 			const moveRequest: TaskMoveRequest = {
 				status_id: newStatusId,
 				order: newOrder,
-				previous_status_id: isTaskStatusId(taskToUpdate.status_id)
-					? taskToUpdate.status_id
-					: createTaskStatusId(taskToUpdate.status_id),
-				comment: `Task moved to ${targetStatus.name}`,
-				type: taskToUpdate.type?.code,
+				previous_status_id: taskToUpdate.status_id,
+				comment: `Task moved to ${targetStatus.label}`,
+				type: taskToUpdate.type?.code || "feature",
 			};
 
 			const updatedTask = await taskAPI.moveTask(taskId, moveRequest);
@@ -374,16 +389,20 @@ export function App() {
 			const updateRequest = createTaskUpdateRequest(updates, existingTask);
 			const updatedTask = await taskAPI.updateTask(taskId, updateRequest);
 
-			// Update the tasks list with the new task
-			setTasks((prevTasks) => {
-				const index = prevTasks.findIndex((t) => t.id === taskId);
-				if (index === -1) return prevTasks;
-				const newTasks = [...prevTasks];
-				newTasks[index] = updatedTask;
-				return newTasks;
+			// Update the tasks list with the new task and wait for the state to be updated
+			await new Promise<void>((resolve) => {
+				setTasks((prevTasks) => {
+					const index = prevTasks.findIndex((t) => t.id === taskId);
+					if (index === -1) return prevTasks;
+					const newTasks = [...prevTasks];
+					newTasks[index] = updatedTask;
+					return newTasks;
+				});
+				// Give React a chance to update the state
+				setTimeout(resolve, 0);
 			});
 
-			// Close the form
+			// Close the form after state is updated
 			setIsTaskFormOpen(false);
 			toast.success("Task updated successfully");
 		} catch (err) {
@@ -516,6 +535,17 @@ export function App() {
 				<div className="text-center" data-testid="error-state">
 					<div className="text-red-500 mb-4">⚠️</div>
 					<p className="text-gray-600">{error}</p>
+				</div>
+			</div>
+		);
+	}
+
+	if (!statusesLoaded) {
+		return (
+			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
+				<div className="flex flex-col items-center space-y-4">
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+					<div className="text-gray-500">Loading task statuses...</div>
 				</div>
 			</div>
 		);
@@ -682,7 +712,7 @@ export function App() {
 									}
 
 									// Otherwise, try to convert it
-									const taskStatusId = createTaskStatusId(task.status_id);
+									const taskStatusId = task.status_id;
 									return taskStatusId === status.id;
 								});
 

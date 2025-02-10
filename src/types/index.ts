@@ -6,19 +6,21 @@ import type {
 	TaskStatusId,
 	TaskPriorityId,
 	TaskTypeId,
-	TaskStatus,
-	TaskPriority,
-	TaskType,
+	TaskStatusEntity,
+	TaskStatusUIType,
+	TaskPriorityEntity,
+	TaskTypeEntity,
 } from "./typeReference";
 
-// Re-export the type aliases we need
+// Re-export types from typeReference
 export type {
 	TaskStatusId,
 	TaskPriorityId,
 	TaskTypeId,
-	TaskStatus,
-	TaskPriority,
-	TaskType,
+	TaskStatusEntity,
+	TaskStatusUIType,
+	TaskPriorityEntity,
+	TaskTypeEntity,
 };
 
 export interface TaskContent {
@@ -77,9 +79,9 @@ export interface ValidatedTask extends BaseTask {
 	type_id: TaskTypeId;
 
 	// Optional references to full entities
-	status?: TaskStatus;
-	priority?: TaskPriority;
-	type?: TaskType;
+	status?: TaskStatusEntity;
+	priority?: TaskPriorityEntity;
+	type?: TaskTypeEntity;
 }
 
 // Task type used in the application
@@ -87,12 +89,29 @@ export interface Task {
 	id: string;
 	title: string;
 	description: string;
-	status_id: string;
-	status?: TaskStatus;
-	priority_id: string;
-	priority?: TaskPriority;
-	type_id: string;
-	type?: TaskType;
+	status_id: number;
+	status?: {
+		id: number;
+		code: string;
+		name: string;
+		display_order: number;
+	};
+	priority_id: number;
+	priority?: {
+		id: number;
+		name: string;
+		display_order: number;
+	};
+	type_id: number;
+	type?: {
+		id: number;
+		code: string;
+		name: string;
+		description?: string;
+		display_order: number;
+		created_at: string;
+		updated_at: string;
+	};
 	order: number;
 	content?: TaskContent;
 	relationships: TaskRelationships;
@@ -118,10 +137,20 @@ export interface AcceptanceCriterion {
 
 export interface StatusChange {
 	task_id: string;
-	from_status_id: TaskStatusId;
-	to_status_id: TaskStatusId;
-	from_status?: TaskStatus;
-	to_status?: TaskStatus;
+	from_status_id: number;
+	to_status_id: number;
+	from_status?: {
+		id: number;
+		code: string;
+		name: string;
+		display_order: number;
+	};
+	to_status?: {
+		id: number;
+		code: string;
+		name: string;
+		display_order: number;
+	};
 	comment?: string;
 	timestamp: string;
 	changed_at: string;

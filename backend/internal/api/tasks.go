@@ -1,9 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"strconv"
@@ -111,18 +113,49 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 
 // UpdateTask updates an existing task
 func (h *TaskHandler) UpdateTask(c *gin.Context) {
-	var task models.Task
-	if err := c.ShouldBindJSON(&task); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
+    var task models.Task
+    if err := c.ShouldBindJSON(&task); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
 
-	if err := h.repo.UpdateTask(c.Request.Context(), c.Param("id"), &task); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
+    // Set default type_id if not provided
+    if task.TypeID == 0 {
+        // Query for the default task type (e.g., feature type)
+        var defaultTypeID int32
+        err := h.repo.GetPool().QueryRow(c.Request.Context(), 
+            "SELECT id FROM task_types WHERE name = $1", 
+            "feature").Scan(&defaultTypeID)
+        if err != nil {
+            log.Printf("Error getting default task type: %v", err)
+            // Create default task type if it doesn't exist
+            err = h.repo.GetPool().QueryRow(c.Request.Context(),
+                "INSERT INTO task_types (name, description) VALUES ($1, $2) RETURNING id",
+                "feature", "A new feature or enhancement").Scan(&defaultTypeID)
+            if err != nil {
+                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create default task type"})
+                return
+            }
+        }
+        task.TypeID = defaultTypeID
+    } else {
+        // Validate if the provided type_id exists
+        var exists bool
+        err := h.repo.GetPool().QueryRow(c.Request.Context(), 
+            "SELECT EXISTS(SELECT 1 FROM task_types WHERE id = $1)", 
+            task.TypeID).Scan(&exists)
+        if err != nil || !exists {
+            c.JSON(http.StatusBadRequest, gin.H{"error": "invalid type_id"})
+            return
+        }
+    }
 
-	c.JSON(http.StatusOK, task)
+    if err := h.repo.UpdateTask(c.Request.Context(), c.Param("id"), &task); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, task)
 }
 
 // MoveTask updates a task's status and order
@@ -130,16 +163,40 @@ func (h *TaskHandler) MoveTask(c *gin.Context) {
 	// Add request logging
 	log.Printf("MoveTask request: %s %s", c.Request.Method, c.Request.URL)
 	
+	// Read and log raw request body
+	body, err := c.GetRawData()
+	if err != nil {
+		log.Printf("Error reading request body: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+		return
+	}
+	log.Printf("Raw request body: %s", string(body))
+	
+	// Restore the request body for binding
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+	
+	// Use a simple struct for request binding
 	var req struct {
-		StatusID         int    `json:"status_id" binding:"required"`
-		Order           int    `json:"order" binding:"required,min=0"`
+		StatusID         int    `json:"status_id"`
+		Order           int    `json:"order"`
 		PreviousStatusID int    `json:"previous_status_id"`
-		Type            string `json:"type" binding:"required,oneof=feature bug chore"`
+		Comment         string `json:"comment"`
+		Type            string `json:"type"`
 	}
 	
-	if err := c.ShouldBindJSON(&req); err != nil {
-		log.Printf("Validation error: %v", err)
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request: " + err.Error()})
+	if err := json.NewDecoder(c.Request.Body).Decode(&req); err != nil {
+		log.Printf("JSON decode error: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid JSON: " + err.Error()})
+		return
+	}
+
+	// Validate required fields
+	if req.StatusID == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "status_id is required"})
+		return
+	}
+	if req.Type == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "type is required"})
 		return
 	}
 
@@ -228,13 +285,55 @@ func (h *TaskHandler) MoveTask(c *gin.Context) {
 	log.Printf("Updated %d rows in target column", res.RowsAffected())
 
 	// 4. Update task with logging
+	// First get the type ID
+	var typeID int32
+	err = tx.QueryRow(ctx, "SELECT id FROM task_types WHERE code = $1", req.Type).Scan(&typeID)
+	if err != nil {
+		log.Printf("Error getting type ID for code %s: %v", req.Type, err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid task type",
+			"details": gin.H{
+				"type": req.Type,
+				"error": err.Error(),
+			},
+		})
+		return
+	}
+	log.Printf("Found type ID %d for code %s", typeID, req.Type)
+
+	// Verify the status ID exists
+	var statusExists bool
+	err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM task_statuses WHERE id = $1)", req.StatusID).Scan(&statusExists)
+	if err != nil {
+		log.Printf("Error checking status ID %d: %v", req.StatusID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to verify status",
+			"details": gin.H{
+				"status_id": req.StatusID,
+				"error": err.Error(),
+			},
+		})
+		return
+	}
+	if !statusExists {
+		log.Printf("Invalid status ID: %d", req.StatusID)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid status ID",
+			"details": gin.H{
+				"status_id": req.StatusID,
+			},
+		})
+		return
+	}
+	log.Printf("Verified status ID %d exists", req.StatusID)
+
 	updateQuery := `UPDATE tasks 
 					SET status_id = $1, "order" = $2, type_id = $3, updated_at = NOW() 
 					WHERE id = $4`
-	log.Printf("Updating task %s to status %d, order %d, type %s", 
-		taskID, req.StatusID, req.Order, req.Type)
+	log.Printf("Executing update query: %s with params: status_id=%d, order=%d, type_id=%d, id=%s", 
+		updateQuery, req.StatusID, req.Order, typeID, taskID)
 	
-	res, err = tx.Exec(ctx, updateQuery, req.StatusID, req.Order, req.Type, taskID)
+	res, err = tx.Exec(ctx, updateQuery, req.StatusID, req.Order, typeID, taskID)
 	if err != nil {
 		log.Printf("Task update error: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -243,7 +342,8 @@ func (h *TaskHandler) MoveTask(c *gin.Context) {
 				"task_id": taskID,
 				"status_id": req.StatusID,
 				"order": req.Order,
-				"type": req.Type,
+				"type_id": typeID,
+				"error": err.Error(),
 			},
 		})
 		return
@@ -255,7 +355,7 @@ func (h *TaskHandler) MoveTask(c *gin.Context) {
 				"task_id": taskID,
 				"status_id": req.StatusID,
 				"order": req.Order,
-				"type": req.Type,
+				"type_id": typeID,
 			},
 		})
 		return
@@ -381,4 +481,4 @@ func (h *TaskHandler) logTaskAudit(ctx context.Context, event string, taskID str
 			log.Printf("Failed to write audit log: %v", err)
 		}
 	}()
-} 
+}

@@ -20,62 +20,43 @@ type Branded<T, B> = T & Brand<B>;
 // Core Type Definitions
 // ============================================================================
 
-// Status ID Brands
-type BacklogStatusBrand = { readonly type: "BACKLOG_STATUS" };
-type InProgressStatusBrand = { readonly type: "IN_PROGRESS_STATUS" };
-type ReviewStatusBrand = { readonly type: "REVIEW_STATUS" };
-type DoneStatusBrand = { readonly type: "DONE_STATUS" };
+// Simple numeric IDs
+export type TaskStatusId = number;
+export type TaskPriorityId = number;
+export type TaskTypeId = number;
 
-// Priority ID Brands
-type LowPriorityBrand = { readonly type: "LOW_PRIORITY" };
-type NormalPriorityBrand = { readonly type: "NORMAL_PRIORITY" };
-type HighPriorityBrand = { readonly type: "HIGH_PRIORITY" };
-
-// Type ID Brands
-type FeatureTypeBrand = { readonly type: "FEATURE_TYPE" };
-type BugTypeBrand = { readonly type: "BUG_TYPE" };
-type DocsTypeBrand = { readonly type: "DOCS_TYPE" };
-type ChoreTypeBrand = { readonly type: "CHORE_TYPE" };
-
-// Branded IDs
-export type BacklogStatusId = Branded<number, BacklogStatusBrand>;
-export type InProgressStatusId = Branded<number, InProgressStatusBrand>;
-export type ReviewStatusId = Branded<number, ReviewStatusBrand>;
-export type DoneStatusId = Branded<number, DoneStatusBrand>;
-
-export type LowPriorityId = Branded<string, LowPriorityBrand>;
-export type NormalPriorityId = Branded<string, NormalPriorityBrand>;
-export type HighPriorityId = Branded<string, HighPriorityBrand>;
-
-export type FeatureTypeId = Branded<string, FeatureTypeBrand>;
-export type BugTypeId = Branded<string, BugTypeBrand>;
-export type DocsTypeId = Branded<string, DocsTypeBrand>;
-export type ChoreTypeId = Branded<string, ChoreTypeBrand>;
-
-// Union Types
-export type TaskStatusId =
-	| BacklogStatusId
-	| InProgressStatusId
-	| ReviewStatusId
-	| DoneStatusId;
-export type TaskPriorityId = LowPriorityId | NormalPriorityId | HighPriorityId;
-export type TaskTypeId = FeatureTypeId | BugTypeId | DocsTypeId | ChoreTypeId;
-
-// Base Interfaces
-interface BaseEntity<T> {
-	readonly id: T;
-	readonly code: string;
-	readonly label: string;
-}
-
-interface BaseTaskStatus<T extends TaskStatusId> extends BaseEntity<T> {
-	readonly columnId: string;
-}
-
-// Status Interfaces
-export interface TaskStatus {
-	id: string;
+// API Types
+export interface TaskStatusEntity {
+	id: number;
 	code: string;
+	name: string;
+	description?: string;
+	color: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
+
+// UI Types
+export interface TaskStatusUI {
+	id: number;
+	label: string;
+	columnId: string;
+}
+
+export type TaskStatusUIType = TaskStatusUI;
+
+// Priority Interfaces
+export interface TaskPriorityEntity {
+	id: number;
+	name: string;
+	display_order: number;
+}
+
+// Type Interfaces
+export interface TaskTypeEntity {
+	id: number;
+	code: "feature" | "bug" | "docs" | "chore";
 	name: string;
 	description?: string;
 	display_order: number;
@@ -83,98 +64,68 @@ export interface TaskStatus {
 	updated_at: string;
 }
 
-// Priority Interfaces
-export interface TaskPriorityEntity {
-	readonly id: TaskPriorityId;
-	readonly code: "low" | "normal" | "high";
-	readonly name: string;
-	readonly description?: string;
-	readonly display_order: number;
-	readonly created_at: string;
-	readonly updated_at: string;
-}
-
-// Type Interfaces
-export interface TaskTypeEntity {
-	readonly id: TaskTypeId;
-	readonly code: "feature" | "bug" | "docs" | "chore";
-	readonly name: string;
-	readonly description?: string;
-	readonly display_order: number;
-	readonly created_at: string;
-	readonly updated_at: string;
-}
-
-// Union Types
-export type TaskStatus =
-	| BacklogStatus
-	| InProgressStatus
-	| ReviewStatus
-	| DoneStatus;
-export type TaskPriority = TaskPriorityEntity;
-export type TaskType = TaskTypeEntity;
-
-// ============================================================================
 // Constants
-// ============================================================================
+export const TASK_STATUS: Record<string, TaskStatusUI> = {};
 
-export const TASK_STATUS = {
-	BACKLOG: {
-		id: 1 as BacklogStatusId,
-		code: "backlog",
-		label: "Backlog",
-		columnId: "backlog-column",
-	} as BacklogStatus,
-	IN_PROGRESS: {
-		id: 2 as InProgressStatusId,
-		code: "in-progress",
-		label: "In Progress",
-		columnId: "in-progress-column",
-	} as InProgressStatus,
-	REVIEW: {
-		id: 3 as ReviewStatusId,
-		code: "review",
-		label: "Review",
-		columnId: "review-column",
-	} as ReviewStatus,
-	DONE: {
-		id: 4 as DoneStatusId,
-		code: "done",
-		label: "Done",
-		columnId: "done-column",
-	} as DoneStatus,
-} as const;
+// This function will be used to initialize the task statuses
+export async function initializeTaskStatuses(statuses: TaskStatusEntity[]) {
+	// Clear existing statuses
+	for (const key of Object.keys(TASK_STATUS)) {
+		delete TASK_STATUS[key];
+	}
+
+	// Add new statuses
+	for (const status of statuses) {
+		const key = status.name.toUpperCase().replace(/\s+/g, "_");
+		TASK_STATUS[key] = {
+			id: status.id,
+			label: status.name,
+			columnId: `${status.id}-column`,
+		};
+	}
+}
+
+// Maps will be initialized after loading statuses
+export const STATUS_MAP = new Map<number, TaskStatusUI>();
+
+export function updateStatusMap() {
+	STATUS_MAP.clear();
+	for (const status of Object.values(TASK_STATUS)) {
+		STATUS_MAP.set(status.id, status);
+	}
+}
+
+// Type guard for status IDs
+export function isTaskStatusId(value: unknown): value is number {
+	return typeof value === "number" && STATUS_MAP.has(value);
+}
+
+// Get status by ID
+export function getTaskStatus(id: number): TaskStatusUI | undefined {
+	return STATUS_MAP.get(id);
+}
 
 export const TASK_PRIORITY = {
 	LOW: {
-		id: "low" as LowPriorityId,
-		code: "low",
+		id: 1,
 		name: "Low",
 		display_order: 1,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
 	} as TaskPriorityEntity,
 	NORMAL: {
-		id: "normal" as NormalPriorityId,
-		code: "normal",
+		id: 2,
 		name: "Normal",
 		display_order: 2,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
 	} as TaskPriorityEntity,
 	HIGH: {
-		id: "high" as HighPriorityId,
-		code: "high",
+		id: 3,
 		name: "High",
 		display_order: 3,
-		created_at: new Date().toISOString(),
-		updated_at: new Date().toISOString(),
 	} as TaskPriorityEntity,
 } as const;
 
 export const TASK_TYPE = {
 	FEATURE: {
-		id: "feature" as FeatureTypeId,
+		id: 1,
 		code: "feature",
 		name: "Feature",
 		display_order: 1,
@@ -182,7 +133,7 @@ export const TASK_TYPE = {
 		updated_at: new Date().toISOString(),
 	} as TaskTypeEntity,
 	BUG: {
-		id: "bug" as BugTypeId,
+		id: 2,
 		code: "bug",
 		name: "Bug",
 		display_order: 2,
@@ -190,7 +141,7 @@ export const TASK_TYPE = {
 		updated_at: new Date().toISOString(),
 	} as TaskTypeEntity,
 	DOCS: {
-		id: "docs" as DocsTypeId,
+		id: 3,
 		code: "docs",
 		name: "Documentation",
 		display_order: 3,
@@ -198,7 +149,7 @@ export const TASK_TYPE = {
 		updated_at: new Date().toISOString(),
 	} as TaskTypeEntity,
 	CHORE: {
-		id: "chore" as ChoreTypeId,
+		id: 4,
 		code: "chore",
 		name: "Chore",
 		display_order: 4,
@@ -211,33 +162,30 @@ export const TASK_TYPE = {
 // Type Guards
 // ============================================================================
 
-export function isTaskStatusId(value: unknown): value is TaskStatusId {
+export function isTaskPriorityId(value: unknown): value is number {
+	return typeof value === "number" && [1, 2, 3].includes(value);
+}
+
+export function isTaskTypeId(value: unknown): value is number {
 	return typeof value === "number" && [1, 2, 3, 4].includes(value);
 }
 
-export function isTaskPriorityId(value: unknown): value is TaskPriorityId {
-	return typeof value === "string" && ["low", "normal", "high"].includes(value);
+export function isTaskTypeCode(
+	code: string,
+): code is "feature" | "bug" | "docs" | "chore" {
+	return ["feature", "bug", "docs", "chore"].includes(code);
 }
 
-export function isTaskTypeId(value: unknown): value is TaskTypeId {
-	return (
-		typeof value === "string" &&
-		["feature", "bug", "docs", "chore"].includes(value)
-	);
-}
-
-export function isTaskStatus(value: unknown): value is TaskStatus {
+export function isTaskStatusUI(value: unknown): value is TaskStatusUIType {
 	if (!value || typeof value !== "object") return false;
-	const status = value as Partial<TaskStatus>;
+	const status = value as Partial<TaskStatusUI>;
 	return (
 		isTaskStatusId(status.id) &&
-		typeof status.code === "string" &&
 		typeof status.label === "string" &&
 		typeof status.columnId === "string" &&
 		Object.values(TASK_STATUS).some(
 			(s) =>
 				s.id === status.id &&
-				s.code === status.code &&
 				s.label === status.label &&
 				s.columnId === status.columnId,
 		)
@@ -248,149 +196,44 @@ export function isTaskStatus(value: unknown): value is TaskStatus {
 // Lookup Maps
 // ============================================================================
 
-export const STATUS_MAP = new Map(
-	Object.values(TASK_STATUS).map((status) => [status.id, status]),
-) as ReadonlyMap<TaskStatusId, TaskStatus>;
-
 export const PRIORITY_MAP = new Map(
 	Object.values(TASK_PRIORITY).map((priority) => [priority.id, priority]),
-) as ReadonlyMap<TaskPriorityId, TaskPriority>;
+) as ReadonlyMap<number, TaskPriorityEntity>;
 
 export const TYPE_MAP = new Map(
 	Object.values(TASK_TYPE).map((type) => [type.id, type]),
-) as ReadonlyMap<TaskTypeId, TaskType>;
+) as ReadonlyMap<number, TaskTypeEntity>;
 
 // ============================================================================
 // Conversion Utilities
 // ============================================================================
 
-export function getTaskStatus(id: number): TaskStatus | undefined {
+export function getTaskPriority(id: number): TaskPriorityEntity | undefined {
 	switch (id) {
 		case 1:
-			return {
-				id: id as BacklogStatusId,
-				code: "backlog",
-				label: "Backlog",
-				columnId: "backlog-column",
-			};
+			return TASK_PRIORITY.LOW;
 		case 2:
-			return {
-				id: id as InProgressStatusId,
-				code: "in-progress",
-				label: "In Progress",
-				columnId: "in-progress-column",
-			};
+			return TASK_PRIORITY.NORMAL;
 		case 3:
-			return {
-				id: id as ReviewStatusId,
-				code: "review",
-				label: "Review",
-				columnId: "review-column",
-			};
+			return TASK_PRIORITY.HIGH;
+		default:
+			return undefined;
+	}
+}
+
+export function getTaskType(id: number): TaskTypeEntity | undefined {
+	switch (id) {
+		case 1:
+			return TASK_TYPE.FEATURE;
+		case 2:
+			return TASK_TYPE.BUG;
+		case 3:
+			return TASK_TYPE.DOCS;
 		case 4:
-			return {
-				id: id as DoneStatusId,
-				code: "done",
-				label: "Done",
-				columnId: "done-column",
-			};
+			return TASK_TYPE.CHORE;
 		default:
 			return undefined;
 	}
-}
-
-export function getTaskPriority(id: string): TaskPriorityEntity | undefined {
-	switch (id) {
-		case "low":
-			return {
-				id: id as LowPriorityId,
-				code: "low",
-				name: "Low",
-				display_order: 1,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			};
-		case "normal":
-			return {
-				id: id as NormalPriorityId,
-				code: "normal",
-				name: "Normal",
-				display_order: 2,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			};
-		case "high":
-			return {
-				id: id as HighPriorityId,
-				code: "high",
-				name: "High",
-				display_order: 3,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			};
-		default:
-			return undefined;
-	}
-}
-
-export function getTaskType(id: string): TaskTypeEntity | undefined {
-	switch (id) {
-		case "feature":
-			return {
-				id: id as FeatureTypeId,
-				code: "feature",
-				name: "Feature",
-				display_order: 1,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			};
-		case "bug":
-			return {
-				id: id as BugTypeId,
-				code: "bug",
-				name: "Bug",
-				display_order: 2,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			};
-		case "docs":
-			return {
-				id: id as DocsTypeId,
-				code: "docs",
-				name: "Documentation",
-				display_order: 3,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			};
-		case "chore":
-			return {
-				id: id as ChoreTypeId,
-				code: "chore",
-				name: "Chore",
-				display_order: 4,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			};
-		default:
-			return undefined;
-	}
-}
-
-export function createTaskStatusId(value: number): TaskStatusId | undefined {
-	if (!isTaskStatusId(value)) return undefined;
-	return value as TaskStatusId;
-}
-
-export function createTaskPriorityId(
-	value: string,
-): TaskPriorityId | undefined {
-	if (!isTaskPriorityId(value)) return undefined;
-	return value as TaskPriorityId;
-}
-
-export function createTaskTypeId(value: string): TaskTypeId | undefined {
-	if (!isTaskTypeId(value)) return undefined;
-	return value as TaskTypeId;
 }
 
 // ============================================================================
@@ -398,10 +241,12 @@ export function createTaskTypeId(value: string): TaskTypeId | undefined {
 // ============================================================================
 
 export const SELECT_OPTIONS = {
-	STATUS: Object.values(TASK_STATUS).map((s) => ({
-		value: String(s.id),
-		label: s.label,
-	})),
+	get STATUS() {
+		return Object.values(TASK_STATUS).map((s) => ({
+			value: String(s.id),
+			label: s.label,
+		}));
+	},
 	PRIORITY: Object.values(TASK_PRIORITY).map((p) => ({
 		value: String(p.id),
 		label: p.name,
@@ -417,7 +262,13 @@ export const SELECT_OPTIONS = {
 // ============================================================================
 
 export const DEFAULT_VALUES = {
-	STATUS: TASK_STATUS.BACKLOG,
+	get STATUS() {
+		const firstStatus = Object.values(TASK_STATUS)[0];
+		if (!firstStatus) {
+			throw new Error("No task statuses available");
+		}
+		return firstStatus;
+	},
 	PRIORITY: TASK_PRIORITY.NORMAL,
 	TYPE: TASK_TYPE.FEATURE,
 } as const;

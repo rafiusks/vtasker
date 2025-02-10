@@ -274,7 +274,7 @@ spec:
       - name: manager
         image: vtasker/manager:latest
         ports:
-        - containerPort: 8080
+        - containerPort: 8000
         env:
         - name: PROMETHEUS_URL
           value: http://prometheus:9090
@@ -363,7 +363,7 @@ services:
     volumes:
       - ./backend:/app/backend
     ports:
-      - "8080:8080"
+      - "8000:8000"
 
   frontend:
     build:

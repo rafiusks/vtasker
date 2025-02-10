@@ -1,9 +1,10 @@
-import type { Task, Board, TaskStatus, TaskTypeEntity } from "../types";
+import type { Task, Board } from "../types";
 import { convertAPITaskToTask, type APITask } from "../utils/apiTypes";
 import type {
 	TaskStatusId,
-	TaskType,
-	TaskPriority,
+	TaskStatusEntity,
+	TaskTypeEntity,
+	TaskPriorityEntity,
 } from "../types/typeReference";
 
 const API_BASE = "http://localhost:8000/api";
@@ -13,7 +14,7 @@ export interface TaskMoveRequest {
 	order: number;
 	comment?: string;
 	previous_status_id?: TaskStatusId;
-	type?: string;
+	type: string;
 }
 
 export interface TaskUpdateRequest {
@@ -21,7 +22,7 @@ export interface TaskUpdateRequest {
 	description?: string;
 	status_id?: number;
 	priority_id?: number;
-	type?: string;
+	type: string;
 	labels?: string[];
 	dependencies?: string[];
 	content?: {
@@ -119,54 +120,9 @@ class TaskAPI {
 	}
 
 	async createTask(task: Partial<Task>): Promise<Task> {
-		// First, get the list of statuses to get a valid status ID
-		const statuses = await this.listStatuses();
-		if (!statuses || statuses.length === 0) {
-			throw new Error("No task statuses available");
-		}
-
-		// Get the first status (usually "To Do")
-		const defaultStatus = statuses[0];
-		if (!defaultStatus || !defaultStatus.id) {
-			throw new Error("Invalid status configuration");
-		}
-
 		return this.request<Task>("/tasks", {
 			method: "POST",
-			body: JSON.stringify({
-				...task,
-				status_id: task.status_id || defaultStatus.id,
-				priority_id: Number(task.priority_id || 1),
-				type_id: Number(task.type_id || 1),
-				content: {
-					...task.content,
-					description: task.content?.description || task.description,
-					acceptance_criteria: task.content?.acceptance_criteria || [],
-					implementation_details: task.content?.implementation_details || null,
-					notes: task.content?.notes || null,
-					attachments: task.content?.attachments || [],
-					due_date: task.content?.due_date || null,
-					assignee: task.content?.assignee || null,
-				},
-				relationships: {
-					parent: task.relationships?.parent || null,
-					dependencies: task.relationships?.dependencies || [],
-					labels: task.relationships?.labels || [],
-				},
-				metadata: {
-					created_at: task.metadata?.created_at || new Date().toISOString(),
-					updated_at: task.metadata?.updated_at || new Date().toISOString(),
-					board: task.metadata?.board || null,
-					column: task.metadata?.column || null,
-				},
-				progress: {
-					acceptance_criteria: {
-						total: task.progress?.acceptance_criteria?.total || 0,
-						completed: task.progress?.acceptance_criteria?.completed || 0,
-					},
-					percentage: task.progress?.percentage || 0,
-				},
-			}),
+			body: JSON.stringify(task),
 		});
 	}
 
@@ -177,20 +133,10 @@ class TaskAPI {
 		});
 	}
 
-	async moveTask(id: string, move: TaskMoveRequest): Promise<Task> {
-		return this.request<Task>(`/tasks/${id}`, {
+	async moveTask(taskId: string, request: TaskMoveRequest): Promise<Task> {
+		return this.request<Task>(`/tasks/${taskId}/move`, {
 			method: "PUT",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				status_id: move.status_id,
-				order: move.order,
-				comment: move.comment,
-				previous_status_id: move.previous_status_id,
-				type: move.type,
-				_moveOperation: true,
-			}),
+			body: JSON.stringify(request),
 		});
 	}
 
@@ -200,60 +146,16 @@ class TaskAPI {
 		});
 	}
 
-	async listStatuses(): Promise<TaskStatus[]> {
-		return this.request<TaskStatus[]>("/task-statuses");
+	async listStatuses(): Promise<TaskStatusEntity[]> {
+		return this.request<TaskStatusEntity[]>("/task-statuses");
 	}
 
 	async listTaskTypes(): Promise<TaskTypeEntity[]> {
-		// Since the API endpoint is not available, we'll use default values
-		const defaultTypes: TaskTypeEntity[] = [
-			{
-				id: 1,
-				code: "feature",
-				name: "Feature",
-				description: "New feature or enhancement",
-				display_order: 1,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			},
-			{
-				id: 2,
-				code: "bug",
-				name: "Bug",
-				description: "Bug fix",
-				display_order: 2,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			},
-			{
-				id: 3,
-				code: "docs",
-				name: "Documentation",
-				description: "Documentation update",
-				display_order: 3,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			},
-			{
-				id: 4,
-				code: "chore",
-				name: "Chore",
-				description: "Maintenance task",
-				display_order: 4,
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			},
-		];
-
-		return defaultTypes;
+		return this.request<TaskTypeEntity[]>("/task-types");
 	}
 
-	async listPriorities(): Promise<TaskPriority[]> {
-		return this.request<TaskPriority[]>("/task-priorities");
-	}
-
-	async listTypes(): Promise<TaskType[]> {
-		return this.request<TaskType[]>("/task-types");
+	async listPriorities(): Promise<TaskPriorityEntity[]> {
+		return this.request<TaskPriorityEntity[]>("/task-priorities");
 	}
 }
 
