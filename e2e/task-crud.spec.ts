@@ -17,6 +17,13 @@ test.describe("Task CRUD Operations", () => {
 		});
 	});
 
+	test.afterEach(async ({ page }) => {
+		// Verify we end with 0 tasks (same as we started)
+		await expect(page.locator("[data-testid='task-card']")).toHaveCount(0, {
+			timeout: 10000,
+		});
+	});
+
 	test("should perform full CRUD operations on a task", async ({ page }) => {
 		// CREATE: Create a new task with acceptance criteria
 		await test.step("Create task", async () => {
@@ -100,9 +107,6 @@ test.describe("Task CRUD Operations", () => {
 
 			// Wait for dialog and form to be ready
 			await page.waitForSelector("[role='dialog']", { state: "visible" });
-			await page.waitForSelector("[data-testid='loading-state']", {
-				state: "hidden",
-			});
 			await page.waitForSelector("[data-testid='task-title-input']", {
 				state: "visible",
 			});
@@ -130,25 +134,17 @@ test.describe("Task CRUD Operations", () => {
 			// Save changes
 			await page.getByRole("button", { name: "Save" }).click();
 
-			// Wait for dialog to close and loading to finish
+			// Wait for dialog to close
 			await page.waitForSelector("[role='dialog']", { state: "hidden" });
-			await page.waitForSelector("[data-testid='loading-state']", {
-				state: "hidden",
-			});
 
-			// Find the updated task card and verify its content
+			// Wait for the updated task card to appear with the new title
 			const updatedCard = page
 				.locator("[data-testid='task-card']")
 				.filter({ hasText: "Updated CRUD Task" });
-			// After updating the task, wait for any text to appear
-			await updatedCard
-				.locator("h3")
-				.waitFor({ state: "visible", timeout: 15000 });
-			// Add a small delay before assertion
-			await page.waitForTimeout(200);
-			// Now assert the text
-			const headerText = await updatedCard.locator("h3").textContent();
-			expect(headerText).toContain("Updated CRUD Task");
+
+			// Wait for the updated task to be visible and verify its content
+			await expect(updatedCard).toBeVisible({ timeout: 15000 });
+			await expect(updatedCard.locator("h3")).toHaveText("Updated CRUD Task");
 			await expect(updatedCard.locator("p")).toHaveText("Updated description");
 			await expect(updatedCard.locator(".bg-blue-100")).toHaveText("Low");
 		});
@@ -161,10 +157,41 @@ test.describe("Task CRUD Operations", () => {
 				.filter({ hasText: "Updated CRUD Task" });
 			await taskCard.getByRole("button", { name: "Delete" }).click();
 
-			// Wait for task to be removed
-			await expect(taskCard).not.toBeVisible({ timeout: 10000 });
+			// Wait for success toast
+			await expect(page.getByText("Task deleted successfully")).toBeVisible();
 
-			// Verify empty state
+			// Wait for the task to be removed
+			await expect(page.getByText("Updated CRUD Task")).not.toBeVisible({
+				timeout: 10000,
+			});
+
+			// Clear any active filters
+			const clearFiltersButton = page.getByText("Clear Filters");
+			if (await clearFiltersButton.isVisible()) {
+				await clearFiltersButton.click();
+			}
+
+			// Wait for any loading states to complete
+			await expect(
+				page.locator("[data-testid='loading-state']"),
+			).not.toBeVisible({
+				timeout: 10000,
+			});
+
+			// Wait for the task grid to be visible
+			await expect(page.locator("[data-testid='task-list'].grid")).toBeVisible({
+				timeout: 10000,
+			});
+
+			// Wait for the task list to be empty
+			await expect(page.locator("[data-testid='task-card']")).toHaveCount(0, {
+				timeout: 10000,
+			});
+
+			// Wait for the empty state to appear and verify message
+			await expect(page.locator("[data-testid='empty-state']")).toBeVisible({
+				timeout: 10000,
+			});
 			await expect(page.getByText("No tasks found")).toBeVisible();
 		});
 	});
@@ -242,5 +269,10 @@ test.describe("Task CRUD Operations", () => {
 			.locator("[data-testid='task-card']")
 			.filter({ hasText: "Test Task" });
 		await expect(taskCard).toBeVisible({ timeout: 10000 });
+
+		// Clean up: Delete the task we created
+		await taskCard.getByRole("button", { name: "Delete" }).click();
+		await expect(page.getByText("Task deleted successfully")).toBeVisible();
+		await expect(taskCard).not.toBeVisible({ timeout: 10000 });
 	});
 });

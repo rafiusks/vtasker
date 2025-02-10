@@ -33,6 +33,7 @@ interface TaskCardProps {
 	onDelete: (taskId: string) => void;
 	onTaskClick: (task: Task) => void;
 	allTasks: Task[];
+	isLoading?: boolean;
 }
 
 export const TaskCard: FC<TaskCardProps> = ({
@@ -43,6 +44,7 @@ export const TaskCard: FC<TaskCardProps> = ({
 	onDelete,
 	onTaskClick,
 	allTasks,
+	isLoading = false,
 }) => {
 	const [{ isDragging }, drag] = useDrag({
 		type: "task",
@@ -73,9 +75,10 @@ export const TaskCard: FC<TaskCardProps> = ({
 			ref={drag}
 			className={`bg-white rounded-lg shadow p-4 ${
 				isDragging ? "opacity-50" : ""
-			}`}
+			} ${isLoading ? "animate-pulse" : ""}`}
 			style={{ cursor: "move" }}
 			data-testid="task-card"
+			data-loading={isLoading}
 		>
 			<div className="flex items-start justify-between">
 				<div className="flex-1">
@@ -97,6 +100,7 @@ export const TaskCard: FC<TaskCardProps> = ({
 						type="button"
 						onClick={handleEdit}
 						className="text-gray-400 hover:text-gray-500"
+						disabled={isLoading}
 					>
 						<span className="sr-only">Edit task</span>
 						<svg
@@ -113,6 +117,7 @@ export const TaskCard: FC<TaskCardProps> = ({
 						type="button"
 						onClick={handleDelete}
 						className="ml-2 text-gray-400 hover:text-gray-500"
+						disabled={isLoading}
 					>
 						<span className="sr-only">Delete</span>
 						<svg

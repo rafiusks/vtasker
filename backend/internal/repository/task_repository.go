@@ -78,6 +78,8 @@ func (r *TaskRepository) CreateTaskStatus(ctx context.Context, status *models.Ta
 
 // GetTaskWithStatus retrieves a task with its status information
 func (r *TaskRepository) GetTaskWithStatus(ctx context.Context, taskID string) (*models.Task, error) {
+	log.Printf("Getting task with status for ID: %s", taskID)
+	
 	query := `
 		SELECT 
 			t.id,
@@ -86,21 +88,32 @@ func (r *TaskRepository) GetTaskWithStatus(ctx context.Context, taskID string) (
 			t.status_id,
 			t.priority_id,
 			t.type_id,
-			t.order,
+			t."order",
+			t.task_content,
+			t.relationships,
+			t.metadata,
+			t.progress,
 			t.created_at,
 			t.updated_at,
-			ts.id AS status_id,
 			ts.name AS status_name,
-			ts."order" AS status_order
+			ts."order" AS status_order,
+			tp.name AS priority_name,
+			tp.display_order AS priority_order,
+			tt.name AS type_name,
+			tt.code AS type_code,
+			tt.display_order AS type_order
 		FROM tasks t
-		JOIN task_statuses ts ON t.status_id = ts.id
+		LEFT JOIN task_statuses ts ON t.status_id = ts.id
+		LEFT JOIN task_priorities tp ON t.priority_id = tp.id
+		LEFT JOIN task_types tt ON t.type_id = tt.id
 		WHERE t.id = $1`
 
 	var task models.Task
-	var statusID int32
-	var statusName string
-	var statusOrder int32
+	var taskContent, relationships, metadata, progress []byte
+	var statusName, priorityName, typeName, typeCode sql.NullString
+	var statusOrder, priorityOrder, typeOrder sql.NullInt32
 
+	log.Printf("Executing query: %s", query)
 	err := r.pool.QueryRow(ctx, query, taskID).Scan(
 		&task.ID,
 		&task.Title,
@@ -109,22 +122,84 @@ func (r *TaskRepository) GetTaskWithStatus(ctx context.Context, taskID string) (
 		&task.PriorityID,
 		&task.TypeID,
 		&task.Order,
+		&taskContent,
+		&relationships,
+		&metadata,
+		&progress,
 		&task.CreatedAt,
 		&task.UpdatedAt,
-		&statusID,
 		&statusName,
 		&statusOrder,
+		&priorityName,
+		&priorityOrder,
+		&typeName,
+		&typeCode,
+		&typeOrder,
 	)
+
 	if err != nil {
+		if err == pgx.ErrNoRows {
+			log.Printf("Task not found with ID: %s", taskID)
+			return nil, nil
+		}
+		log.Printf("Error querying task: %v", err)
 		return nil, fmt.Errorf("error getting task with status: %v", err)
 	}
 
-	task.Status = &models.TaskStatusEntity{
-		ID:           statusID,
-		Name:         statusName,
-		DisplayOrder: statusOrder,
+	// Parse JSON fields
+	log.Printf("Parsing JSON fields")
+	if len(taskContent) > 0 {
+		if err := json.Unmarshal(taskContent, &task.Content); err != nil {
+			log.Printf("Error unmarshaling task content: %v", err)
+			return nil, fmt.Errorf("error unmarshaling task content: %v", err)
+		}
+	}
+	if len(relationships) > 0 {
+		if err := json.Unmarshal(relationships, &task.Relationships); err != nil {
+			log.Printf("Error unmarshaling relationships: %v", err)
+			return nil, fmt.Errorf("error unmarshaling relationships: %v", err)
+		}
+	}
+	if len(metadata) > 0 {
+		if err := json.Unmarshal(metadata, &task.Metadata); err != nil {
+			log.Printf("Error unmarshaling metadata: %v", err)
+			return nil, fmt.Errorf("error unmarshaling metadata: %v", err)
+		}
+	}
+	if len(progress) > 0 {
+		if err := json.Unmarshal(progress, &task.Progress); err != nil {
+			log.Printf("Error unmarshaling progress: %v", err)
+			return nil, fmt.Errorf("error unmarshaling progress: %v", err)
+		}
 	}
 
+	// Set related entities
+	if statusName.Valid && statusOrder.Valid {
+		task.Status = &models.TaskStatusEntity{
+			ID:           task.StatusID,
+			Name:         statusName.String,
+			DisplayOrder: int32(statusOrder.Int32),
+		}
+	}
+	if priorityName.Valid && priorityOrder.Valid {
+		task.Priority = &models.TaskPriorityEntity{
+			ID:           task.PriorityID,
+			Name:         priorityName.String,
+			DisplayOrder: int32(priorityOrder.Int32),
+		}
+	}
+	if typeName.Valid && typeOrder.Valid && typeCode.Valid {
+		task.Type = &models.TaskTypeEntity{
+			ID:           task.TypeID,
+			Name:         typeName.String,
+			Code:         typeCode.String,
+			DisplayOrder: int32(typeOrder.Int32),
+			CreatedAt:    task.CreatedAt,
+			UpdatedAt:    task.UpdatedAt,
+		}
+	}
+
+	log.Printf("Successfully retrieved task with status: %+v", task)
 	return &task, nil
 }
 
@@ -454,53 +529,68 @@ func (r *TaskRepository) CreateTask(ctx context.Context, task *models.Task) erro
 }
 
 func (r *TaskRepository) UpdateTask(ctx context.Context, taskID string, task *models.Task) error {
+	log.Printf("Starting UpdateTask for taskID: %s", taskID)
+	
 	// Start a transaction
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
+		log.Printf("Error starting transaction: %v", err)
 		return fmt.Errorf("error starting transaction: %v", err)
 	}
 	defer tx.Rollback(ctx)
 
 	// If type_id is not set, get the default task type
 	if task.TypeID == 0 {
+		log.Printf("No type_id provided, getting default type")
 		defaultType, err := r.GetDefaultTaskType(ctx)
 		if err != nil {
+			log.Printf("Error getting default task type: %v", err)
 			return fmt.Errorf("failed to get default task type: %v", err)
 		}
 		task.TypeID = defaultType.ID
+		log.Printf("Set default type_id to: %d", task.TypeID)
 	} else {
 		// Verify type_id exists
 		var typeExists bool
 		err = tx.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM task_types WHERE id = $1)", task.TypeID).Scan(&typeExists)
 		if err != nil {
+			log.Printf("Error checking type_id existence: %v", err)
 			return fmt.Errorf("error checking type_id existence: %v", err)
 		}
 		if !typeExists {
+			log.Printf("Invalid type_id: %d", task.TypeID)
 			return fmt.Errorf("type_id %d does not exist in task_types table", task.TypeID)
 		}
+		log.Printf("Verified type_id %d exists", task.TypeID)
 	}
 
 	// Marshal JSON fields
+	log.Printf("Marshaling JSON fields")
 	taskContent, err := json.Marshal(task.Content)
 	if err != nil {
+		log.Printf("Error marshaling task content: %v", err)
 		return fmt.Errorf("error marshaling task content: %v", err)
 	}
 
 	relationships, err := json.Marshal(task.Relationships)
 	if err != nil {
+		log.Printf("Error marshaling relationships: %v", err)
 		return fmt.Errorf("error marshaling relationships: %v", err)
 	}
 
 	metadata, err := json.Marshal(task.Metadata)
 	if err != nil {
+		log.Printf("Error marshaling metadata: %v", err)
 		return fmt.Errorf("error marshaling metadata: %v", err)
 	}
 
 	progress, err := json.Marshal(task.Progress)
 	if err != nil {
+		log.Printf("Error marshaling progress: %v", err)
 		return fmt.Errorf("error marshaling progress: %v", err)
 	}
 
+	log.Printf("Executing update query for taskID: %s", taskID)
 	result, err := tx.Exec(ctx, `
 		UPDATE tasks
 		SET title = $1,
@@ -529,12 +619,22 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, taskID string, task *mo
 		taskID,
 	)
 	if err != nil {
+		log.Printf("Error executing update query: %v", err)
 		return fmt.Errorf("error updating task: %v", err)
 	}
 
 	if result.RowsAffected() == 0 {
+		log.Printf("No rows affected for taskID: %s", taskID)
 		return fmt.Errorf("task not found: %s", taskID)
 	}
+	log.Printf("Updated %d rows for taskID: %s", result.RowsAffected(), taskID)
+
+	// Commit the transaction
+	if err = tx.Commit(ctx); err != nil {
+		log.Printf("Error committing transaction: %v", err)
+		return fmt.Errorf("error committing transaction: %v", err)
+	}
+	log.Printf("Successfully committed transaction for taskID: %s", taskID)
 
 	return nil
 }

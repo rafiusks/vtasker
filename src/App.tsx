@@ -28,6 +28,8 @@ import {
 	createTaskUpdateRequest,
 } from "./utils/typeConverters";
 import { ensureTaskArray } from "./utils/apiTypes";
+import { useTaskQueries } from "./hooks/useTaskQueries";
+import { Toaster } from "react-hot-toast";
 
 // ============================================================================
 // Types
@@ -77,12 +79,21 @@ const sortOrderOptions: Option[] = [
 // ============================================================================
 
 export function App() {
-	// ============================================================================
-	// State
-	// ============================================================================
-	const [tasks, setTasks] = useState<Task[]>([]);
-	const [error, setError] = useState<string | null>(null);
-	const [loading, setLoading] = useState(true);
+	// Use task queries hook
+	const {
+		tasks,
+		isLoading,
+		error,
+		createTask,
+		updateTask,
+		deleteTask,
+		moveTask,
+		isUpdating,
+		isDeleting,
+		isMoving,
+	} = useTaskQueries();
+
+	// Local state
 	const [filtersLoading, setFiltersLoading] = useState(true);
 	const [filters, setFilters] = useState<FilterState>(defaultFilters);
 	const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
@@ -91,26 +102,20 @@ export function App() {
 		show: false,
 	});
 	const [statusesLoaded, setStatusesLoaded] = useState(false);
+	const [updatingTaskId, setUpdatingTaskId] = useState<string>();
 
-	// ============================================================================
-	// Effects
-	// ============================================================================
-
-	// Load task statuses and tasks
+	// Load task statuses and initialize filters
 	useEffect(() => {
 		async function initialize() {
 			try {
-				// First load statuses
 				const statuses = await taskAPI.listStatuses();
 				await initializeTaskStatuses(statuses);
 				updateStatusMap();
 				setStatusesLoaded(true);
-
-				// Then load tasks
-				await loadTasks();
-			} catch (error) {
-				console.error("Failed to initialize:", error);
-				setError("Failed to load task statuses");
+				setFiltersLoading(false);
+			} catch (err) {
+				console.error("Failed to initialize:", err);
+				toast.error("Failed to load task statuses");
 			}
 		}
 
@@ -186,28 +191,6 @@ export function App() {
 	}, [filters, filtersLoading]);
 
 	// ============================================================================
-	// Data Loading
-	// ============================================================================
-
-	const loadTasks = useCallback(async () => {
-		console.log("Loading tasks...");
-		setLoading(true);
-		try {
-			// Add a small delay to ensure the loading state is visible
-			await new Promise((resolve) => setTimeout(resolve, 100));
-			const loadedTasks = await taskAPI.listTasks();
-			console.log("Loaded tasks:", loadedTasks);
-			setTasks(loadedTasks);
-			setError(null);
-		} catch (error) {
-			console.error("Error loading tasks:", error);
-			setError("Failed to load tasks. Please try again later.");
-		} finally {
-			setLoading(false);
-		}
-	}, []);
-
-	// ============================================================================
 	// Task Filtering and Sorting
 	// ============================================================================
 
@@ -267,197 +250,6 @@ export function App() {
 	// Task Operations
 	// ============================================================================
 
-	const handleTaskMove = async (
-		taskId: string,
-		newStatusId: TaskStatusId,
-		newIndex?: number,
-	) => {
-		const originalTasks = [...tasks];
-
-		try {
-			const taskToUpdate = tasks.find((t) => t.id === taskId);
-			if (!taskToUpdate) throw new Error("Task not found");
-
-			// Get target status
-			const targetStatus = STATUS_MAP.get(newStatusId);
-			if (!targetStatus) throw new Error("Invalid status ID");
-
-			// Calculate new order
-			const tasksInTargetColumn = tasks.filter(
-				(t) => isTaskStatusId(t.status_id) && t.status_id === newStatusId,
-			);
-			const newOrder =
-				typeof newIndex === "number" ? newIndex : tasksInTargetColumn.length;
-
-			// Create optimistic task version for UI
-			const optimisticTask: Task = {
-				...taskToUpdate,
-				status_id: newStatusId,
-				order: newOrder,
-			};
-
-			// Immediately update UI state
-			setTasks((prev) => {
-				const filtered = prev.filter((t) => t.id !== taskId);
-				const insertIndex = filtered.findIndex(
-					(t) => t.status_id === newStatusId && t.order >= newOrder,
-				);
-
-				const newTasks = [
-					...filtered.slice(0, insertIndex),
-					optimisticTask,
-					...filtered.slice(insertIndex),
-				];
-
-				// Recalculate orders for target column
-				return newTasks.map((t) =>
-					t.status_id === newStatusId
-						? { ...t, order: newTasks.indexOf(t) }
-						: t,
-				);
-			});
-
-			// Send move request to server
-			const moveRequest: TaskMoveRequest = {
-				status_id: newStatusId,
-				order: newOrder,
-				previous_status_id: taskToUpdate.status_id,
-				comment: `Task moved to ${targetStatus.label}`,
-				type: taskToUpdate.type?.code || "feature",
-			};
-
-			const updatedTask = await taskAPI.moveTask(taskId, moveRequest);
-
-			// Only update if server returns valid response
-			if (updatedTask?.id) {
-				setTasks((prev) =>
-					prev.map((t) => (t.id === taskId ? updatedTask : t)),
-				);
-
-				// Show notification
-				setNotification({
-					show: true,
-					taskTitle: updatedTask.title,
-					status: targetStatus,
-				});
-			}
-		} catch (err) {
-			console.error("Move failed:", err);
-			setTasks(originalTasks);
-			toast.error("Failed to move task. Changes reverted.");
-		}
-	};
-
-	const handleCreateTask = async (task: Partial<RawTask>) => {
-		try {
-			setLoading(true);
-			const { metadata, ...taskWithoutMetadata } = task;
-			const newTask = await taskAPI.createTask({
-				...taskWithoutMetadata,
-				order: tasks.length,
-				content: {
-					description: task.content?.description || "",
-					acceptance_criteria: task.content?.acceptance_criteria || [],
-					implementation_details: task.content?.implementation_details,
-					notes: task.content?.notes,
-					attachments: task.content?.attachments || [],
-					due_date: task.content?.due_date,
-					assignee: task.content?.assignee,
-				},
-				relationships: {
-					parent: task.relationships?.parent || undefined,
-					dependencies: task.relationships?.dependencies || [],
-					labels: task.relationships?.labels || [],
-				},
-			});
-			setTasks((prev) => [...prev, newTask]);
-			setIsTaskFormOpen(false);
-			toast.success("Task created successfully");
-			return newTask;
-		} catch (err) {
-			console.error("Failed to create task:", err);
-			toast.error(err instanceof Error ? err.message : "Failed to create task");
-			throw err;
-		} finally {
-			setLoading(false);
-		}
-	};
-
-	const handleEditTask = async (taskId: string, updates: Partial<Task>) => {
-		if (!taskId) return;
-
-		try {
-			const existingTask = tasks.find((t) => t.id === taskId);
-			if (!existingTask) {
-				throw new Error("Task not found");
-			}
-
-			const updateRequest = createTaskUpdateRequest(updates, existingTask);
-			const updatedTask = await taskAPI.updateTask(taskId, updateRequest);
-
-			// Update the tasks list immediately
-			setTasks((prevTasks) => {
-				const index = prevTasks.findIndex((t) => t.id === taskId);
-				if (index === -1) return prevTasks;
-				const newTasks = [...prevTasks];
-				newTasks[index] = updatedTask;
-				return newTasks;
-			});
-
-			// Close the form
-			// Update the tasks list with the new task and wait for the state to be updated
-			await new Promise<void>((resolve) => {
-				setTasks((prevTasks) => {
-					const index = prevTasks.findIndex((t) => t.id === taskId);
-					if (index === -1) return prevTasks;
-					const newTasks = [...prevTasks];
-					newTasks[index] = updatedTask;
-					return newTasks;
-				});
-				// Give React a chance to update the state
-				setTimeout(resolve, 0);
-			});
-
-			// Close the form after state is updated
-			setIsTaskFormOpen(false);
-			toast.success("Task updated successfully");
-		} catch (err) {
-			console.error("Failed to update task:", err);
-			toast.error(err instanceof Error ? err.message : "Failed to update task");
-		}
-	};
-
-	const handleDeleteTask = async (taskId: string) => {
-		try {
-			// Delete from backend
-			await taskAPI.deleteTask(taskId);
-
-			// Update state and wait for both state and DOM updates
-			await new Promise<void>((resolve) => {
-				setTasks((prev) => {
-					const newTasks = prev.filter((task) => task.id !== taskId);
-					// Use requestAnimationFrame to ensure DOM has been updated
-					requestAnimationFrame(() => {
-						// Add another frame to ensure the browser has painted
-						requestAnimationFrame(() => {
-							resolve();
-						});
-					});
-					return newTasks;
-				});
-			});
-
-			toast.success("Task deleted successfully");
-		} catch (err) {
-			console.error("Failed to delete task:", err);
-			toast.error(err instanceof Error ? err.message : "Failed to delete task");
-		}
-	};
-
-	// ============================================================================
-	// Event Handlers
-	// ============================================================================
-
 	const handleTaskClick = (task: Task) => {
 		setEditingTask(task);
 		setIsTaskFormOpen(true);
@@ -465,7 +257,7 @@ export function App() {
 
 	const handleTaskSubmit = (task: Partial<Task>) => {
 		if (editingTask) {
-			handleEditTask(editingTask.id, task);
+			handleTaskUpdate(editingTask.id, task);
 		} else {
 			// Convert Task to RawTask format
 			const { metadata, ...taskWithoutMetadata } = task;
@@ -496,6 +288,90 @@ export function App() {
 			handleCreateTask(rawTask);
 		}
 	};
+
+	const handleCreateTask = async (task: Partial<RawTask>) => {
+		const { metadata, ...taskWithoutMetadata } = task;
+		await createTask({
+			...taskWithoutMetadata,
+			order: tasks.length,
+			content: {
+				description: task.content?.description || "",
+				acceptance_criteria: task.content?.acceptance_criteria || [],
+				implementation_details: task.content?.implementation_details,
+				notes: task.content?.notes,
+				attachments: task.content?.attachments || [],
+				due_date: task.content?.due_date,
+				assignee: task.content?.assignee,
+			},
+			relationships: {
+				parent: task.relationships?.parent || undefined,
+				dependencies: task.relationships?.dependencies || [],
+				labels: task.relationships?.labels || [],
+			},
+		});
+		setIsTaskFormOpen(false);
+	};
+
+	const handleTaskUpdate = async (taskId: string, updates: Partial<Task>) => {
+		if (!taskId) return;
+		setUpdatingTaskId(taskId);
+		try {
+			await updateTask({ id: taskId, updates });
+			setIsTaskFormOpen(false);
+		} finally {
+			setUpdatingTaskId(undefined);
+		}
+	};
+
+	const handleDeleteTask = async (taskId: string) => {
+		await deleteTask(taskId);
+	};
+
+	const handleTaskMove = async (
+		taskId: string,
+		newStatusId: TaskStatusId,
+		newIndex?: number,
+	) => {
+		try {
+			const taskToUpdate = tasks.find((t) => t.id === taskId);
+			if (!taskToUpdate) throw new Error("Task not found");
+
+			// Get target status
+			const targetStatus = STATUS_MAP.get(newStatusId);
+			if (!targetStatus) throw new Error("Invalid status ID");
+
+			// Calculate new order
+			const tasksInTargetColumn = tasks.filter(
+				(t) => isTaskStatusId(t.status_id) && t.status_id === newStatusId,
+			);
+			const newOrder =
+				typeof newIndex === "number" ? newIndex : tasksInTargetColumn.length;
+
+			// Create move request
+			const moveRequest = {
+				status_id: newStatusId,
+				order: newOrder,
+				previous_status_id: taskToUpdate.status_id,
+				comment: `Task moved to ${targetStatus.label}`,
+				type: taskToUpdate.type?.code || "feature",
+			};
+
+			await moveTask({ taskId, request: moveRequest });
+
+			// Show notification
+			setNotification({
+				show: true,
+				taskTitle: taskToUpdate.title,
+				status: targetStatus,
+			});
+		} catch (err) {
+			console.error("Move failed:", err);
+		}
+	};
+
+	// ============================================================================
+	// Event Handlers
+	// ============================================================================
 
 	const handleFilterChange = (
 		type: keyof FilterState,
@@ -551,8 +427,8 @@ export function App() {
 				left: 0,
 				right: 0,
 				bottom: 0,
-				opacity: loading || filtersLoading ? 1 : 0,
-				visibility: loading || filtersLoading ? "visible" : "hidden",
+				opacity: isLoading || filtersLoading ? 1 : 0,
+				visibility: isLoading || filtersLoading ? "visible" : "hidden",
 				transition: "opacity 0.2s, visibility 0.2s",
 			}}
 		>
@@ -568,7 +444,9 @@ export function App() {
 			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
 				<div className="text-center" data-testid="error-state">
 					<div className="text-red-500 mb-4">⚠️</div>
-					<p className="text-gray-600">{error}</p>
+					<p className="text-gray-600">
+						{error instanceof Error ? error.message : "An error occurred"}
+					</p>
 				</div>
 			</div>
 		);
@@ -591,11 +469,14 @@ export function App() {
 
 	return (
 		<DndProvider backend={HTML5Backend}>
+			<Toaster position="bottom-right" />
 			{loadingState}
 			<div
 				className="min-h-screen bg-gray-50 p-4 md:p-6"
 				data-testid="task-list"
-				style={{ visibility: loading || filtersLoading ? "hidden" : "visible" }}
+				style={{
+					visibility: isLoading || filtersLoading ? "hidden" : "visible",
+				}}
 			>
 				<header className="max-w-7xl mx-auto mb-8">
 					<div className="flex items-center justify-between mb-4">
@@ -756,9 +637,11 @@ export function App() {
 										status={status}
 										tasks={tasksInColumn}
 										onDrop={handleTaskMove}
-										onEdit={handleEditTask}
+										onEdit={handleTaskClick}
 										onDelete={handleDeleteTask}
 										onTaskClick={handleTaskClick}
+										isLoading={isLoading}
+										updatingTaskId={updatingTaskId}
 									/>
 								);
 							})

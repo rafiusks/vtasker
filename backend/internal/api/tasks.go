@@ -114,48 +114,111 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 // UpdateTask updates an existing task
 func (h *TaskHandler) UpdateTask(c *gin.Context) {
     var task models.Task
+    log.Printf("UpdateTask: Starting update for task ID: %s", c.Param("id"))
+    
+    // Log the raw request body
+    body, err := c.GetRawData()
+    if err != nil {
+        log.Printf("Error reading request body: %v", err)
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to read request body"})
+        return
+    }
+    log.Printf("Raw request body: %s", string(body))
+    
+    // Restore the request body for binding
+    c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+    
     if err := c.ShouldBindJSON(&task); err != nil {
+        log.Printf("Error binding JSON: %v", err)
         c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
         return
     }
+    log.Printf("Bound task data: %+v", task)
 
     // Set default type_id if not provided
     if task.TypeID == 0 {
-        // Query for the default task type (e.g., feature type)
-        var defaultTypeID int32
-        err := h.repo.GetPool().QueryRow(c.Request.Context(), 
-            "SELECT id FROM task_types WHERE name = $1", 
-            "feature").Scan(&defaultTypeID)
+        log.Printf("No type_id provided, getting default type")
+        defaultType, err := h.repo.GetDefaultTaskType(c.Request.Context())
         if err != nil {
             log.Printf("Error getting default task type: %v", err)
-            // Create default task type if it doesn't exist
-            err = h.repo.GetPool().QueryRow(c.Request.Context(),
-                "INSERT INTO task_types (name, description) VALUES ($1, $2) RETURNING id",
-                "feature", "A new feature or enhancement").Scan(&defaultTypeID)
-            if err != nil {
-                c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create default task type"})
-                return
-            }
-        }
-        task.TypeID = defaultTypeID
-    } else {
-        // Validate if the provided type_id exists
-        var exists bool
-        err := h.repo.GetPool().QueryRow(c.Request.Context(), 
-            "SELECT EXISTS(SELECT 1 FROM task_types WHERE id = $1)", 
-            task.TypeID).Scan(&exists)
-        if err != nil || !exists {
-            c.JSON(http.StatusBadRequest, gin.H{"error": "invalid type_id"})
+            c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to get default task type"})
             return
         }
+        task.TypeID = defaultType.ID
+        log.Printf("Set default type_id to: %d", task.TypeID)
     }
 
-    if err := h.repo.UpdateTask(c.Request.Context(), c.Param("id"), &task); err != nil {
+    // Get the existing task first
+    log.Printf("Getting existing task with ID: %s", c.Param("id"))
+    existingTask, err := h.repo.GetTask(c.Request.Context(), c.Param("id"))
+    if err != nil {
+        log.Printf("Error getting existing task: %v", err)
         c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
         return
     }
+    if existingTask == nil {
+        log.Printf("Task not found with ID: %s", c.Param("id"))
+        c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+        return
+    }
+    log.Printf("Found existing task: %+v", existingTask)
 
-    c.JSON(http.StatusOK, task)
+    // Merge the updates with existing task
+    log.Printf("Merging updates with existing task")
+    if task.Title != "" {
+        log.Printf("Updating title from %q to %q", existingTask.Title, task.Title)
+        existingTask.Title = task.Title
+    }
+    if task.Description != "" {
+        log.Printf("Updating description from %q to %q", existingTask.Description, task.Description)
+        existingTask.Description = task.Description
+    }
+    if task.StatusID != 0 {
+        log.Printf("Updating status_id from %d to %d", existingTask.StatusID, task.StatusID)
+        existingTask.StatusID = task.StatusID
+    }
+    if task.PriorityID != 0 {
+        log.Printf("Updating priority_id from %d to %d", existingTask.PriorityID, task.PriorityID)
+        existingTask.PriorityID = task.PriorityID
+    }
+    if task.TypeID != 0 {
+        log.Printf("Updating type_id from %d to %d", existingTask.TypeID, task.TypeID)
+        existingTask.TypeID = task.TypeID
+    }
+    if task.Content != nil {
+        log.Printf("Updating content: %+v", task.Content)
+        existingTask.Content = task.Content
+    }
+    if task.Relationships.Labels != nil {
+        log.Printf("Updating labels: %v", task.Relationships.Labels)
+        existingTask.Relationships.Labels = task.Relationships.Labels
+    }
+    if task.Relationships.Dependencies != nil {
+        log.Printf("Updating dependencies: %v", task.Relationships.Dependencies)
+        existingTask.Relationships.Dependencies = task.Relationships.Dependencies
+    }
+    log.Printf("Merged task: %+v", existingTask)
+
+    // Update the task
+    log.Printf("Calling repository UpdateTask")
+    if err := h.repo.UpdateTask(c.Request.Context(), c.Param("id"), existingTask); err != nil {
+        log.Printf("Error updating task: %v", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    log.Printf("Task updated successfully in repository")
+
+    // Fetch the updated task to return complete data
+    log.Printf("Fetching updated task data")
+    updatedTask, err := h.repo.GetTaskWithStatus(c.Request.Context(), c.Param("id"))
+    if err != nil {
+        log.Printf("Error fetching updated task: %v", err)
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    log.Printf("Returning updated task: %+v", updatedTask)
+
+    c.JSON(http.StatusOK, updatedTask)
 }
 
 // MoveTask updates a task's status and order

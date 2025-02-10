@@ -81,7 +81,6 @@ class TaskAPI {
 
 			const data = await response.json();
 			if (data === null) {
-				console.warn("Received null response from API");
 				return [] as T;
 			}
 			return data;

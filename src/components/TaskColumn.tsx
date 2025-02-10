@@ -4,14 +4,17 @@ import type { Task } from "../types";
 import type { TaskStatusId } from "../types/typeReference";
 import type { TASK_STATUS } from "../types/typeReference";
 import { TaskCard } from "./TaskCard";
+import type { TaskStatusUIType } from "../types/typeReference";
 
 interface TaskColumnProps {
-	status: (typeof TASK_STATUS)[keyof typeof TASK_STATUS];
+	status: TaskStatusUIType;
 	tasks: Task[];
-	onDrop: (taskId: string, statusId: TaskStatusId, order: number) => void;
-	onEdit: (taskId: string, updates: Partial<Task>) => void;
+	onDrop: (taskId: string, statusId: number, index: number) => void;
+	onEdit: (task: Task) => void;
 	onDelete: (taskId: string) => void;
 	onTaskClick: (task: Task) => void;
+	isLoading?: boolean;
+	updatingTaskId?: string;
 }
 
 export const TaskColumn: FC<TaskColumnProps> = ({
@@ -21,19 +24,17 @@ export const TaskColumn: FC<TaskColumnProps> = ({
 	onEdit,
 	onDelete,
 	onTaskClick,
+	isLoading = false,
+	updatingTaskId,
 }) => {
 	const [{ isOver }, drop] = useDrop({
 		accept: "task",
 		drop: (item: { id: string }, monitor) => {
-			const didDrop = monitor.didDrop();
-			if (didDrop) {
-				return;
-			}
-
-			onDrop(item.id, status.id, tasks.length);
+			const dropIndex = tasks.length;
+			onDrop(item.id, status.id, dropIndex);
 		},
 		collect: (monitor) => ({
-			isOver: monitor.isOver({ shallow: true }),
+			isOver: monitor.isOver(),
 		}),
 	});
 
@@ -51,32 +52,24 @@ export const TaskColumn: FC<TaskColumnProps> = ({
 	return (
 		<div
 			ref={drop}
-			className={`flex flex-col rounded-lg bg-gray-100 p-4 ${
-				isOver ? "ring-2 ring-blue-500" : ""
+			className={`bg-gray-50 p-4 rounded-lg ${
+				isOver ? "border-2 border-blue-500" : ""
 			}`}
+			data-testid={status.columnId}
 		>
-			<div className="mb-4 flex items-center justify-between">
-				<div>
-					<h2 className="text-lg font-semibold text-gray-900">
-						{status.label}
-					</h2>
-					<p className="text-sm text-gray-500">
-						{tasks.length} task{tasks.length !== 1 ? "s" : ""}
-					</p>
-				</div>
-			</div>
-
-			<div className="flex-1 space-y-4">
+			<h2 className="text-lg font-medium text-gray-900 mb-4">{status.label}</h2>
+			<div className="space-y-4">
 				{tasks.map((task, index) => (
 					<TaskCard
 						key={task.id}
 						task={task}
 						index={index}
-						onDrop={handleTaskDrop}
-						onEdit={handleTaskEdit}
+						onDrop={(taskId) => onDrop(taskId, status.id, index)}
+						onEdit={() => onEdit(task)}
 						onDelete={onDelete}
 						onTaskClick={onTaskClick}
 						allTasks={tasks}
+						isLoading={isLoading || task.id === updatingTaskId}
 					/>
 				))}
 			</div>
