@@ -1,59 +1,25 @@
 import type { FC } from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import { Dialog } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/20/solid";
-import { Select } from "./Select";
 import type {
 	Task,
 	TaskMetadata,
 	TaskContent,
 	TaskRelationships,
-	AcceptanceCriterion,
-	RawTask,
 } from "../types";
-import {
-	TASK_STATUS,
-	TASK_PRIORITY,
-	TASK_TYPE,
-	type TaskStatusId,
-	type TaskPriorityId,
-	type TaskTypeId,
-	type TaskPriorityEntity,
-	type TaskTypeEntity,
-} from "../types/typeReference";
-import { TaskRelationships as TaskRelationshipsEditor } from "./TaskRelationships";
-import { TaskMetadata as TaskMetadataEditor } from "./TaskMetadata";
 import { AcceptanceCriteria } from "./AcceptanceCriteria";
 import { toast } from "react-hot-toast";
-import { taskAPI } from "../api/client";
 import { Input } from "./Input";
 import { TextArea } from "./TextArea";
 import { Button } from "./Button";
-import {
-	getTaskStatus,
-	getTaskPriority,
-	getTaskType,
-	isTaskStatusId,
-} from "../types/typeReference";
-import {
-	ensureValidPriorityId,
-	ensureValidTypeId,
-	createTaskUpdateRequest,
-} from "../utils/typeConverters";
-
-const API_BASE_URL = "http://localhost:8000/api";
 
 interface TaskFormProps {
 	isOpen: boolean;
 	onClose: () => void;
-	onSubmit: (task: Partial<RawTask>) => void;
+	onSubmit: (task: Partial<Task>) => void;
 	task?: Task;
 	allTasks: Task[];
-}
-
-interface Option {
-	value: string;
-	label: string;
 }
 
 interface TaskFormData {
@@ -66,24 +32,6 @@ interface TaskFormData {
 	content: TaskContent;
 	relationships: TaskRelationships;
 	metadata: TaskMetadata;
-}
-
-interface TaskDetails {
-	description: string;
-	acceptance_criteria: Array<{
-		description: string;
-		completed: boolean;
-		id: string;
-	}>;
-	implementation_details?: string;
-	notes?: string;
-	attachments?: string[];
-	due_date?: string;
-	assignee?: string;
-	status_history?: Array<{
-		status_id: number;
-		timestamp: string;
-	}>;
 }
 
 const defaultContent: TaskContent = {
@@ -110,7 +58,6 @@ const getInitialFormData = (
 	task?: Task,
 	allTasks: Task[] = [],
 ): TaskFormData => {
-	// Default values for new tasks
 	const defaultStatus = "1"; // To Do status
 	const defaultPriority = "1"; // Default priority
 	const defaultType = "1"; // Default type
@@ -125,26 +72,18 @@ const getInitialFormData = (
 		priority_id: task?.priority_id ? String(task.priority_id) : defaultPriority,
 		type_id: task?.type_id ? String(task.type_id) : defaultType,
 		order: task?.order ?? nextOrder,
-		content: task?.content ?? {
-			description: "",
-			acceptance_criteria: [],
-			implementation_details: "",
-			notes: "",
-			attachments: [],
-			due_date: undefined,
-			assignee: "",
-		},
+		content: task?.content ?? defaultContent,
 		relationships: task?.relationships ?? {
 			parent: undefined,
 			dependencies: [],
 			labels: [],
 		},
-		metadata: task?.metadata
-			? {
-					board: task.metadata.board,
-					column: task.metadata.column,
-				}
-			: undefined,
+		metadata: task?.metadata ?? {
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
+			board: undefined,
+			column: undefined,
+		},
 	};
 };
 
@@ -158,86 +97,10 @@ export const TaskForm: FC<TaskFormProps> = ({
 	const [formData, setFormData] = useState<TaskFormData>(() =>
 		getInitialFormData(task, allTasks),
 	);
-	const [priorityOptions, setPriorityOptions] = useState<Option[]>([]);
-	const [typeOptions, setTypeOptions] = useState<Option[]>([]);
-	const [loading, setLoading] = useState(true);
 	const [isLoading, setIsLoading] = useState(false);
-	const [taskDetails, setTaskDetails] = useState<TaskDetails | null>(null);
-
-	const fetchTaskDetails = useCallback(
-		async (taskId: string) => {
-			setIsLoading(true);
-			try {
-				const response = await fetch(`${API_BASE_URL}/tasks/${taskId}`);
-				if (!response.ok) {
-					throw new Error("Failed to fetch task details");
-				}
-				const details = await response.json();
-
-				// Ensure we have all required fields
-				const fullTask = {
-					...task,
-					...details,
-					content: {
-						...details.content,
-						acceptance_criteria: details.content?.acceptance_criteria ?? [],
-					},
-				};
-
-				setTaskDetails(fullTask);
-				setFormData(getInitialFormData(fullTask, allTasks));
-			} catch (error) {
-				console.error("Error fetching task details:", error);
-				toast.error("Failed to load task details");
-			} finally {
-				setIsLoading(false);
-			}
-		},
-		[task, allTasks],
-	);
-
-	const loadOptions = useCallback(async () => {
-		setLoading(true);
-		try {
-			const [priorities, types] = await Promise.all([
-				taskAPI.listPriorities(),
-				taskAPI.listTaskTypes(),
-			]);
-
-			setPriorityOptions(
-				priorities.map((priority) => ({
-					value: String(priority.id),
-					label: priority.name,
-				})),
-			);
-
-			setTypeOptions(
-				types.map((type) => ({
-					value: String(type.id),
-					label: type.name,
-				})),
-			);
-		} catch (error) {
-			console.error("Failed to load options:", error);
-			toast.error("Failed to load form options");
-		} finally {
-			setLoading(false);
-		}
-	}, []);
-
-	// Load options when form opens
-	useEffect(() => {
-		if (isOpen) {
-			loadOptions();
-			if (task?.id) {
-				fetchTaskDetails(task.id);
-			}
-		}
-	}, [isOpen, loadOptions, task?.id, fetchTaskDetails]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		if (loading || isLoading) return;
 
 		// Validate required fields
 		if (
@@ -247,13 +110,13 @@ export const TaskForm: FC<TaskFormProps> = ({
 			!formData.type_id
 		) {
 			toast.error("Please fill in all required fields");
-			return; // Return early to keep dialog open
+			return;
 		}
 
 		try {
 			setIsLoading(true);
 			const { metadata, ...formDataWithoutMetadata } = formData;
-			const updatedTask: Partial<RawTask> = {
+			const updatedTask: Partial<Task> = {
 				...formDataWithoutMetadata,
 				status_id: Number(formData.status_id),
 				priority_id: Number(formData.priority_id),
@@ -269,19 +132,16 @@ export const TaskForm: FC<TaskFormProps> = ({
 				},
 				relationships: {
 					...formData.relationships,
-					parent: formData.relationships?.parent || undefined,
+					parent: formData.relationships?.parent,
 					dependencies: formData.relationships?.dependencies || [],
 					labels: formData.relationships?.labels || [],
 				},
 			};
 
-			// Wait for the task to be saved
 			await onSubmit(updatedTask);
 			toast.success(
 				task ? "Task updated successfully" : "Task created successfully",
 			);
-
-			// Close the form
 			onClose();
 		} catch (error) {
 			console.error("Error submitting task:", error);
@@ -291,85 +151,7 @@ export const TaskForm: FC<TaskFormProps> = ({
 		}
 	};
 
-	const handlePriorityChange = (value: string | string[]) => {
-		if (Array.isArray(value)) return;
-		setFormData((prev) => ({
-			...prev,
-			priority_id: value,
-		}));
-	};
-
-	const handleTypeChange = (value: string | string[]) => {
-		if (Array.isArray(value)) return;
-		setFormData((prev) => ({
-			...prev,
-			type_id: value,
-		}));
-	};
-
-	const openEditForm = (task: Task) => {
-		const defaultStatus = TASK_STATUS.BACKLOG;
-		const defaultPriority = TASK_PRIORITY.NORMAL;
-		const defaultType = TASK_TYPE.FEATURE;
-
-		setFormData({
-			title: task.title,
-			description: task.description,
-			status_id: String(task.status_id || defaultStatus.id),
-			priority_id: String(task.priority_id || defaultPriority.id),
-			type_id: String(task.type_id || defaultType.id),
-			order: task.order || 0,
-			content: {
-				...defaultContent,
-				description: task.content?.description ?? defaultContent.description,
-				acceptance_criteria:
-					task.content?.acceptance_criteria.map((c: AcceptanceCriterion) => ({
-						id: c.id || crypto.randomUUID(),
-						description: c.description || "",
-						order: typeof c.order === "number" ? c.order : 0,
-						completed: !!c.completed,
-						completed_at: c.completed_at || undefined,
-						completed_by: c.completed_by || undefined,
-						created_at: c.created_at || new Date().toISOString(),
-						updated_at: c.updated_at || new Date().toISOString(),
-						category: c.category || undefined,
-						notes: c.notes || undefined,
-					})) ?? defaultContent.acceptance_criteria,
-				implementation_details: task.content?.implementation_details,
-				notes: task.content?.notes,
-				attachments: task.content?.attachments ?? defaultContent.attachments,
-				due_date: task.content?.due_date,
-				assignee: task.content?.assignee,
-			},
-			relationships: task.relationships || {
-				dependencies: [],
-				labels: [],
-			},
-			metadata: task.metadata || {
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-			},
-		});
-	};
-
-	const handleAcceptanceCriteriaUpdate = (criteria: AcceptanceCriterion[]) => {
-		setFormData((prev) => ({
-			...prev,
-			content: {
-				...prev.content,
-				acceptance_criteria: criteria,
-			},
-		}));
-	};
-
-	const handleInputChange = (field: string, value: number | string) => {
-		setFormData((prev) => ({
-			...prev,
-			[field]: value,
-		}));
-	};
-
-	if (loading || isLoading) {
+	if (isLoading) {
 		return (
 			<Dialog open={isOpen} onClose={onClose} className="relative z-50">
 				<div className="fixed inset-0 bg-black/30" aria-hidden="true" />
@@ -415,7 +197,7 @@ export const TaskForm: FC<TaskFormProps> = ({
 					<form
 						onSubmit={handleSubmit}
 						className="mt-4 space-y-4"
-						aria-busy={loading}
+						aria-busy={isLoading}
 						aria-labelledby="task-form-title"
 					>
 						<div>
@@ -443,30 +225,6 @@ export const TaskForm: FC<TaskFormProps> = ({
 								required
 								data-testid="task-description-input"
 								aria-label="Description"
-							/>
-						</div>
-
-						<div>
-							<Select
-								id="priority"
-								label="Task Priority"
-								value={formData.priority_id}
-								onChange={handlePriorityChange}
-								options={priorityOptions}
-								data-testid="task-priority-select"
-								required
-							/>
-						</div>
-
-						<div>
-							<Select
-								id="type"
-								label="Type"
-								value={formData.type_id}
-								onChange={handleTypeChange}
-								options={typeOptions}
-								required
-								data-testid="task-type-select"
 							/>
 						</div>
 

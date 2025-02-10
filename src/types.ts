@@ -135,6 +135,3 @@ export interface AIMetadata {
 	dependencies_graph: string[];
 	related_components: string[];
 }
-
-// Re-export RawTask from types/index
-export type { RawTask } from "./types/index";

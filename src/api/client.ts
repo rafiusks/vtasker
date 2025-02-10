@@ -1,11 +1,13 @@
-import type { Task, Board } from "../types";
-import { convertAPITaskToTask, type APITask } from "../utils/apiTypes";
+import type { Task } from "../types";
+import type { ApiTask } from "./types";
+import { convertAPITaskToTask } from "./types";
 import type {
 	TaskStatusId,
 	TaskStatusEntity,
 	TaskTypeEntity,
 	TaskPriorityEntity,
 } from "../types/typeReference";
+import type { Board } from "../types";
 
 const API_BASE = "http://localhost:8000/api";
 
@@ -22,7 +24,7 @@ export interface TaskUpdateRequest {
 	description?: string;
 	status_id?: number;
 	priority_id?: number;
-	type_id: number;
+	type_id?: number;
 	labels?: string[];
 	dependencies?: string[];
 	content?: {
@@ -44,75 +46,36 @@ export interface TaskUpdateRequest {
 	column?: string;
 }
 
-class TaskAPI {
-	private async request<T>(
-		endpoint: string,
-		options: RequestInit = {},
-	): Promise<T> {
-		const url = `${API_BASE}${endpoint}`;
-		console.log("Making request to:", url, {
-			method: options.method,
-			headers: options.headers,
-			body: options.body,
+export class TaskAPI {
+	private request = async <T>(
+		path: string,
+		options?: RequestInit,
+	): Promise<T> => {
+		const response = await fetch(`${API_BASE}${path}`, {
+			...options,
+			headers: {
+				...options?.headers,
+				"Content-Type": "application/json",
+			},
 		});
 
-		try {
-			const response = await fetch(url, {
-				...options,
-				headers: {
-					"Content-Type": "application/json",
-					...options.headers,
-				},
-			});
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => null);
-				console.error("Response error:", errorData);
-				throw new Error(
-					errorData?.error ||
-						errorData?.message ||
-						`HTTP error! status: ${response.status}`,
-				);
-			}
-
-			if (response.status === 204) {
-				return [] as T;
-			}
-
-			const data = await response.json();
-			if (data === null) {
-				return [] as T;
-			}
-			return data;
-		} catch (error) {
-			console.error("Request failed:", error);
-			throw new Error(
-				error instanceof Error ? error.message : "Request failed",
-			);
-		}
-	}
-
-	async listTasks(
-		params: URLSearchParams = new URLSearchParams(),
-	): Promise<Task[]> {
-		const response = await this.request<APITask[]>(
-			`/tasks?${params.toString()}`,
-		);
-
-		if (Array.isArray(response) && response.length === 0) {
-			return [];
+		if (!response.ok) {
+			throw new Error(`API request failed: ${response.statusText}`);
 		}
 
-		if (!response || typeof response !== "object" || !Array.isArray(response)) {
-			console.warn(
-				"Unexpected response format from /tasks endpoint:",
-				response,
-			);
-			return [];
+		const data = await response.json();
+		if (!data) {
+			console.warn("Received null response from API");
+			return [] as T;
 		}
 
+		return data as T;
+	};
+
+	listTasks = async (): Promise<Task[]> => {
+		const response = await this.request<ApiTask[]>("/tasks");
 		return response.map(convertAPITaskToTask);
-	}
+	};
 
 	async getTask(id: string): Promise<Task> {
 		return this.request<Task>(`/tasks/${id}`);

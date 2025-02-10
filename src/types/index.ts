@@ -65,25 +65,6 @@ export interface BaseTask {
 	progress: TaskProgress;
 }
 
-// Raw task from API with numeric IDs
-export interface RawTask extends BaseTask {
-	status_id: number;
-	priority_id: number;
-	type_id: number;
-}
-
-// Validated task with branded type IDs
-export interface ValidatedTask extends BaseTask {
-	status_id: TaskStatusId;
-	priority_id: TaskPriorityId;
-	type_id: TaskTypeId;
-
-	// Optional references to full entities
-	status?: TaskStatusEntity;
-	priority?: TaskPriorityEntity;
-	type?: TaskTypeEntity;
-}
-
 // Task type used in the application
 export interface Task {
 	id: string;

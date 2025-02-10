@@ -3,14 +3,11 @@ import type {
 	TaskContent,
 	TaskRelationships,
 	TaskMetadata,
-	TaskProgress,
-	AcceptanceCriterion,
+	TaskStatus,
+	TaskTypeEntity,
+	TaskTypeCode,
+	StatusChange,
 } from "../types";
-import type {
-	TaskStatusId,
-	TaskPriorityId,
-	TaskTypeId,
-} from "../types/typeReference";
 
 // Backend API types
 export interface ApiTask {
@@ -119,6 +116,36 @@ export interface ApiStatusChange {
 }
 
 // Conversion Functions
+function convertApiStatusToTaskStatus(apiStatus: ApiTaskStatus): TaskStatus {
+	return {
+		...apiStatus,
+		id: apiStatus.id,
+		label: apiStatus.name, // Use name as label since ApiTaskStatus doesn't have label
+	};
+}
+
+function convertApiTypeToTaskType(apiType: ApiTaskType): TaskTypeEntity {
+	return {
+		...apiType,
+		id: Number(apiType.id),
+		code: apiType.code as TaskTypeCode,
+	};
+}
+
+function convertApiStatusChangeToStatusChange(
+	apiChange: ApiStatusChange,
+): StatusChange {
+	return {
+		...apiChange,
+		from_status: apiChange.from_status
+			? convertApiStatusToTaskStatus(apiChange.from_status)
+			: undefined,
+		to_status: apiChange.to_status
+			? convertApiStatusToTaskStatus(apiChange.to_status)
+			: undefined,
+	};
+}
+
 export function convertAPITaskToTask(apiTask: ApiTask): Task {
 	const content: TaskContent = {
 		description: apiTask.content.description,
@@ -126,23 +153,23 @@ export function convertAPITaskToTask(apiTask: ApiTask): Task {
 			id: ac.id,
 			description: ac.description,
 			completed: ac.completed,
-			completed_at: ac.completed_at || undefined,
-			completed_by: ac.completed_by || undefined,
+			completed_at: ac.completed_at ?? undefined,
+			completed_by: ac.completed_by ?? undefined,
 			created_at: ac.created_at,
 			updated_at: ac.updated_at,
 			order: ac.order,
-			category: ac.category || undefined,
-			notes: ac.notes || undefined,
+			category: ac.category ?? undefined,
+			notes: ac.notes ?? undefined,
 		})),
 		implementation_details: apiTask.content.implementation_details,
 		notes: apiTask.content.notes,
 		attachments: apiTask.content.attachments,
-		due_date: apiTask.content.due_date || undefined,
-		assignee: apiTask.content.assignee || undefined,
+		due_date: apiTask.content.due_date ?? undefined,
+		assignee: apiTask.content.assignee ?? undefined,
 	};
 
 	const relationships: TaskRelationships = {
-		parent: apiTask.relationships.parent || undefined,
+		parent: apiTask.relationships.parent ?? undefined,
 		dependencies: apiTask.relationships.dependencies,
 		labels: apiTask.relationships.labels,
 	};
@@ -150,13 +177,12 @@ export function convertAPITaskToTask(apiTask: ApiTask): Task {
 	const metadata: TaskMetadata = {
 		created_at: apiTask.metadata.created_at,
 		updated_at: apiTask.metadata.updated_at,
-		board: apiTask.metadata.board || undefined,
-		column: apiTask.metadata.column || undefined,
+		board: apiTask.metadata.board ?? undefined,
+		column: apiTask.metadata.column ?? undefined,
 	};
 
-	const task = {
+	const task: Task = {
 		id: apiTask.id,
-		external_id: apiTask.id, // Use the same ID as external_id for now
 		title: apiTask.title,
 		description: apiTask.description,
 		status_id: Number(apiTask.status_id),
@@ -167,11 +193,18 @@ export function convertAPITaskToTask(apiTask: ApiTask): Task {
 		relationships,
 		metadata,
 		progress: apiTask.progress,
+		status: apiTask.status
+			? convertApiStatusToTaskStatus(apiTask.status)
+			: undefined,
+		type: apiTask.type ? convertApiTypeToTaskType(apiTask.type) : undefined,
+		status_history: apiTask.status_history?.map(
+			convertApiStatusChangeToStatusChange,
+		),
 		created_at: apiTask.created_at,
 		updated_at: apiTask.updated_at,
 	};
 
-	return task as unknown as Task;
+	return task;
 }
 
 export function convertTaskToApiTask(task: Task): ApiTask {
@@ -179,7 +212,7 @@ export function convertTaskToApiTask(task: Task): ApiTask {
 		throw new Error("Task content is required");
 	}
 
-	return {
+	const apiTask: ApiTask = {
 		id: task.id,
 		title: task.title,
 		description: task.description,
@@ -198,14 +231,14 @@ export function convertTaskToApiTask(task: Task): ApiTask {
 			})),
 			implementation_details: task.content.implementation_details,
 			notes: task.content.notes,
-			attachments: task.content.attachments || [],
+			attachments: task.content.attachments ?? [],
 			due_date: task.content.due_date ?? null,
 			assignee: task.content.assignee ?? null,
 		},
 		relationships: {
 			parent: task.relationships.parent ?? null,
-			dependencies: task.relationships.dependencies || [],
-			labels: task.relationships.labels || [],
+			dependencies: task.relationships.dependencies,
+			labels: task.relationships.labels,
 		},
 		metadata: {
 			created_at: task.metadata.created_at,
@@ -213,10 +246,42 @@ export function convertTaskToApiTask(task: Task): ApiTask {
 			board: task.metadata.board ?? null,
 			column: task.metadata.column ?? null,
 		},
-		progress: task.progress,
-		created_at: task.metadata.created_at,
-		updated_at: task.metadata.updated_at,
+		progress: task.progress ?? {
+			acceptance_criteria: { total: 0, completed: 0 },
+			percentage: 0,
+		},
+		status: task.status
+			? {
+					...task.status,
+					id: String(task.status.id),
+				}
+			: undefined,
+		type: task.type
+			? {
+					...task.type,
+					id: String(task.type.id),
+				}
+			: undefined,
+		status_history: task.status_history?.map((change) => ({
+			...change,
+			from_status: change.from_status
+				? {
+						...change.from_status,
+						id: String(change.from_status.id),
+					}
+				: undefined,
+			to_status: change.to_status
+				? {
+						...change.to_status,
+						id: String(change.to_status.id),
+					}
+				: undefined,
+		})),
+		created_at: task.created_at,
+		updated_at: task.updated_at,
 	};
+
+	return apiTask;
 }
 
 export function ensureTaskArray(tasks: unknown): Task[] {

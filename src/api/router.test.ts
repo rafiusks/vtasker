@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { Task } from "../../types";
+import type { Task } from "../types";
 
 describe("Task API", () => {
 	const testTask: Partial<Task> = {
@@ -12,22 +12,22 @@ describe("Task API", () => {
 		content: {
 			description: "Test Description",
 			acceptance_criteria: [],
-			implementation_details: null,
-			notes: null,
+			implementation_details: undefined,
+			notes: undefined,
 			attachments: [],
-			due_date: null,
-			assignee: null,
+			due_date: undefined,
+			assignee: undefined,
 		},
 		relationships: {
-			parent: null,
+			parent: undefined,
 			dependencies: [],
 			labels: [],
 		},
 		metadata: {
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
-			board: null,
-			column: null,
+			board: undefined,
+			column: undefined,
 		},
 		progress: {
 			acceptance_criteria: {
@@ -35,7 +35,7 @@ describe("Task API", () => {
 				completed: 0,
 			},
 			percentage: 0,
-		}
+		},
 	};
 
 	it("should update task metadata correctly", async () => {

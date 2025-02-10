@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "@playwright/test";
 import type { Task } from "../../types";
 
 test.describe("Task API", () => {
@@ -12,22 +12,22 @@ test.describe("Task API", () => {
 		content: {
 			description: "Test Description",
 			acceptance_criteria: [],
-			implementation_details: null,
-			notes: null,
+			implementation_details: undefined,
+			notes: undefined,
 			attachments: [],
-			due_date: null,
-			assignee: null,
+			due_date: undefined,
+			assignee: undefined,
 		},
 		relationships: {
-			parent: null,
+			parent: undefined,
 			dependencies: [],
 			labels: [],
 		},
 		metadata: {
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString(),
-			board: null,
-			column: null,
+			board: undefined,
+			column: undefined,
 		},
 		progress: {
 			acceptance_criteria: {
@@ -35,7 +35,7 @@ test.describe("Task API", () => {
 				completed: 0,
 			},
 			percentage: 0,
-		}
+		},
 	};
 
 	test("should update task metadata correctly", async () => {

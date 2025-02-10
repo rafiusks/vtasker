@@ -1,61 +1,91 @@
-import type { Task } from '../types';
+import type { TaskStatus } from "../types";
 
-type TaskStatus = Task['status'];
+const statusOrder: TaskStatus[] = [
+	{
+		id: "1",
+		code: "backlog",
+		name: "Backlog",
+		label: "Backlog",
+		description: "Tasks that are not yet started",
+		display_order: 1,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	},
+	{
+		id: "2",
+		code: "in-progress",
+		name: "In Progress",
+		label: "In Progress",
+		description: "Tasks that are currently being worked on",
+		display_order: 2,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	},
+	{
+		id: "3",
+		code: "review",
+		name: "Review",
+		label: "Review",
+		description: "Tasks that are ready for review",
+		display_order: 3,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	},
+	{
+		id: "4",
+		code: "done",
+		name: "Done",
+		label: "Done",
+		description: "Tasks that are completed",
+		display_order: 4,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+	},
+];
 
-const statusOrder: TaskStatus[] = ['backlog', 'in-progress', 'review', 'done'];
+export function isValidStatusTransition(
+	fromStatus: TaskStatus,
+	toStatus: TaskStatus,
+): boolean {
+	const fromIndex = statusOrder.findIndex((s) => s.code === fromStatus.code);
+	const toIndex = statusOrder.findIndex((s) => s.code === toStatus.code);
 
-interface ValidationResult {
-  valid: boolean;
-  error?: string;
+	if (fromIndex === -1 || toIndex === -1) {
+		return false;
+	}
+
+	// Allow moving forward one step at a time or moving backward to any previous status
+	return toIndex === fromIndex + 1 || toIndex < fromIndex;
 }
 
-export function validateStatusTransition(from: TaskStatus, to: TaskStatus): ValidationResult {
-  const fromIndex = statusOrder.indexOf(from);
-  const toIndex = statusOrder.indexOf(to);
-
-  // Can't transition to the same status
-  if (from === to) {
-    return {
-      valid: false,
-      error: `Task is already in ${from} status`
-    };
-  }
-
-  // Can't skip more than one status forward
-  if (toIndex - fromIndex > 1) {
-    const nextStatus = statusOrder[fromIndex + 1];
-    return {
-      valid: false,
-      error: `Tasks must go through ${nextStatus} before moving to ${to}`
-    };
-  }
-
-  // Can move backwards freely
-  if (toIndex < fromIndex) {
-    return { valid: true };
-  }
-
-  // Forward transitions are valid if they're to the next status
-  return { valid: toIndex - fromIndex === 1 };
+export function getNextStatus(
+	currentStatus: TaskStatus,
+): TaskStatus | undefined {
+	const currentIndex = statusOrder.findIndex(
+		(s) => s.code === currentStatus.code,
+	);
+	if (currentIndex === -1 || currentIndex === statusOrder.length - 1) {
+		return undefined;
+	}
+	return statusOrder[currentIndex + 1];
 }
 
-export function getNextValidStatuses(currentStatus: TaskStatus): TaskStatus[] {
-  const currentIndex = statusOrder.indexOf(currentStatus);
-  
-  // Can move to the next status or any previous status
-  return statusOrder.filter((_status, index) => {
-    // Allow moving to the next status
-    if (index === currentIndex + 1) return true;
-    // Allow moving to any previous status
-    if (index < currentIndex) return true;
-    return false;
-  });
+export function getPreviousStatus(
+	currentStatus: TaskStatus,
+): TaskStatus | undefined {
+	const currentIndex = statusOrder.findIndex(
+		(s) => s.code === currentStatus.code,
+	);
+	if (currentIndex <= 0) {
+		return undefined;
+	}
+	return statusOrder[currentIndex - 1];
 }
 
-export function formatStatusTransitionError(from: TaskStatus, to: TaskStatus): string {
-  const result = validateStatusTransition(from, to);
-  if (result.error) return result.error;
+export function getStatusByCode(code: string): TaskStatus | undefined {
+	return statusOrder.find((s) => s.code === code);
+}
 
-  const validNext = getNextValidStatuses(from);
-  return `Invalid status transition. From ${from}, you can move to: ${validNext.join(', ')}`;
-} 
+export function getAllStatuses(): TaskStatus[] {
+	return [...statusOrder];
+}

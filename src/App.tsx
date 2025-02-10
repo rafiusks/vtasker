@@ -1,11 +1,9 @@
-import React, { useState, useEffect, useCallback } from "react";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
-import { PlusIcon } from "@heroicons/react/20/solid";
+import React, { useState, useEffect } from "react";
 import { TaskForm } from "./components/TaskForm";
 import { TaskColumn } from "./components/TaskColumn";
-import { Select, type Option } from "./components/Select";
-import type { Task, RawTask } from "./types";
+import { Select } from "./components/Select";
+import type { Task } from "./types";
+import type { Option } from "./components/Select";
 import {
 	TASK_STATUS,
 	SELECT_OPTIONS,
@@ -18,18 +16,9 @@ import {
 } from "./types/typeReference";
 import { StatusNotification } from "./components/StatusNotification";
 import { toast } from "react-hot-toast";
-import { taskAPI } from "./api/client";
-import type { TaskMoveRequest } from "./api/client";
-import {
-	ensureValidStatusId,
-	ensureValidPriorityId,
-	ensureValidTypeId,
-	convertArrayToStrings,
-	createTaskUpdateRequest,
-} from "./utils/typeConverters";
-import { ensureTaskArray } from "./utils/apiTypes";
+import { PlusIcon } from "@heroicons/react/20/solid";
 import { useTaskQueries } from "./hooks/useTaskQueries";
-import { Toaster } from "react-hot-toast";
+import { taskAPI } from "./api/client";
 
 // ============================================================================
 // Types
@@ -88,9 +77,6 @@ export function App() {
 		updateTask,
 		deleteTask,
 		moveTask,
-		isUpdating,
-		isDeleting,
-		isMoving,
 	} = useTaskQueries();
 
 	// Local state
@@ -250,50 +236,29 @@ export function App() {
 	// Task Operations
 	// ============================================================================
 
-	const handleTaskClick = (task: Task) => {
-		setEditingTask(task);
-		setIsTaskFormOpen(true);
-	};
-
 	const handleTaskSubmit = (task: Partial<Task>) => {
 		if (editingTask) {
-			handleTaskUpdate(editingTask.id, task);
-		} else {
-			// Convert Task to RawTask format
-			const { metadata, ...taskWithoutMetadata } = task;
-			const rawTask: Partial<RawTask> = {
-				...taskWithoutMetadata,
-				status_id: Number(task.status_id),
-				priority_id: Number(task.priority_id),
-				type_id: Number(task.type_id),
-				content: {
-					...task.content,
-					description: task.content?.description || "",
-					acceptance_criteria: task.content?.acceptance_criteria || [],
-					attachments: task.content?.attachments || [],
-				},
-				relationships: {
-					parent: task.relationships?.parent || undefined,
-					dependencies: task.relationships?.dependencies || [],
-					labels: task.relationships?.labels || [],
-				},
-				progress: {
-					acceptance_criteria: {
-						total: task.content?.acceptance_criteria?.length || 0,
-						completed: 0,
-					},
-					percentage: 0,
-				},
+			// Remove status and type fields as they're handled separately
+			const { status, type, ...taskWithoutStatusAndType } = task;
+			const taskUpdate: Partial<Task> = {
+				...taskWithoutStatusAndType,
+				status_id: task.status_id,
+				priority_id: task.priority_id,
+				type_id: task.type_id,
 			};
-			handleCreateTask(rawTask);
+			handleTaskUpdate(editingTask.id, taskUpdate);
+		} else {
+			handleCreateTask(task);
 		}
 	};
 
-	const handleCreateTask = async (task: Partial<RawTask>) => {
-		const { metadata, ...taskWithoutMetadata } = task;
+	const handleCreateTask = async (task: Partial<Task>) => {
 		await createTask({
-			...taskWithoutMetadata,
+			...task,
 			order: tasks.length,
+			status_id: task.status_id ?? 1, // Default to first status
+			priority_id: task.priority_id ?? 1, // Default to first priority
+			type_id: task.type_id ?? 1, // Default to first type
 			content: {
 				description: task.content?.description || "",
 				acceptance_criteria: task.content?.acceptance_criteria || [],
@@ -304,7 +269,7 @@ export function App() {
 				assignee: task.content?.assignee,
 			},
 			relationships: {
-				parent: task.relationships?.parent || undefined,
+				parent: task.relationships?.parent,
 				dependencies: task.relationships?.dependencies || [],
 				labels: task.relationships?.labels || [],
 			},
@@ -369,6 +334,14 @@ export function App() {
 		}
 	};
 
+	const handleTaskEdit = (taskId: string) => {
+		const task = tasks.find((t) => t.id === taskId);
+		if (task) {
+			setEditingTask(task);
+			setIsTaskFormOpen(true);
+		}
+	};
+
 	// ============================================================================
 	// Event Handlers
 	// ============================================================================
@@ -417,28 +390,6 @@ export function App() {
 	// Loading and Error States
 	// ============================================================================
 
-	const loadingState = (
-		<div
-			data-testid="loading-state"
-			className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center"
-			style={{
-				position: "absolute",
-				top: 0,
-				left: 0,
-				right: 0,
-				bottom: 0,
-				opacity: isLoading || filtersLoading ? 1 : 0,
-				visibility: isLoading || filtersLoading ? "visible" : "hidden",
-				transition: "opacity 0.2s, visibility 0.2s",
-			}}
-		>
-			<div className="flex flex-col items-center space-y-4">
-				<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
-				<div className="text-gray-500">Loading...</div>
-			</div>
-		</div>
-	);
-
 	if (error) {
 		return (
 			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
@@ -468,205 +419,198 @@ export function App() {
 	// ============================================================================
 
 	return (
-		<DndProvider backend={HTML5Backend}>
-			<Toaster position="bottom-right" />
-			{loadingState}
-			<div
-				className="min-h-screen bg-gray-50 p-4 md:p-6"
-				data-testid="task-list"
-				style={{
-					visibility: isLoading || filtersLoading ? "hidden" : "visible",
-				}}
-			>
-				<header className="max-w-7xl mx-auto mb-8">
-					<div className="flex items-center justify-between mb-4">
-						<div>
-							<h1 className="text-4xl font-bold text-gray-900 mb-2">
-								vTask Board
-							</h1>
-							<p className="text-lg text-gray-600">
-								Manage your tasks with ease
-							</p>
-						</div>
-						<button
-							type="button"
-							onClick={() => setIsTaskFormOpen(true)}
-							className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-							aria-label="Create Task"
-						>
-							<PlusIcon className="h-5 w-5" aria-hidden="true" />
-							Create Task
-						</button>
+		<div
+			className="min-h-screen bg-gray-50 p-4 md:p-6"
+			data-testid="task-list"
+			style={{
+				visibility: isLoading || filtersLoading ? "hidden" : "visible",
+			}}
+		>
+			<header className="max-w-7xl mx-auto mb-8">
+				<div className="flex items-center justify-between mb-4">
+					<div>
+						<h1 className="text-4xl font-bold text-gray-900 mb-2">
+							vTask Board
+						</h1>
+						<p className="text-lg text-gray-600">Manage your tasks with ease</p>
 					</div>
-				</header>
+					<button
+						type="button"
+						onClick={() => setIsTaskFormOpen(true)}
+						className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+						aria-label="Create Task"
+					>
+						<PlusIcon className="h-5 w-5" aria-hidden="true" />
+						Create Task
+					</button>
+				</div>
+			</header>
 
-				{/* Filter Controls */}
-				<div className="max-w-7xl mx-auto mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-					<div className="flex items-center justify-between mb-3">
-						<h2 className="text-base font-medium text-gray-900">Filters</h2>
-						{activeFilterCount > 0 && (
-							<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-								{activeFilterCount} active filter
-								{activeFilterCount !== 1 ? "s" : ""}
-							</span>
-						)}
-					</div>
-					<div className="space-y-2">
-						<div className="flex flex-wrap items-start gap-4">
-							{/* Status & Priority Filters */}
-							<div className="flex items-start gap-4">
-								<Select
-									label="Status"
-									value={filters.status}
-									onChange={(value) => {
-										if (typeof value === "string") {
-											handleFilterChange("status", [value]);
-										} else {
-											handleFilterChange("status", value);
-										}
-									}}
-									options={SELECT_OPTIONS.STATUS}
-								/>
-								<Select
-									label="Priority"
-									value={filters.priority}
-									onChange={(value) => {
-										if (typeof value === "string") {
-											handleFilterChange("priority", [value]);
-										} else {
-											handleFilterChange("priority", value);
-										}
-									}}
-									options={SELECT_OPTIONS.PRIORITY}
-								/>
-							</div>
-
-							{/* Labels Filter */}
+			{/* Filter Controls */}
+			<div className="max-w-7xl mx-auto mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+				<div className="flex items-center justify-between mb-3">
+					<h2 className="text-base font-medium text-gray-900">Filters</h2>
+					{activeFilterCount > 0 && (
+						<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+							{activeFilterCount} active filter
+							{activeFilterCount !== 1 ? "s" : ""}
+						</span>
+					)}
+				</div>
+				<div className="space-y-2">
+					<div className="flex flex-wrap items-start gap-4">
+						{/* Status & Priority Filters */}
+						<div className="flex items-start gap-4">
 							<Select
-								label="Labels"
-								value={filters.labels}
+								label="Status"
+								value={filters.status}
 								onChange={(value) => {
 									if (typeof value === "string") {
-										handleFilterChange("labels", [value]);
+										handleFilterChange("status", [value]);
 									} else {
-										handleFilterChange("labels", value);
+										handleFilterChange("status", value);
 									}
 								}}
-								options={uniqueLabels.map((label) => ({
-									value: label,
-									label,
-								}))}
+								options={SELECT_OPTIONS.STATUS}
 							/>
-
-							{/* Sort Controls */}
-							<div className="flex items-start gap-2">
-								<Select
-									label="Sort By"
-									value={filters.sortBy}
-									onChange={(value) => {
-										if (typeof value === "string") {
-											handleFilterChange("sortBy", value);
-										}
-									}}
-									options={sortOptions}
-								/>
-								<Select
-									label="Sort Order"
-									value={filters.sortOrder}
-									onChange={(value) => {
-										if (typeof value === "string") {
-											handleFilterChange("sortOrder", value);
-										}
-									}}
-									options={sortOrderOptions}
-								/>
-							</div>
+							<Select
+								label="Priority"
+								value={filters.priority}
+								onChange={(value) => {
+									if (typeof value === "string") {
+										handleFilterChange("priority", [value]);
+									} else {
+										handleFilterChange("priority", value);
+									}
+								}}
+								options={SELECT_OPTIONS.PRIORITY}
+							/>
 						</div>
 
-						{/* Clear Filters */}
-						{activeFilterCount > 0 && (
-							<div className="flex justify-end pt-2">
-								<button
-									type="button"
-									onClick={clearFilters}
-									className="text-sm text-gray-500 hover:text-gray-700"
-								>
-									Clear Filters
-								</button>
-							</div>
-						)}
-					</div>
-				</div>
+						{/* Labels Filter */}
+						<Select
+							label="Labels"
+							value={filters.labels}
+							onChange={(value) => {
+								if (typeof value === "string") {
+									handleFilterChange("labels", [value]);
+								} else {
+									handleFilterChange("labels", value);
+								}
+							}}
+							options={uniqueLabels.map((label) => ({
+								value: label,
+								label,
+							}))}
+						/>
 
-				<main className="max-w-7xl mx-auto">
-					<div
-						className="grid grid-cols-1 md:grid-cols-4 gap-4"
-						data-testid="task-list"
-					>
-						{error ? (
-							<div
-								className="col-span-4 text-center py-12"
-								data-testid="error-state"
-							>
-								<p className="text-red-500">{error}</p>
-							</div>
-						) : filteredTasks.length === 0 ? (
-							<div
-								className="col-span-4 text-center py-12"
-								data-testid="empty-state"
-							>
-								<p className="text-gray-500">No tasks found</p>
-							</div>
-						) : (
-							Object.values(TASK_STATUS).map((status) => {
-								// Filter tasks for this column
-								const tasksInColumn = filteredTasks.filter((task) => {
-									// If status_id is already a TaskStatusId, use it directly
-									if (isTaskStatusId(task.status_id)) {
-										return task.status_id === status.id;
+						{/* Sort Controls */}
+						<div className="flex items-start gap-2">
+							<Select
+								label="Sort By"
+								value={filters.sortBy}
+								onChange={(value) => {
+									if (typeof value === "string") {
+										handleFilterChange("sortBy", value);
 									}
-
-									// Otherwise, try to convert it
-									const taskStatusId = task.status_id;
-									return taskStatusId === status.id;
-								});
-
-								return (
-									<TaskColumn
-										key={status.columnId}
-										status={status}
-										tasks={tasksInColumn}
-										onDrop={handleTaskMove}
-										onEdit={handleTaskClick}
-										onDelete={handleDeleteTask}
-										onTaskClick={handleTaskClick}
-										isLoading={isLoading}
-										updatingTaskId={updatingTaskId}
-									/>
-								);
-							})
-						)}
+								}}
+								options={sortOptions}
+							/>
+							<Select
+								label="Sort Order"
+								value={filters.sortOrder}
+								onChange={(value) => {
+									if (typeof value === "string") {
+										handleFilterChange("sortOrder", value);
+									}
+								}}
+								options={sortOrderOptions}
+							/>
+						</div>
 					</div>
-				</main>
 
-				{/* Task Form - used for create/edit/view */}
-				<TaskForm
-					isOpen={isTaskFormOpen}
-					onClose={() => {
-						setIsTaskFormOpen(false);
-						setEditingTask(undefined);
-					}}
-					onSubmit={handleTaskSubmit}
-					task={editingTask}
-					allTasks={tasks}
-				/>
-				<StatusNotification
-					show={notification.show}
-					onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
-					taskTitle={notification.taskTitle ?? ""}
-					status={notification.status}
-				/>
+					{/* Clear Filters */}
+					{activeFilterCount > 0 && (
+						<div className="flex justify-end pt-2">
+							<button
+								type="button"
+								onClick={clearFilters}
+								className="text-sm text-gray-500 hover:text-gray-700"
+							>
+								Clear Filters
+							</button>
+						</div>
+					)}
+				</div>
 			</div>
-		</DndProvider>
+
+			<main className="max-w-7xl mx-auto">
+				<div
+					className="grid grid-cols-1 md:grid-cols-4 gap-4"
+					data-testid="task-list"
+				>
+					{error ? (
+						<div
+							className="col-span-4 text-center py-12"
+							data-testid="error-state"
+						>
+							<p className="text-red-500">{error}</p>
+						</div>
+					) : filteredTasks.length === 0 ? (
+						<div
+							className="col-span-4 text-center py-12"
+							data-testid="empty-state"
+						>
+							<p className="text-gray-500">No tasks found</p>
+						</div>
+					) : (
+						Object.values(TASK_STATUS).map((status) => {
+							// Filter tasks for this column
+							const tasksInColumn = filteredTasks.filter((task) => {
+								// If status_id is already a TaskStatusId, use it directly
+								if (isTaskStatusId(task.status_id)) {
+									return task.status_id === status.id;
+								}
+
+								// Otherwise, try to convert it
+								const taskStatusId = task.status_id;
+								return taskStatusId === status.id;
+							});
+
+							return (
+								<TaskColumn
+									key={status.columnId}
+									status={status}
+									tasks={tasksInColumn}
+									onDrop={handleTaskMove}
+									onEdit={handleTaskEdit}
+									onDelete={handleDeleteTask}
+									isLoading={isLoading}
+									updatingTaskId={updatingTaskId}
+								/>
+							);
+						})
+					)}
+				</div>
+			</main>
+
+			{/* Task Form - used for create/edit/view */}
+			<TaskForm
+				isOpen={isTaskFormOpen}
+				onClose={() => {
+					setIsTaskFormOpen(false);
+					setEditingTask(undefined);
+				}}
+				onSubmit={handleTaskSubmit}
+				task={editingTask}
+				allTasks={tasks}
+			/>
+			<StatusNotification
+				show={notification.show}
+				onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
+				taskTitle={notification.taskTitle ?? ""}
+				status={notification.status}
+			/>
+		</div>
 	);
 }

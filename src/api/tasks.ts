@@ -1,4 +1,4 @@
-import type { Task, AcceptanceCriterion } from "../types";
+import type { Task } from "../types";
 
 // Use relative path to work with Vite proxy
 const API_BASE = "/api";
@@ -11,13 +11,19 @@ export interface TaskMoveRequest {
 export interface TaskUpdateRequest {
 	title?: string;
 	description?: string;
+	status_id?: number;
 	priority_id?: number;
 	type_id?: number;
 	labels?: string[];
 	dependencies?: string[];
 	content?: {
 		description?: string;
-		acceptance_criteria?: AcceptanceCriterion[];
+		acceptance_criteria?: Array<{
+			id: string;
+			description: string;
+			completed: boolean;
+			order: number;
+		}>;
 		implementation_details?: string;
 		notes?: string;
 		attachments?: string[];
@@ -46,7 +52,9 @@ class TaskAPI {
 
 		if (!response.ok) {
 			throw new Error(
-				data?.message || data?.error || `HTTP error! status: ${response.status}`,
+				data?.message ||
+					data?.error ||
+					`HTTP error! status: ${response.status}`,
 			);
 		}
 
@@ -113,7 +121,9 @@ class TaskAPI {
 			body: JSON.stringify({
 				...updates,
 				status_id: updates.status_id ? String(updates.status_id) : undefined,
-				priority_id: updates.priority_id ? String(updates.priority_id) : undefined,
+				priority_id: updates.priority_id
+					? String(updates.priority_id)
+					: undefined,
 				type_id: updates.type_id ? String(updates.type_id) : undefined,
 			}),
 		});

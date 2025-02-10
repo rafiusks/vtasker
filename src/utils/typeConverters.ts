@@ -12,7 +12,6 @@ import {
 	type TaskTypeId,
 	type TaskStatusUIType,
 } from "../types/typeReference";
-import { formatTaskTypeForApi } from "./taskTypeHelpers";
 
 // Constants for validation
 const VALID_STATUS_CODES = ["backlog", "in-progress", "review", "done"];

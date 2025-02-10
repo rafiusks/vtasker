@@ -130,11 +130,6 @@ export function AcceptanceCriteria({
 		setNewCriterion("");
 	};
 
-	const handleDelete = (id: string) => {
-		const filtered = safeCriteria.filter((c) => c.id !== id);
-		onUpdate(filtered);
-	};
-
 	const completedCount = safeCriteria.filter((c) => c.completed).length;
 	const progress =
 		safeCriteria.length > 0
