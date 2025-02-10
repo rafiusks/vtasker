@@ -47,34 +47,38 @@ export interface TaskUpdateRequest {
 }
 
 export class TaskAPI {
-	private request = async <T>(
-		path: string,
-		options?: RequestInit,
-	): Promise<T> => {
-		const response = await fetch(`${API_BASE}${path}`, {
+	private async request<T>(
+		endpoint: string,
+		options: RequestInit = {},
+	): Promise<T> {
+		const response = await fetch(`${API_BASE}${endpoint}`, {
 			...options,
 			headers: {
-				...options?.headers,
 				"Content-Type": "application/json",
+				...options.headers,
 			},
 		});
 
 		if (!response.ok) {
-			throw new Error(`API request failed: ${response.statusText}`);
+			const data = await response.json().catch(() => null);
+			throw new Error(
+				data?.message ||
+					data?.error ||
+					`HTTP error! status: ${response.status}`,
+			);
+		}
+
+		if (response.status === 204) {
+			return undefined as T;
 		}
 
 		const data = await response.json();
-		if (!data) {
-			console.warn("Received null response from API");
-			return [] as T;
-		}
-
-		return data as T;
-	};
+		return data;
+	}
 
 	listTasks = async (): Promise<Task[]> => {
 		const response = await this.request<ApiTask[]>("/tasks");
-		return response.map(convertAPITaskToTask);
+		return response?.map(convertAPITaskToTask) || [];
 	};
 
 	async getTask(id: string): Promise<Task> {
@@ -91,7 +95,19 @@ export class TaskAPI {
 	async updateTask(id: string, updates: TaskUpdateRequest): Promise<Task> {
 		return this.request<Task>(`/tasks/${id}`, {
 			method: "PUT",
-			body: JSON.stringify(updates),
+			body: JSON.stringify({
+				...updates,
+				content: {
+					...updates.content,
+					description: updates.content?.description || "",
+					acceptance_criteria: updates.content?.acceptance_criteria || [],
+					implementation_details: updates.content?.implementation_details,
+					notes: updates.content?.notes,
+					attachments: updates.content?.attachments || [],
+					due_date: updates.content?.due_date,
+					assignee: updates.content?.assignee,
+				},
+			}),
 		});
 	}
 

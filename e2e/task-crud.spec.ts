@@ -2,23 +2,43 @@ import { test, expect } from "@playwright/test";
 
 test.describe("Task CRUD Operations", () => {
 	test.beforeEach(async ({ page }) => {
-		// Clear all tasks before each test
-		await fetch("http://localhost:8000/api/tasks/clear", {
-			method: "POST",
-		});
-
 		// Navigate to the app
 		await page.goto("/");
 
-		// Wait for the initial load
-		await page.waitForSelector("[data-testid='loading-state']", {
-			state: "hidden",
+		// Wait for the app to be fully loaded
+		await page.waitForSelector("[data-testid='task-list']", {
+			state: "visible",
+			timeout: 10000,
+		});
+
+		// Delete any existing tasks
+		const taskCards = await page.locator("[data-testid='task-card']").all();
+		for (const card of taskCards) {
+			await card.getByRole("button", { name: "Delete" }).click();
+			await expect(card).not.toBeVisible({ timeout: 5000 });
+			await expect(page.getByText("Task deleted successfully")).toBeVisible({
+				timeout: 5000,
+			});
+		}
+
+		// Wait for all tasks to be deleted
+		await expect(page.locator("[data-testid='task-card']")).toHaveCount(0, {
 			timeout: 10000,
 		});
 	});
 
 	test.afterEach(async ({ page }) => {
-		// Verify we end with 0 tasks (same as we started)
+		// Delete any remaining tasks
+		const taskCards = await page.locator("[data-testid='task-card']").all();
+		for (const card of taskCards) {
+			await card.getByRole("button", { name: "Delete" }).click();
+			await expect(card).not.toBeVisible({ timeout: 5000 });
+			await expect(page.getByText("Task deleted successfully")).toBeVisible({
+				timeout: 5000,
+			});
+		}
+
+		// Verify we end with 0 tasks
 		await expect(page.locator("[data-testid='task-card']")).toHaveCount(0, {
 			timeout: 10000,
 		});
@@ -43,10 +63,15 @@ test.describe("Task CRUD Operations", () => {
 				.fill("Testing CRUD operations");
 
 			// Wait for select options to be loaded
-			await page.waitForSelector("select#priority option", {
+			await page.waitForSelector(
+				"[data-testid='task-priority-select'] option",
+				{
+					state: "attached",
+				},
+			);
+			await page.waitForSelector("[data-testid='task-type-select'] option", {
 				state: "attached",
 			});
-			await page.waitForSelector("select#type option", { state: "attached" });
 
 			await page
 				.getByTestId("task-priority-select")
@@ -157,11 +182,16 @@ test.describe("Task CRUD Operations", () => {
 				.filter({ hasText: "Updated CRUD Task" });
 			await taskCard.getByRole("button", { name: "Delete" }).click();
 
-			// Wait for success toast
-			await expect(page.getByText("Task deleted successfully")).toBeVisible();
+			// Wait for the task to be removed first
+			await expect(taskCard).not.toBeVisible({ timeout: 5000 });
 
-			// Wait for the task to be removed
-			await expect(page.getByText("Updated CRUD Task")).not.toBeVisible({
+			// Then wait for success message
+			await expect(page.getByText("Task deleted successfully")).toBeVisible({
+				timeout: 5000,
+			});
+
+			// Finally check the total count
+			await expect(page.locator("[data-testid='task-card']")).toHaveCount(0, {
 				timeout: 10000,
 			});
 
@@ -180,11 +210,6 @@ test.describe("Task CRUD Operations", () => {
 
 			// Wait for the task grid to be visible
 			await expect(page.locator("[data-testid='task-list'].grid")).toBeVisible({
-				timeout: 10000,
-			});
-
-			// Wait for the task list to be empty
-			await expect(page.locator("[data-testid='task-card']")).toHaveCount(0, {
 				timeout: 10000,
 			});
 
@@ -272,7 +297,12 @@ test.describe("Task CRUD Operations", () => {
 
 		// Clean up: Delete the task we created
 		await taskCard.getByRole("button", { name: "Delete" }).click();
-		await expect(page.getByText("Task deleted successfully")).toBeVisible();
-		await expect(taskCard).not.toBeVisible({ timeout: 10000 });
+		await expect(page.getByText("Task deleted successfully")).toBeVisible({
+			timeout: 5000,
+		});
+		await page.waitForTimeout(500); // Increased wait time
+		await expect(page.locator("[data-testid='task-card']")).toHaveCount(0, {
+			timeout: 10000,
+		});
 	});
 });

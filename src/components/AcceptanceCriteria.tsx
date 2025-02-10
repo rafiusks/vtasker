@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { AcceptanceCriterion } from "../types";
 import { CheckIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { taskAPI } from "../api/client";
 
 interface AcceptanceCriteriaProps {
 	criteria?: AcceptanceCriterion[];
@@ -75,26 +76,11 @@ export function AcceptanceCriteria({
 				return;
 			}
 
-			const response = await fetch(
-				`http://localhost:8000/api/tasks/${taskId}/acceptance-criteria`,
-				{
-					method: "PATCH",
-					headers: {
-						"Content-Type": "application/json",
-					},
-					body: JSON.stringify({ criteria: updated }),
+			await taskAPI.updateTask(taskId, {
+				content: {
+					acceptance_criteria: updated,
 				},
-			);
-
-			if (!response.ok) {
-				const errorData = await response.json().catch(() => null);
-				throw new Error(
-					`Failed to update acceptance criteria: ${errorData?.error || response.statusText}`,
-				);
-			}
-
-			const updatedTask = await response.json();
-			console.log("Server response:", updatedTask);
+			});
 		} catch (error) {
 			console.error("Error updating acceptance criteria:", error);
 			// Revert the local update if server update fails

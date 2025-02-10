@@ -1,70 +1,62 @@
-import React from "react";
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
-import "@testing-library/jest-dom";
-import { AcceptanceCriteria } from "../../src/components/AcceptanceCriteria";
-import type { AcceptanceCriterion } from "../../src/types";
+import { test, expect } from "@playwright/test";
 
-describe("AcceptanceCriteria", () => {
-	const mockCriteria: AcceptanceCriterion[] = [
-		{
-			id: "1",
-			description: "First criterion",
-			completed: false,
-			completed_at: undefined,
-			completed_by: undefined,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-			order: 0,
-		},
-		{
-			id: "2",
-			description: "Second criterion",
-			completed: false,
-			completed_at: undefined,
-			completed_by: undefined,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-			order: 1,
-		},
-	];
+test.describe("AcceptanceCriteria", () => {
+	test.beforeEach(async ({ page }) => {
+		// Navigate to the app and open a task form to test acceptance criteria
+		await page.goto("/");
+		await page.getByRole("button", { name: "Create Task" }).click();
+		await page.waitForSelector("[role='dialog']", { state: "visible" });
+	});
 
-	it("renders all criteria with unique keys", () => {
-		const { container } = render(
-			<AcceptanceCriteria criteria={mockCriteria} onUpdate={vi.fn()} />,
+	test("should add and display criteria", async ({ page }) => {
+		// Add first criterion
+		await page.getByTestId("acceptance-criteria-input").fill("First criterion");
+		await page.getByTestId("add-criterion-button").click();
+		await page.waitForSelector("[data-testid='acceptance-criterion']");
+
+		// Add second criterion
+		await page
+			.getByTestId("acceptance-criteria-input")
+			.fill("Second criterion");
+		await page.getByTestId("add-criterion-button").click();
+
+		// Verify criteria are displayed
+		const criteria = await page
+			.locator("[data-testid='acceptance-criterion-description']")
+			.all();
+		expect(criteria.length).toBe(2);
+		await expect(criteria[0]).toHaveText("First criterion");
+		await expect(criteria[1]).toHaveText("Second criterion");
+	});
+
+	test("should toggle criteria completion", async ({ page }) => {
+		// Add a criterion
+		await page.getByTestId("acceptance-criteria-input").fill("Test criterion");
+		await page.getByTestId("add-criterion-button").click();
+		await page.waitForSelector("[data-testid='acceptance-criterion']");
+
+		// Toggle completion
+		await page.getByTestId("acceptance-criterion-checkbox").click();
+
+		// Verify completion state
+		await expect(
+			page.locator("[data-testid='acceptance-criterion-description']"),
+		).toHaveClass(/text-gray-500 line-through/);
+	});
+
+	test("should validate empty criterion", async ({ page }) => {
+		// Try to add empty criterion
+		await page.getByTestId("acceptance-criteria-input").fill("");
+		await page.getByTestId("add-criterion-button").click();
+
+		// Verify error state
+		await expect(page.getByTestId("acceptance-criteria-input")).toHaveAttribute(
+			"aria-invalid",
+			"true",
 		);
-
-		// Check if all criteria are rendered
-		expect(screen.getByText("First criterion")).toBeInTheDocument();
-		expect(screen.getByText("Second criterion")).toBeInTheDocument();
-
-		// Verify unique keys
-		const listItems = container.querySelectorAll("li");
-		const keys = Array.from(listItems).map((li) => li.getAttribute("data-key"));
-		expect(keys).toEqual(["1", "2"]);
-	});
-
-	it("toggles criteria independently", () => {
-		const onUpdate = vi.fn();
-		render(<AcceptanceCriteria criteria={mockCriteria} onUpdate={onUpdate} />);
-
-		// Click first checkbox
-		const checkboxes = screen.getAllByRole("button");
-		fireEvent.click(checkboxes[0]);
-
-		// Verify only first criterion was toggled
-		expect(onUpdate).toHaveBeenCalledWith([
-			{ ...mockCriteria[0], completed: true, completed_at: expect.any(String) },
-			mockCriteria[1],
-		]);
-	});
-
-	it("displays descriptions correctly", () => {
-		render(<AcceptanceCriteria criteria={mockCriteria} onUpdate={vi.fn()} />);
-
-		const descriptions = screen.getAllByText(/criterion$/);
-		expect(descriptions).toHaveLength(2);
-		expect(descriptions[0]).toHaveTextContent("First criterion");
-		expect(descriptions[1]).toHaveTextContent("Second criterion");
+		await expect(page.locator("#criterion-error")).toBeVisible();
+		await expect(page.locator("#criterion-error")).toHaveText(
+			"Description is required",
+		);
 	});
 });

@@ -1,19 +1,19 @@
-import "@testing-library/jest-dom";
 import { afterEach } from "vitest";
-import { cleanup } from "@testing-library/react";
-import "@testing-library/jest-dom/extend-expect";
 
 // Cleanup after each test case
 afterEach(() => {
-	cleanup();
+	// Add any cleanup code here if needed
 });
 
-// Extend the expect interface with jest-dom matchers
+// Extend the expect interface with Playwright matchers
 declare global {
-	namespace Vi {
-		interface JestAssertion<T = unknown> {
-			toBeInTheDocument(): void;
-			toHaveTextContent(text: string): void;
+	namespace PlaywrightTest {
+		interface Matchers<R> {
+			toBeVisible(): R;
+			toHaveText(text: string): R;
+			toHaveCount(count: number): R;
+			toHaveAttribute(name: string, value: string): R;
+			toHaveValue(value: string): R;
 		}
 	}
 }

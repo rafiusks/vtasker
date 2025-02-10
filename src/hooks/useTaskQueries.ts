@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Task } from "../types";
 import { taskAPI } from "../api/client";
+import { toast } from "react-hot-toast";
 
 export function useTaskQueries() {
 	const queryClient = useQueryClient();
@@ -38,6 +39,7 @@ export function useTaskQueries() {
 		mutationFn: (id: string) => taskAPI.deleteTask(id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+			toast.success("Task deleted successfully");
 		},
 	});
 

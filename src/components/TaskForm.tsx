@@ -1,5 +1,5 @@
 import type { FC } from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/20/solid";
 import type {
@@ -13,6 +13,7 @@ import { toast } from "react-hot-toast";
 import { Input } from "./Input";
 import { TextArea } from "./TextArea";
 import { Button } from "./Button";
+import { SELECT_OPTIONS } from "../types/typeReference";
 
 interface TaskFormProps {
 	isOpen: boolean;
@@ -72,7 +73,15 @@ const getInitialFormData = (
 		priority_id: task?.priority_id ? String(task.priority_id) : defaultPriority,
 		type_id: task?.type_id ? String(task.type_id) : defaultType,
 		order: task?.order ?? nextOrder,
-		content: task?.content ?? defaultContent,
+		content: {
+			description: task?.content?.description ?? "",
+			acceptance_criteria: task?.content?.acceptance_criteria ?? [],
+			implementation_details: task?.content?.implementation_details ?? "",
+			notes: task?.content?.notes ?? "",
+			attachments: task?.content?.attachments ?? [],
+			due_date: task?.content?.due_date,
+			assignee: task?.content?.assignee ?? "",
+		},
 		relationships: task?.relationships ?? {
 			parent: undefined,
 			dependencies: [],
@@ -97,6 +106,12 @@ export const TaskForm: FC<TaskFormProps> = ({
 	const [formData, setFormData] = useState<TaskFormData>(() =>
 		getInitialFormData(task, allTasks),
 	);
+
+	// Update form data when task changes
+	useEffect(() => {
+		setFormData(getInitialFormData(task, allTasks));
+	}, [task, allTasks]);
+
 	const [isLoading, setIsLoading] = useState(false);
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -226,6 +241,62 @@ export const TaskForm: FC<TaskFormProps> = ({
 								data-testid="task-description-input"
 								aria-label="Description"
 							/>
+						</div>
+
+						<div className="grid grid-cols-2 gap-4">
+							<div>
+								<label
+									htmlFor="priority"
+									className="block text-sm font-medium text-gray-700"
+								>
+									Priority
+								</label>
+								<select
+									id="priority"
+									value={formData.priority_id}
+									onChange={(e) =>
+										setFormData({ ...formData, priority_id: e.target.value })
+									}
+									className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+									required
+									data-testid="task-priority-select"
+									aria-required="true"
+								>
+									<option value="">Select priority...</option>
+									{SELECT_OPTIONS.PRIORITY.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+							</div>
+
+							<div>
+								<label
+									htmlFor="type"
+									className="block text-sm font-medium text-gray-700"
+								>
+									Type
+								</label>
+								<select
+									id="type"
+									value={formData.type_id}
+									onChange={(e) =>
+										setFormData({ ...formData, type_id: e.target.value })
+									}
+									className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+									required
+									data-testid="task-type-select"
+									aria-required="true"
+								>
+									<option value="">Select type...</option>
+									{SELECT_OPTIONS.TYPE.map((option) => (
+										<option key={option.value} value={option.value}>
+											{option.label}
+										</option>
+									))}
+								</select>
+							</div>
 						</div>
 
 						<div>

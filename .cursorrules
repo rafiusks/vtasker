@@ -1,0 +1,24 @@
+Instructions:
+* Always use type safety is paramount, should be used everywhere and shared between frontend and backend.
+* Always use the latest version of the libraries.
+* Don't stop and start the backend or frontend servers unless explicitly told to do so.
+
+Project objective:
+- Create a task management system with the following features:
+  - Create a task
+  - Update a task
+  - Delete a task
+  - View all tasks
+  - View a task
+
+Project structure:
+- Backend: Go; /backend
+- Database: PostgreSQL
+- Frontend: Vite + TailwindCSS; /src
+- Tests: Playwright; /e2e
+
+Commands:
+- Run backend: 'go run cmd/server/main.go'
+- Run frontend: `pnpm run dev`
+- Run e2e tests: `pnpm test`
+
