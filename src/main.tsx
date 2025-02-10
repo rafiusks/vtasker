@@ -1,10 +1,9 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
+import { RouterProvider } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { DndProvider } from "react-dnd";
-import { HTML5Backend } from "react-dnd-html5-backend";
-import { App } from "./App";
+import { router } from "./router";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -24,9 +23,7 @@ if (!rootElement) {
 ReactDOM.createRoot(rootElement).render(
 	<React.StrictMode>
 		<QueryClientProvider client={queryClient}>
-			<DndProvider backend={HTML5Backend}>
-				<App />
-			</DndProvider>
+			<RouterProvider router={router} />
 			<ReactQueryDevtools initialIsOpen={false} />
 		</QueryClientProvider>
 	</React.StrictMode>,

@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/rafaelzasas/vtasker/internal/models"
+	"github.com/rafaelzasas/vtasker/backend/internal/models"
 )
 
 // TaskTypeRepository handles database operations for task types
@@ -19,68 +19,55 @@ func NewTaskTypeRepository(pool *pgxpool.Pool) *TaskTypeRepository {
 }
 
 // GetDefaultTaskType retrieves the default task type
-func (r *TaskTypeRepository) GetDefaultTaskType(ctx context.Context) (*models.TaskTypeEntity, error) {
-	var taskType models.TaskTypeEntity
-
+func (r *TaskTypeRepository) GetDefaultTaskType(ctx context.Context) (*models.TaskType, error) {
+	// First try to get the feature type as default
+	var taskType models.TaskType
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, name, description, display_order
+		SELECT id, name, code, description, display_order
 		FROM task_types
-		WHERE name = $1
+		WHERE name = 'feature'
 		LIMIT 1
-	`, string(models.TypeFeature)).Scan(
-		&taskType.ID,
-		&taskType.Name,
-		&taskType.Description,
-		&taskType.DisplayOrder,
-	)
-
-	if err != nil {
-		return nil, fmt.Errorf("error getting default task type: %v", err)
+	`).Scan(&taskType.ID, &taskType.Name, &taskType.Code, &taskType.Description, &taskType.DisplayOrder)
+	if err == nil {
+		return &taskType, nil
 	}
 
+	// If feature type not found, get the first available type
+	err = r.pool.QueryRow(ctx, `
+		SELECT id, name, code, description, display_order
+		FROM task_types
+		ORDER BY display_order ASC
+		LIMIT 1
+	`).Scan(&taskType.ID, &taskType.Name, &taskType.Code, &taskType.Description, &taskType.DisplayOrder)
+	if err != nil {
+		// If no task types exist, create default types
+		if err := r.InitializeTaskTypes(ctx); err != nil {
+			return nil, fmt.Errorf("failed to initialize default task types: %w", err)
+		}
+		// Try one more time to get the default type
+		err = r.pool.QueryRow(ctx, `
+			SELECT id, name, code, description, display_order
+			FROM task_types
+			WHERE name = 'feature'
+			LIMIT 1
+		`).Scan(&taskType.ID, &taskType.Name, &taskType.Code, &taskType.Description, &taskType.DisplayOrder)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get default task type after initialization: %w", err)
+		}
+	}
 	return &taskType, nil
 }
 
 // InitializeTaskTypes ensures that default task types exist in the database
 func (r *TaskTypeRepository) InitializeTaskTypes(ctx context.Context) error {
-	// Define default task types
-	defaultTypes := []struct {
-		name         string
-		description  string
-		displayOrder int32
-	}{
-		{string(models.TypeFeature), "New feature implementation", 1},
-		{string(models.TypeBug), "Bug fix", 2},
-		{string(models.TypeDocs), "Documentation", 3},
-		{string(models.TypeChore), "Maintenance task", 4},
-	}
-
-	// Begin transaction
-	tx, err := r.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("error starting transaction: %v", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// Insert or update each task type
-	for _, t := range defaultTypes {
-		_, err := tx.Exec(ctx, `
-			INSERT INTO task_types (name, description, display_order)
-			VALUES ($1, $2, $3)
-			ON CONFLICT (name) DO UPDATE
-			SET description = EXCLUDED.description,
-				display_order = EXCLUDED.display_order
-		`, t.name, t.description, t.displayOrder)
-
-		if err != nil {
-			return fmt.Errorf("error upserting task type %s: %v", t.name, err)
-		}
-	}
-
-	// Commit transaction
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("error committing transaction: %v", err)
-	}
-
-	return nil
+	_, err := r.pool.Exec(ctx, `
+		INSERT INTO task_types (name, code, description, display_order)
+		VALUES 
+		('feature', 'feature', 'New feature or enhancement', 0),
+		('bug', 'bug', 'Bug fix or issue resolution', 1),
+		('docs', 'docs', 'Documentation update', 2),
+		('chore', 'chore', 'Maintenance or cleanup task', 3)
+		ON CONFLICT (name) DO NOTHING
+	`)
+	return err
 }

@@ -3,6 +3,7 @@ package api
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rafaelzasas/vtasker/backend/internal/services"
 )
 
 // SetupRoutes configures all the routes for the API
@@ -10,8 +11,12 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 	// Add detailed error logging middleware
 	router.Use(DetailedErrorLogger())
 
+	// Create services
+	authService := services.NewAuthService(pool, "your-secret-key") // TODO: Get from env
+
 	// Create handlers
 	taskHandler := NewTaskHandler(pool)
+	authHandler := NewAuthHandler(authService)
 
 	// Legacy routes (for compatibility)
 	legacy := router.Group("/api")
@@ -20,12 +25,14 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 		legacy.GET("/tasks/:id", taskHandler.GetTask)
 		legacy.POST("/tasks", taskHandler.CreateTask)
 		legacy.PUT("/tasks/:id", taskHandler.UpdateTask)
-		legacy.PUT("/tasks/:id/move", taskHandler.MoveTask)
 		legacy.DELETE("/tasks/:id", taskHandler.DeleteTask)
-		legacy.POST("/tasks/clear", taskHandler.ClearTasks)
 		legacy.GET("/task-statuses", taskHandler.ListTaskStatuses)
 		legacy.GET("/task-priorities", taskHandler.ListTaskPriorities)
 		legacy.GET("/task-types", taskHandler.ListTaskTypes)
+
+		// Auth routes
+		legacy.POST("/auth/register", authHandler.Register)
+		legacy.POST("/auth/login", authHandler.Login)
 	}
 
 	// API v1 group
@@ -38,14 +45,19 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 			tasks.GET("", taskHandler.ListTasks)
 			tasks.GET("/:id", taskHandler.GetTask)
 			tasks.PUT("/:id", taskHandler.UpdateTask)
-			tasks.PUT("/:id/move", taskHandler.MoveTask)
 			tasks.DELETE("/:id", taskHandler.DeleteTask)
-			tasks.POST("/clear", taskHandler.ClearTasks)
 		}
 
-		// Task status routes
+		// Task reference data routes
 		v1.GET("/task-statuses", taskHandler.ListTaskStatuses)
 		v1.GET("/task-priorities", taskHandler.ListTaskPriorities)
 		v1.GET("/task-types", taskHandler.ListTaskTypes)
+
+		// Auth routes
+		auth := v1.Group("/auth")
+		{
+			auth.POST("/register", authHandler.Register)
+			auth.POST("/login", authHandler.Login)
+		}
 	}
 }

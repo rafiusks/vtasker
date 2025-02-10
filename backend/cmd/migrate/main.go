@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
-	"github.com/rafaelzasas/vtasker/internal/db"
+	"github.com/rafaelzasas/vtasker/backend/internal/db"
 )
 
 func main() {
@@ -18,13 +18,14 @@ func main() {
 	direction := flag.String("direction", "up", "Migration direction (up or down)")
 	flag.Parse()
 
-	if *direction != "up" && *direction != "down" {
-		log.Fatalf("Invalid direction: %s. Must be 'up' or 'down'", *direction)
+	// Get database URL from environment
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		log.Fatal("DATABASE_URL environment variable is required")
 	}
 
 	// Run migrations
-	if err := db.RunMigrations(*direction); err != nil {
-		log.Fatalf("Error running migrations: %v", err)
-		os.Exit(1)
+	if err := db.Migrate(dbURL, *direction); err != nil {
+		log.Fatal(err)
 	}
 } 

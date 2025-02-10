@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/juju/ratelimit"
-	"github.com/rafaelzasas/vtasker/internal/metrics"
+	"github.com/rafaelzasas/vtasker/backend/internal/metrics"
 )
 
 type CircuitBreaker struct {

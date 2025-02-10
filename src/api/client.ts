@@ -8,6 +8,13 @@ import type {
 	TaskPriorityEntity,
 } from "../types/typeReference";
 import type { Board } from "../types";
+import type {
+	LoginResponse,
+	User,
+	UserCreate,
+	UserLogin,
+	RefreshTokenResponse,
+} from "../types/auth";
 
 const API_BASE = "http://localhost:8000/api";
 
@@ -46,15 +53,19 @@ export interface TaskUpdateRequest {
 	column?: string;
 }
 
-export class TaskAPI {
-	private async request<T>(
+export class BaseAPI {
+	private headers: Record<string, string> = {
+		"Content-Type": "application/json",
+	};
+
+	protected async request<T>(
 		endpoint: string,
 		options: RequestInit = {},
 	): Promise<T> {
 		const response = await fetch(`${API_BASE}${endpoint}`, {
 			...options,
 			headers: {
-				"Content-Type": "application/json",
+				...this.headers,
 				...options.headers,
 			},
 		});
@@ -76,6 +87,16 @@ export class TaskAPI {
 		return data;
 	}
 
+	setAuthHeader(value: string): void {
+		this.headers.Authorization = value;
+	}
+
+	removeAuthHeader(): void {
+		this.headers.Authorization = "";
+	}
+}
+
+export class TaskAPI extends BaseAPI {
 	listTasks = async (): Promise<Task[]> => {
 		const response = await this.request<ApiTask[]>("/tasks");
 		return response?.map(convertAPITaskToTask) || [];
@@ -137,35 +158,7 @@ export class TaskAPI {
 	}
 }
 
-class BoardAPI {
-	private async request<T>(
-		endpoint: string,
-		options: RequestInit = {},
-	): Promise<T> {
-		const response = await fetch(`${API_BASE}${endpoint}`, {
-			...options,
-			headers: {
-				"Content-Type": "application/json",
-				...options.headers,
-			},
-		});
-
-		if (!response.ok) {
-			const errorData = await response.json().catch(() => null);
-			throw new Error(
-				errorData?.error ||
-					errorData?.message ||
-					`HTTP error! status: ${response.status}`,
-			);
-		}
-
-		if (response.status === 204) {
-			return {} as T;
-		}
-
-		return response.json();
-	}
-
+class BoardAPI extends BaseAPI {
 	async listBoards(
 		params: URLSearchParams = new URLSearchParams(),
 	): Promise<Board[]> {
@@ -197,5 +190,29 @@ class BoardAPI {
 	}
 }
 
+export class AuthAPI extends BaseAPI {
+	async register(data: UserCreate): Promise<User> {
+		return this.request<User>("/auth/register", {
+			method: "POST",
+			body: JSON.stringify(data),
+		});
+	}
+
+	async login(data: UserLogin): Promise<LoginResponse> {
+		return this.request<LoginResponse>("/auth/login", {
+			method: "POST",
+			body: JSON.stringify(data),
+		});
+	}
+
+	async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
+		return this.request<RefreshTokenResponse>("/auth/refresh", {
+			method: "POST",
+			body: JSON.stringify({ refreshToken }),
+		});
+	}
+}
+
 export const taskAPI = new TaskAPI();
 export const boardAPI = new BoardAPI();
+export const authAPI = new AuthAPI();

@@ -20,6 +20,7 @@ import { PlusIcon } from "@heroicons/react/20/solid";
 import { useTaskQueries } from "./hooks/useTaskQueries";
 import { taskAPI } from "./api/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { Header } from "./components/common/Header";
 
 // ============================================================================
 // Types
@@ -453,203 +454,210 @@ export function App() {
 	// ============================================================================
 
 	return (
-		<div className="min-h-screen bg-gray-50 p-4 md:p-6">
-			<Toaster position="bottom-right" />
-			<div
-				className="min-h-screen bg-gray-50 p-4 md:p-6"
-				data-testid="task-list"
-				style={{
-					visibility: isLoading || filtersLoading ? "hidden" : "visible",
-				}}
-			>
-				<header className="max-w-7xl mx-auto mb-8">
-					<div className="flex items-center justify-between mb-4">
-						<div>
-							<h1 className="text-4xl font-bold text-gray-900 mb-2">
-								vTask Board
-							</h1>
-							<p className="text-lg text-gray-600">
-								Manage your tasks with ease
-							</p>
-						</div>
-						<button
-							type="button"
-							onClick={() => setIsTaskFormOpen(true)}
-							className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
-							aria-label="Create Task"
-						>
-							<PlusIcon className="h-5 w-5" aria-hidden="true" />
-							Create Task
-						</button>
-					</div>
-				</header>
-
-				{/* Filter Controls */}
-				<div className="max-w-7xl mx-auto mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-					<div className="flex items-center justify-between mb-3">
-						<h2 className="text-base font-medium text-gray-900">Filters</h2>
-						{activeFilterCount > 0 && (
-							<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-								{activeFilterCount} active filter
-								{activeFilterCount !== 1 ? "s" : ""}
-							</span>
-						)}
-					</div>
-					<div className="space-y-2">
-						<div className="flex flex-wrap items-start gap-4">
-							{/* Status & Priority Filters */}
-							<div className="flex items-start gap-4">
-								<Select
-									label="Status"
-									value={filters.status}
-									onChange={(value) => {
-										if (typeof value === "string") {
-											handleFilterChange("status", [value]);
-										} else {
-											handleFilterChange("status", value);
-										}
-									}}
-									options={SELECT_OPTIONS.STATUS}
-								/>
-								<Select
-									label="Priority"
-									value={filters.priority}
-									onChange={(value) => {
-										if (typeof value === "string") {
-											handleFilterChange("priority", [value]);
-										} else {
-											handleFilterChange("priority", value);
-										}
-									}}
-									options={SELECT_OPTIONS.PRIORITY}
-								/>
-							</div>
-
-							{/* Labels Filter */}
-							<Select
-								label="Labels"
-								value={filters.labels}
-								onChange={(value) => {
-									if (typeof value === "string") {
-										handleFilterChange("labels", [value]);
-									} else {
-										handleFilterChange("labels", value);
-									}
-								}}
-								options={uniqueLabels.map((label) => ({
-									value: label,
-									label,
-								}))}
-							/>
-
-							{/* Sort Controls */}
-							<div className="flex items-start gap-2">
-								<Select
-									label="Sort By"
-									value={filters.sortBy}
-									onChange={(value) => {
-										if (typeof value === "string") {
-											handleFilterChange("sortBy", value);
-										}
-									}}
-									options={sortOptions}
-								/>
-								<Select
-									label="Sort Order"
-									value={filters.sortOrder}
-									onChange={(value) => {
-										if (typeof value === "string") {
-											handleFilterChange("sortOrder", value);
-										}
-									}}
-									options={sortOrderOptions}
-								/>
-							</div>
-						</div>
-
-						{/* Clear Filters */}
-						{activeFilterCount > 0 && (
-							<div className="flex justify-end pt-2">
+		<div className="min-h-screen bg-gray-100">
+			<Header />
+			<main className="py-8">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+					<Toaster position="bottom-right" />
+					<div
+						className="bg-gray-50 p-4 md:p-6"
+						data-testid="task-list"
+						style={{
+							visibility: isLoading || filtersLoading ? "hidden" : "visible",
+						}}
+					>
+						<header className="mb-8">
+							<div className="flex items-center justify-between mb-4">
+								<div>
+									<h1 className="text-4xl font-bold text-gray-900 mb-2">
+										vTask Board
+									</h1>
+									<p className="text-lg text-gray-600">
+										Manage your tasks with ease
+									</p>
+								</div>
 								<button
 									type="button"
-									onClick={clearFilters}
-									className="text-sm text-gray-500 hover:text-gray-700"
+									onClick={() => setIsTaskFormOpen(true)}
+									className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+									aria-label="Create Task"
 								>
-									Clear Filters
+									<PlusIcon className="h-5 w-5" aria-hidden="true" />
+									Create Task
 								</button>
 							</div>
-						)}
+						</header>
+
+						{/* Filter Controls */}
+						<div className="max-w-7xl mx-auto mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+							<div className="flex items-center justify-between mb-3">
+								<h2 className="text-base font-medium text-gray-900">Filters</h2>
+								{activeFilterCount > 0 && (
+									<span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+										{activeFilterCount} active filter
+										{activeFilterCount !== 1 ? "s" : ""}
+									</span>
+								)}
+							</div>
+							<div className="space-y-2">
+								<div className="flex flex-wrap items-start gap-4">
+									{/* Status & Priority Filters */}
+									<div className="flex items-start gap-4">
+										<Select
+											label="Status"
+											value={filters.status}
+											onChange={(value) => {
+												if (typeof value === "string") {
+													handleFilterChange("status", [value]);
+												} else {
+													handleFilterChange("status", value);
+												}
+											}}
+											options={SELECT_OPTIONS.STATUS}
+										/>
+										<Select
+											label="Priority"
+											value={filters.priority}
+											onChange={(value) => {
+												if (typeof value === "string") {
+													handleFilterChange("priority", [value]);
+												} else {
+													handleFilterChange("priority", value);
+												}
+											}}
+											options={SELECT_OPTIONS.PRIORITY}
+										/>
+									</div>
+
+									{/* Labels Filter */}
+									<Select
+										label="Labels"
+										value={filters.labels}
+										onChange={(value) => {
+											if (typeof value === "string") {
+												handleFilterChange("labels", [value]);
+											} else {
+												handleFilterChange("labels", value);
+											}
+										}}
+										options={uniqueLabels.map((label) => ({
+											value: label,
+											label,
+										}))}
+									/>
+
+									{/* Sort Controls */}
+									<div className="flex items-start gap-2">
+										<Select
+											label="Sort By"
+											value={filters.sortBy}
+											onChange={(value) => {
+												if (typeof value === "string") {
+													handleFilterChange("sortBy", value);
+												}
+											}}
+											options={sortOptions}
+										/>
+										<Select
+											label="Sort Order"
+											value={filters.sortOrder}
+											onChange={(value) => {
+												if (typeof value === "string") {
+													handleFilterChange("sortOrder", value);
+												}
+											}}
+											options={sortOrderOptions}
+										/>
+									</div>
+								</div>
+
+								{/* Clear Filters */}
+								{activeFilterCount > 0 && (
+									<div className="flex justify-end pt-2">
+										<button
+											type="button"
+											onClick={clearFilters}
+											className="text-sm text-gray-500 hover:text-gray-700"
+										>
+											Clear Filters
+										</button>
+									</div>
+								)}
+							</div>
+						</div>
+
+						<main className="max-w-7xl mx-auto">
+							<div
+								className="grid grid-cols-1 md:grid-cols-4 gap-4"
+								data-testid="task-list"
+							>
+								{error ? (
+									<div
+										className="col-span-4 text-center py-12"
+										data-testid="error-state"
+									>
+										<p className="text-red-500">{error}</p>
+									</div>
+								) : filteredTasks.length === 0 ? (
+									<div
+										className="col-span-4 text-center py-12"
+										data-testid="empty-state"
+									>
+										<p className="text-gray-500">No tasks found</p>
+									</div>
+								) : (
+									Object.values(TASK_STATUS).map((status) => {
+										// Filter tasks for this column
+										const tasksInColumn = filteredTasks.filter((task) => {
+											// If status_id is already a TaskStatusId, use it directly
+											if (isTaskStatusId(task.status_id)) {
+												return task.status_id === status.id;
+											}
+
+											// Otherwise, try to convert it
+											const taskStatusId = task.status_id;
+											return taskStatusId === status.id;
+										});
+
+										return (
+											<TaskColumn
+												key={status.columnId}
+												status={status}
+												tasks={tasksInColumn}
+												onDrop={handleTaskMove}
+												onEdit={handleTaskEdit}
+												onDelete={handleDeleteTask}
+												isLoading={isLoading}
+												updatingTaskId={updatingTaskId}
+											/>
+										);
+									})
+								)}
+							</div>
+						</main>
+
+						{/* Task Form - used for create/edit/view */}
+						<TaskForm
+							isOpen={isTaskFormOpen}
+							onClose={() => {
+								setIsTaskFormOpen(false);
+								setEditingTask(undefined);
+							}}
+							onSubmit={handleTaskSubmit}
+							task={editingTask}
+							allTasks={tasks}
+						/>
+						<StatusNotification
+							show={notification.show}
+							onClose={() =>
+								setNotification((prev) => ({ ...prev, show: false }))
+							}
+							taskTitle={notification.taskTitle ?? ""}
+							status={notification.status}
+						/>
 					</div>
 				</div>
-
-				<main className="max-w-7xl mx-auto">
-					<div
-						className="grid grid-cols-1 md:grid-cols-4 gap-4"
-						data-testid="task-list"
-					>
-						{error ? (
-							<div
-								className="col-span-4 text-center py-12"
-								data-testid="error-state"
-							>
-								<p className="text-red-500">{error}</p>
-							</div>
-						) : filteredTasks.length === 0 ? (
-							<div
-								className="col-span-4 text-center py-12"
-								data-testid="empty-state"
-							>
-								<p className="text-gray-500">No tasks found</p>
-							</div>
-						) : (
-							Object.values(TASK_STATUS).map((status) => {
-								// Filter tasks for this column
-								const tasksInColumn = filteredTasks.filter((task) => {
-									// If status_id is already a TaskStatusId, use it directly
-									if (isTaskStatusId(task.status_id)) {
-										return task.status_id === status.id;
-									}
-
-									// Otherwise, try to convert it
-									const taskStatusId = task.status_id;
-									return taskStatusId === status.id;
-								});
-
-								return (
-									<TaskColumn
-										key={status.columnId}
-										status={status}
-										tasks={tasksInColumn}
-										onDrop={handleTaskMove}
-										onEdit={handleTaskEdit}
-										onDelete={handleDeleteTask}
-										isLoading={isLoading}
-										updatingTaskId={updatingTaskId}
-									/>
-								);
-							})
-						)}
-					</div>
-				</main>
-
-				{/* Task Form - used for create/edit/view */}
-				<TaskForm
-					isOpen={isTaskFormOpen}
-					onClose={() => {
-						setIsTaskFormOpen(false);
-						setEditingTask(undefined);
-					}}
-					onSubmit={handleTaskSubmit}
-					task={editingTask}
-					allTasks={tasks}
-				/>
-				<StatusNotification
-					show={notification.show}
-					onClose={() => setNotification((prev) => ({ ...prev, show: false }))}
-					taskTitle={notification.taskTitle ?? ""}
-					status={notification.status}
-				/>
-			</div>
+			</main>
 		</div>
 	);
 }
