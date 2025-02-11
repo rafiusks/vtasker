@@ -21,6 +21,8 @@ import { useTaskQueries } from "./hooks/useTaskQueries";
 import { taskAPI } from "./api/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Header } from "./components/common/Header";
+import { useAuth } from "./contexts/AuthContext";
+import { useNavigate } from "@tanstack/react-router";
 
 // ============================================================================
 // Types
@@ -69,8 +71,26 @@ const sortOrderOptions: Option[] = [
 // Component
 // ============================================================================
 
+interface AppLayoutProps {
+	children: React.ReactNode;
+}
+
+export const AppLayout = ({ children }: AppLayoutProps) => {
+	return (
+		<div className="min-h-screen bg-gray-100">
+			<Header />
+			<main className="py-8">
+				<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">{children}</div>
+			</main>
+			<Toaster position="bottom-right" />
+		</div>
+	);
+};
+
 export function App() {
 	const queryClient = useQueryClient();
+	const { isAuthenticated, isLoading: isAuthLoading } = useAuth();
+	const navigate = useNavigate();
 
 	// Use task queries hook
 	const {
@@ -93,31 +113,42 @@ export function App() {
 	});
 	const [statusesLoaded, setStatusesLoaded] = useState(false);
 	const [updatingTaskId, setUpdatingTaskId] = useState<string>();
+	const [initError, setInitError] = useState<Error | null>(null);
 
 	// Load task statuses and initialize filters
 	useEffect(() => {
 		async function initialize() {
+			if (!isAuthenticated || isAuthLoading) return;
+
 			try {
 				const statuses = await taskAPI.listStatuses();
 				await initializeTaskStatuses(statuses);
 				updateStatusMap();
 				setStatusesLoaded(true);
 				setFiltersLoading(false);
+				setInitError(null);
 			} catch (err) {
 				console.error("Failed to initialize:", err);
-				toast.error("Failed to load task statuses");
+				setInitError(
+					err instanceof Error ? err : new Error("Failed to initialize"),
+				);
+				toast.error(
+					"Failed to load task statuses. Please try refreshing the page.",
+				);
 			}
 		}
 
-		initialize();
-	}, []);
+		if (isAuthenticated && !isAuthLoading) {
+			initialize();
+		}
+	}, [isAuthenticated, isAuthLoading]);
 
-	// Disable task queries until statuses are loaded
+	// Disable task queries until statuses are loaded and auth is ready
 	useEffect(() => {
-		if (!statusesLoaded) {
+		if (!statusesLoaded || !isAuthenticated || isAuthLoading) {
 			queryClient.setQueryData(["tasks"], []);
 		}
-	}, [statusesLoaded, queryClient]);
+	}, [statusesLoaded, isAuthenticated, isAuthLoading, queryClient]);
 
 	// Load filters from URL on mount
 	useEffect(() => {
@@ -425,25 +456,85 @@ export function App() {
 	// Loading and Error States
 	// ============================================================================
 
-	if (error) {
+	// Show loading state while auth is initializing
+	if (isAuthLoading) {
 		return (
 			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
-				<div className="text-center" data-testid="error-state">
-					<div className="text-red-500 mb-4">⚠️</div>
-					<p className="text-gray-600">
-						{error instanceof Error ? error.message : "An error occurred"}
-					</p>
+				<div className="flex flex-col items-center space-y-4">
+					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+					<div className="text-gray-500">Initializing...</div>
 				</div>
 			</div>
 		);
 	}
 
-	if (!statusesLoaded) {
+	// Show login redirect if not authenticated
+	if (!isAuthenticated) {
+		return (
+			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
+				<div className="text-center">
+					<p className="text-gray-500 mb-4">Please log in to continue</p>
+					<button
+						type="button"
+						onClick={() => navigate({ to: "/login" })}
+						className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+					>
+						Go to Login
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	// Show initialization error
+	if (initError) {
+		return (
+			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
+				<div className="text-center" data-testid="error-state">
+					<div className="text-red-500 mb-4">⚠️</div>
+					<p className="text-gray-600 mb-4">{initError.message}</p>
+					<button
+						type="button"
+						onClick={() => window.location.reload()}
+						className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+					>
+						Retry
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	// Show loading state while initializing
+	if (!statusesLoaded || isLoading) {
 		return (
 			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
 				<div className="flex flex-col items-center space-y-4">
 					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
 					<div className="text-gray-500">Loading task statuses...</div>
+				</div>
+			</div>
+		);
+	}
+
+	// Show task error
+	if (error) {
+		return (
+			<div className="min-h-screen bg-gray-50 p-4 md:p-6 flex items-center justify-center">
+				<div className="text-center" data-testid="error-state">
+					<div className="text-red-500 mb-4">⚠️</div>
+					<p className="text-gray-600 mb-4">
+						{error instanceof Error ? error.message : "An error occurred"}
+					</p>
+					<button
+						type="button"
+						onClick={() =>
+							queryClient.invalidateQueries({ queryKey: ["tasks"] })
+						}
+						className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+					>
+						Retry
+					</button>
 				</div>
 			</div>
 		);

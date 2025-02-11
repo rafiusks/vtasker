@@ -1,10 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Task } from "../types";
 import { taskAPI } from "../api/client";
-import { toast } from "react-hot-toast";
+import { useAuth } from "../contexts/AuthContext";
+import type { TaskMoveRequest } from "../api/client";
 
 export function useTaskQueries() {
 	const queryClient = useQueryClient();
+	const { isAuthenticated, isLoading: isAuthLoading, tokenReady } = useAuth();
 
 	const {
 		data: tasks = [],
@@ -12,50 +14,42 @@ export function useTaskQueries() {
 		error,
 	} = useQuery<Task[]>({
 		queryKey: ["tasks"],
-		queryFn: () => taskAPI.listTasks(),
+		queryFn: taskAPI.listTasks,
+		enabled: isAuthenticated && !isAuthLoading && tokenReady,
 	});
 
 	const { mutate: createTask, isPending: isCreating } = useMutation({
-		mutationFn: (task: Partial<Task>) => taskAPI.createTask(task),
+		mutationFn: taskAPI.createTask,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tasks"] });
 		},
 	});
 
 	const { mutate: updateTask, isPending: isUpdating } = useMutation({
-		mutationFn: ({
+		mutationFn: async ({
 			id,
 			updates,
-		}: {
-			id: string;
-			updates: Partial<Task>;
-		}) => taskAPI.updateTask(id, updates),
+		}: { id: string; updates: Partial<Task> }) =>
+			taskAPI.updateTask(id, updates),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tasks"] });
 		},
 	});
 
 	const { mutate: deleteTask, isPending: isDeleting } = useMutation({
-		mutationFn: (id: string) => taskAPI.deleteTask(id),
+		mutationFn: taskAPI.deleteTask,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tasks"] });
-			toast.success("Task deleted successfully");
 		},
 	});
 
 	const { mutate: moveTask, isPending: isMoving } = useMutation({
-		mutationFn: ({
+		mutationFn: async ({
 			taskId,
 			request,
 		}: {
 			taskId: string;
-			request: {
-				status_id: number;
-				order: number;
-				previous_status_id?: number;
-				comment?: string;
-				type: string;
-			};
+			request: TaskMoveRequest;
 		}) => taskAPI.moveTask(taskId, request),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -64,7 +58,7 @@ export function useTaskQueries() {
 
 	return {
 		tasks,
-		isLoading,
+		isLoading: isLoading || isAuthLoading || (isAuthenticated && !tokenReady),
 		error,
 		createTask,
 		updateTask,

@@ -35,6 +35,60 @@ Stores user information and authentication details.
 | updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
 | last_login_at | TIMESTAMP WITH TIME ZONE | yes | | Last login timestamp |
 
+### boards
+Stores board information.
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|----------|-------------|
+| id | UUID | no | gen_random_uuid() | Primary key |
+| name | VARCHAR(255) | no | | Board name |
+| description | TEXT | yes | | Board description |
+| owner_id | UUID | no | | Reference to users |
+| is_public | BOOLEAN | no | false | Whether the board is public |
+| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
+
+### board_members
+Manages board members and their roles.
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|----------|-------------|
+| board_id | UUID | no | | Reference to boards |
+| user_id | UUID | no | | Reference to users |
+| role | VARCHAR(20) | no | | Collaborator role |
+| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
+| PRIMARY KEY (board_id, user_id) | | | | Composite primary key |
+
+### tasks
+Main tasks table.
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|----------|-------------|
+| id | UUID | no | gen_random_uuid() | Primary key |
+| title | VARCHAR(255) | no | | Task title |
+| description | TEXT | yes | | Task description |
+| status_id | INTEGER | yes | | Reference to task_statuses |
+| priority_id | INTEGER | yes | | Reference to task_priorities |
+| type_id | INTEGER | yes | | Reference to task_types |
+| owner_id | UUID | yes | | Reference to users |
+| parent_id | UUID | yes | | Reference to parent task |
+| board_id | UUID | yes | | Reference to boards |
+| order_index | INTEGER | no | 0 | Display order within status |
+| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
+
+### task_contents
+Stores detailed task content.
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|----------|-------------|
+| id | UUID | no | gen_random_uuid() | Primary key |
+| task_id | UUID | no | | Reference to tasks |
+| description | TEXT | yes | | Detailed description |
+| implementation_details | TEXT | yes | | Implementation notes |
+| notes | TEXT | yes | | Additional notes |
+| attachments | JSONB | yes | | Array of attachment URLs |
+| due_date | TIMESTAMP WITH TIME ZONE | yes | | Task due date |
+| assignee | UUID | yes | | Reference to users |
+| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
+
 ### task_statuses
 Defines possible task statuses.
 | Column | Type | Nullable | Default | Description |
@@ -77,53 +131,6 @@ Defines different types of tasks.
 | created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
 | updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
 
-### tasks
-Main tasks table.
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|----------|-------------|
-| id | UUID | no | gen_random_uuid() | Primary key |
-| title | VARCHAR(255) | no | | Task title |
-| description | TEXT | yes | | Task description |
-| status_id | INTEGER | yes | | Reference to task_statuses |
-| priority_id | INTEGER | yes | | Reference to task_priorities |
-| type_id | INTEGER | yes | | Reference to task_types |
-| owner_id | UUID | yes | | Reference to users |
-| parent_id | UUID | yes | | Reference to parent task |
-| order_index | INTEGER | no | 0 | Display order within status |
-| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
-
-### task_contents
-Stores detailed task content.
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|----------|-------------|
-| id | UUID | no | gen_random_uuid() | Primary key |
-| task_id | UUID | no | | Reference to tasks |
-| description | TEXT | yes | | Detailed description |
-| implementation_details | TEXT | yes | | Implementation notes |
-| notes | TEXT | yes | | Additional notes |
-| attachments | JSONB | yes | | Array of attachment URLs |
-| due_date | TIMESTAMP WITH TIME ZONE | yes | | Task due date |
-| assignee | UUID | yes | | Reference to users |
-| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
-
-### acceptance_criteria
-Stores task acceptance criteria.
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|----------|-------------|
-| id | UUID | no | gen_random_uuid() | Primary key |
-| task_id | UUID | no | | Reference to tasks |
-| description | TEXT | no | | Criterion description |
-| completed | BOOLEAN | no | false | Completion status |
-| completed_at | TIMESTAMP WITH TIME ZONE | yes | | Completion timestamp |
-| completed_by | UUID | yes | | Reference to users |
-| order_index | INTEGER | no | 0 | Display order |
-| category | TEXT | yes | | Criterion category |
-| notes | TEXT | yes | | Additional notes |
-| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
-
 ### task_labels
 Stores task labels/tags.
 | Column | Type | Nullable | Default | Description |
@@ -141,6 +148,23 @@ Tracks dependencies between tasks.
 | task_id | UUID | no | | Reference to dependent task |
 | dependency_id | UUID | no | | Reference to required task |
 | created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
+| UNIQUE(task_id, dependency_id) | | | | Composite primary key |
+
+### acceptance_criteria
+Stores task acceptance criteria.
+| Column | Type | Nullable | Default | Description |
+|--------|------|----------|----------|-------------|
+| id | UUID | no | gen_random_uuid() | Primary key |
+| task_id | UUID | no | | Reference to tasks |
+| description | TEXT | no | | Criterion description |
+| completed | BOOLEAN | no | false | Completion status |
+| completed_at | TIMESTAMP WITH TIME ZONE | yes | | Completion timestamp |
+| completed_by | UUID | yes | | Reference to users |
+| order_index | INTEGER | no | 0 | Display order |
+| category | TEXT | yes | | Criterion category |
+| notes | TEXT | yes | | Additional notes |
+| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
+| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
 
 ### task_collaborators
 Manages task collaborators and their roles.
@@ -157,6 +181,7 @@ Manages task collaborators and their roles.
 - `idx_tasks_type_id` on `tasks(type_id)`
 - `idx_tasks_owner_id` on `tasks(owner_id)`
 - `idx_tasks_parent_id` on `tasks(parent_id)`
+- `idx_tasks_board_id` on `tasks(board_id)`
 - `idx_task_contents_task_id` on `task_contents(task_id)`
 - `idx_task_labels_task_id` on `task_labels(task_id)`
 - `idx_task_dependencies_task_id` on `task_dependencies(task_id)`
@@ -165,6 +190,8 @@ Manages task collaborators and their roles.
 - `idx_task_collaborators_task_id` on `task_collaborators(task_id)`
 - `idx_task_collaborators_user_id` on `task_collaborators(user_id)`
 - `idx_users_email` on `users(email)`
+- `idx_boards_owner_id` on `boards(owner_id)`
+- `idx_board_members_user_id` on `board_members(user_id)`
 
 ## Triggers
 1. `update_updated_at_column()` function:
@@ -177,6 +204,7 @@ Manages task collaborators and their roles.
      - tasks
      - task_contents
      - acceptance_criteria
+     - boards
 
 ## Constraints
 1. Primary Keys on all tables
@@ -202,3 +230,13 @@ Manages task collaborators and their roles.
 
 ## Extensions
 - `uuid-ossp`: For UUID generation
+
+## Views
+None currently defined.
+
+## Types
+- `UserRole`: 'admin' | 'user'
+- `BoardRole`: 'viewer' | 'editor' | 'admin'
+- `StatusCode`: 'backlog' | 'todo' | 'in_progress' | 'review' | 'done'
+- `PriorityCode`: 'low' | 'medium' | 'high' | 'critical'
+- `TypeCode`: 'feature' | 'bug' | 'chore' | 'docs'

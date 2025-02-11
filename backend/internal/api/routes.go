@@ -17,49 +17,48 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 	// Create handlers
 	taskHandler := NewTaskHandler(pool)
 	authHandler := NewAuthHandler(authService)
+	boardHandler := NewBoardHandler(pool)
 
 	// Legacy routes (for compatibility)
 	legacy := router.Group("/api")
 	{
-		legacy.GET("/tasks", taskHandler.ListTasks)
-		legacy.GET("/tasks/:id", taskHandler.GetTask)
-		legacy.POST("/tasks", taskHandler.CreateTask)
-		legacy.PUT("/tasks/:id", taskHandler.UpdateTask)
-		legacy.DELETE("/tasks/:id", taskHandler.DeleteTask)
-		legacy.GET("/task-statuses", taskHandler.ListTaskStatuses)
-		legacy.GET("/task-priorities", taskHandler.ListTaskPriorities)
-		legacy.GET("/task-types", taskHandler.ListTaskTypes)
-
 		// Auth routes
 		legacy.POST("/auth/register", authHandler.Register)
 		legacy.POST("/auth/login", authHandler.Login)
 		legacy.POST("/auth/refresh", authHandler.RefreshToken)
+
+		// Protected routes
+		protected := legacy.Group("")
+		protected.Use(authHandler.AuthMiddleware())
+		{
+			// Task routes
+			taskHandler.Register(protected)
+
+			// Board routes
+			boardHandler.Register(protected)
+		}
 	}
 
 	// API v1 group
 	v1 := router.Group("/api/v1")
 	{
-		// Task routes
-		tasks := v1.Group("/tasks")
-		{
-			tasks.POST("", taskHandler.CreateTask)
-			tasks.GET("", taskHandler.ListTasks)
-			tasks.GET("/:id", taskHandler.GetTask)
-			tasks.PUT("/:id", taskHandler.UpdateTask)
-			tasks.DELETE("/:id", taskHandler.DeleteTask)
-		}
-
-		// Task reference data routes
-		v1.GET("/task-statuses", taskHandler.ListTaskStatuses)
-		v1.GET("/task-priorities", taskHandler.ListTaskPriorities)
-		v1.GET("/task-types", taskHandler.ListTaskTypes)
-
 		// Auth routes
 		auth := v1.Group("/auth")
 		{
 			auth.POST("/register", authHandler.Register)
 			auth.POST("/login", authHandler.Login)
 			auth.POST("/refresh", authHandler.RefreshToken)
+		}
+
+		// Protected routes
+		protected := v1.Group("")
+		protected.Use(authHandler.AuthMiddleware())
+		{
+			// Task routes
+			taskHandler.Register(protected)
+
+			// Board routes
+			boardHandler.Register(protected)
 		}
 	}
 }

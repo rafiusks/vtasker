@@ -23,6 +23,7 @@ type TaskFilters struct {
 	Status   models.StatusCode
 	Priority models.PriorityCode
 	Type     models.TypeCode
+	BoardID  *uuid.UUID
 }
 
 // NewTaskRepository creates a new task repository
@@ -193,13 +194,15 @@ func (r *TaskRepository) GetTask(ctx context.Context, id string) (*models.Task, 
 }
 
 // CreateTask creates a new task
-func (r *TaskRepository) CreateTask(ctx context.Context, input *models.CreateTaskInput, createdBy string) (*models.Task, error) {
-	createdByUUID, err := uuid.Parse(createdBy)
-	if err != nil {
-		return nil, fmt.Errorf("invalid created_by UUID: %v", err)
-	}
+func (r *TaskRepository) CreateTask(ctx context.Context, input *models.CreateTaskInput, userID uuid.UUID) (*models.Task, error) {
+	task := models.NewTask(*input, userID)
 
-	task := models.NewTask(*input, createdByUUID)
+	// Start transaction
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
 
 	// Create task
 	query := `
@@ -211,13 +214,14 @@ func (r *TaskRepository) CreateTask(ctx context.Context, input *models.CreateTas
 			priority_id,
 			type_id,
 			owner_id,
+			board_id,
 			order_index,
 			created_at,
 			updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id`
 
-	err = r.db.QueryRow(ctx, query,
+	err = tx.QueryRow(ctx, query,
 		task.ID,
 		task.Title,
 		task.Description,
@@ -225,6 +229,7 @@ func (r *TaskRepository) CreateTask(ctx context.Context, input *models.CreateTas
 		task.PriorityID,
 		task.TypeID,
 		task.OwnerID,
+		task.BoardID,
 		task.OrderIndex,
 		task.CreatedAt,
 		task.UpdatedAt,
@@ -253,7 +258,7 @@ func (r *TaskRepository) CreateTask(ctx context.Context, input *models.CreateTas
 		return nil, fmt.Errorf("error marshaling attachments: %v", err)
 	}
 
-	_, err = r.db.Exec(ctx, contentQuery,
+	_, err = tx.Exec(ctx, contentQuery,
 		task.ID,
 		input.Content.Description,
 		input.Content.ImplementationDetails,
@@ -285,7 +290,7 @@ func (r *TaskRepository) CreateTask(ctx context.Context, input *models.CreateTas
 			) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 		for _, ac := range input.Content.AcceptanceCriteria {
-			_, err = r.db.Exec(ctx, acQuery,
+			_, err = tx.Exec(ctx, acQuery,
 				uuid.New(),
 				task.ID,
 				ac.Description,
@@ -302,14 +307,24 @@ func (r *TaskRepository) CreateTask(ctx context.Context, input *models.CreateTas
 		}
 	}
 
+	// Commit transaction
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error committing transaction: %v", err)
+	}
+
 	return r.GetTask(ctx, task.ID.String())
 }
 
 // UpdateTask updates an existing task
-func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *models.UpdateTaskInput, updatedBy string) (*models.Task, error) {
+func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *models.UpdateTaskInput, userID uuid.UUID) (*models.Task, error) {
 	task, err := r.GetTask(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+
+	// Check if user has permission to update the task
+	if !task.CanUserEdit(userID) {
+		return nil, fmt.Errorf("user does not have permission to update this task")
 	}
 
 	// Update fields if provided in input
@@ -328,6 +343,16 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *model
 	if input.TypeID != nil {
 		task.TypeID = *input.TypeID
 	}
+	if input.BoardID != nil {
+		task.BoardID = input.BoardID
+	}
+
+	// Start transaction
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
 
 	// Update task
 	query := `
@@ -338,15 +363,17 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *model
 			status_id = $3,
 			priority_id = $4,
 			type_id = $5,
+			board_id = $6,
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id = $6`
+		WHERE id = $7`
 
-	_, err = r.db.Exec(ctx, query,
+	_, err = tx.Exec(ctx, query,
 		task.Title,
 		task.Description,
 		task.StatusID,
 		task.PriorityID,
 		task.TypeID,
+		task.BoardID,
 		task.ID,
 	)
 
@@ -380,7 +407,7 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *model
 			return nil, fmt.Errorf("error marshaling attachments: %v", err)
 		}
 
-		_, err = r.db.Exec(ctx, contentQuery,
+		_, err = tx.Exec(ctx, contentQuery,
 			task.ID,
 			input.Content.Description,
 			input.Content.ImplementationDetails,
@@ -393,6 +420,11 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *model
 		if err != nil {
 			return nil, fmt.Errorf("error updating task content: %v", err)
 		}
+	}
+
+	// Commit transaction
+	if err = tx.Commit(ctx); err != nil {
+		return nil, fmt.Errorf("error committing transaction: %v", err)
 	}
 
 	return r.GetTask(ctx, id)
@@ -414,7 +446,7 @@ func (r *TaskRepository) DeleteTask(ctx context.Context, id string) error {
 }
 
 // GetTasks retrieves all tasks with optional filtering
-func (r *TaskRepository) GetTasks(ctx context.Context, filters TaskFilters) ([]*models.Task, error) {
+func (r *TaskRepository) GetTasks(ctx context.Context, filters TaskFilters, userID uuid.UUID) ([]*models.Task, error) {
 	var tasks []*models.Task
 
 	// First get all tasks with their content
@@ -428,6 +460,7 @@ func (r *TaskRepository) GetTasks(ctx context.Context, filters TaskFilters) ([]*
 			t.type_id,
 			t.owner_id,
 			t.parent_id,
+			t.board_id,
 			t.order_index,
 			t.created_at,
 			t.updated_at,
@@ -460,6 +493,34 @@ func (r *TaskRepository) GetTasks(ctx context.Context, filters TaskFilters) ([]*
 		args = append(args, filters.Type)
 		argNum++
 	}
+	if filters.BoardID != nil {
+		query += fmt.Sprintf(" AND t.board_id = $%d", argNum)
+		args = append(args, filters.BoardID)
+		argNum++
+
+		// Check board access
+		query += fmt.Sprintf(` AND (
+			EXISTS (SELECT 1 FROM boards b WHERE b.id = $%d AND (
+				b.is_public = true OR
+				b.owner_id = $%d OR
+				EXISTS (SELECT 1 FROM board_members bm WHERE bm.board_id = b.id AND bm.user_id = $%d)
+			))
+		)`, argNum, argNum+1, argNum+2)
+		args = append(args, filters.BoardID, userID, userID)
+		argNum += 3
+	} else {
+		// If no board specified, only show tasks from boards the user has access to
+		query += fmt.Sprintf(` AND (
+			t.board_id IS NULL OR
+			EXISTS (SELECT 1 FROM boards b WHERE b.id = t.board_id AND (
+				b.is_public = true OR
+				b.owner_id = $%d OR
+				EXISTS (SELECT 1 FROM board_members bm WHERE bm.board_id = b.id AND bm.user_id = $%d)
+			))
+		)`, argNum, argNum+1)
+		args = append(args, userID, userID)
+		argNum += 2
+	}
 
 	rows, err := r.db.Query(ctx, query, args...)
 	if err != nil {
@@ -485,6 +546,7 @@ func (r *TaskRepository) GetTasks(ctx context.Context, filters TaskFilters) ([]*
 			&task.TypeID,
 			&task.OwnerID,
 			&task.ParentID,
+			&task.BoardID,
 			&task.OrderIndex,
 			&task.CreatedAt,
 			&task.UpdatedAt,

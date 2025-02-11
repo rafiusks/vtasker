@@ -1,85 +1,65 @@
 package models
 
 import (
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 )
 
-type BoardType string
-type BoardStatus string
-type BoardMemberRole string
+// BoardRole represents a user's role in a board
+type BoardRole string
 
 const (
-	BoardTypePersonal BoardType = "personal"
-	BoardTypeTeam    BoardType = "team"
-	BoardTypeProject BoardType = "project"
-
-	BoardStatusActive   BoardStatus = "active"
-	BoardStatusArchived BoardStatus = "archived"
-
-	BoardMemberRoleViewer BoardMemberRole = "viewer"
-	BoardMemberRoleEditor BoardMemberRole = "editor"
-	BoardMemberRoleAdmin  BoardMemberRole = "admin"
+	BoardRoleViewer BoardRole = "viewer"
+	BoardRoleEditor BoardRole = "editor"
+	BoardRoleAdmin  BoardRole = "admin"
 )
 
-// Board represents a board in the system
+// Board represents a project or workspace that contains tasks
 type Board struct {
-	ID          uuid.UUID   `json:"id" db:"id"`
-	Name        string      `json:"name" db:"name"`
-	Description string      `json:"description" db:"description"`
-	OwnerID     uuid.UUID   `json:"owner_id" db:"owner_id"`
-	Type        BoardType   `json:"type" db:"type"`
-	Status      BoardStatus `json:"status" db:"status"`
-	CreatedAt   time.Time   `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at" db:"updated_at"`
-	Columns     []BoardColumn `json:"columns,omitempty" db:"-"`
-	Members     []BoardMember `json:"members,omitempty" db:"-"`
+	ID          uuid.UUID  `json:"id" db:"id"`
+	Name        string     `json:"name" db:"name"`
+	Slug        string     `json:"slug" db:"slug"`
+	Description string     `json:"description,omitempty" db:"description"`
+	OwnerID     *uuid.UUID `json:"owner_id,omitempty" db:"owner_id"`
+	IsPublic    bool       `json:"is_public" db:"is_public"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at" db:"updated_at"`
+	Members     []BoardMember `json:"members,omitempty"`
+	Tasks       []Task       `json:"tasks,omitempty"`
 }
 
-// BoardColumn represents a column in a board
-type BoardColumn struct {
-	ID          uuid.UUID `json:"id" db:"id"`
-	BoardID     uuid.UUID `json:"board_id" db:"board_id"`
-	Name        string    `json:"name" db:"name"`
-	Description string    `json:"description" db:"description"`
-	TaskLimit   *int      `json:"task_limit,omitempty" db:"task_limit"`
-	OrderIndex  int       `json:"order_index" db:"order_index"`
-	CreatedAt   time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
-}
-
-// BoardMember represents a member of a board
+// BoardMember represents a user's membership in a board
 type BoardMember struct {
-	BoardID   uuid.UUID       `json:"board_id" db:"board_id"`
-	UserID    uuid.UUID       `json:"user_id" db:"user_id"`
-	Role      BoardMemberRole `json:"role" db:"role"`
-	CreatedAt time.Time       `json:"created_at" db:"created_at"`
-	User      *User           `json:"user,omitempty" db:"-"`
+	BoardID   uuid.UUID `json:"board_id" db:"board_id"`
+	UserID    uuid.UUID `json:"user_id" db:"user_id"`
+	Role      BoardRole `json:"role" db:"role"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	User      *User     `json:"user,omitempty"`
 }
 
 // CreateBoardInput represents the input for creating a new board
 type CreateBoardInput struct {
-	Name        string    `json:"name" validate:"required,min=1,max=100"`
+	Name        string    `json:"name" validate:"required"`
 	Description string    `json:"description"`
-	Type        BoardType `json:"type" validate:"required,oneof=personal team project"`
-	Columns     []CreateBoardColumnInput `json:"columns"`
-}
-
-// CreateBoardColumnInput represents the input for creating a new board column
-type CreateBoardColumnInput struct {
-	Name        string `json:"name" validate:"required,min=1,max=100"`
-	Description string `json:"description"`
-	TaskLimit   *int   `json:"task_limit,omitempty"`
-	OrderIndex  int    `json:"order_index"`
+	IsPublic    bool      `json:"is_public"`
+	Members     []BoardMemberInput `json:"members,omitempty"`
 }
 
 // UpdateBoardInput represents the input for updating a board
 type UpdateBoardInput struct {
-	Name        *string      `json:"name,omitempty" validate:"omitempty,min=1,max=100"`
-	Description *string      `json:"description,omitempty"`
-	Type        *BoardType   `json:"type,omitempty" validate:"omitempty,oneof=personal team project"`
-	Status      *BoardStatus `json:"status,omitempty" validate:"omitempty,oneof=active archived"`
+	Name        *string    `json:"name,omitempty"`
+	Description *string    `json:"description,omitempty"`
+	IsPublic    *bool      `json:"is_public,omitempty"`
+	Members     []BoardMemberInput `json:"members,omitempty"`
+}
+
+// BoardMemberInput represents the input for adding/updating a board member
+type BoardMemberInput struct {
+	UserID uuid.UUID `json:"user_id" validate:"required"`
+	Role   BoardRole `json:"role" validate:"required,oneof=viewer editor admin"`
 }
 
 // NewBoard creates a new board from input
@@ -88,49 +68,43 @@ func NewBoard(input CreateBoardInput, ownerID uuid.UUID) *Board {
 	return &Board{
 		ID:          uuid.New(),
 		Name:        input.Name,
+		Slug:        GenerateSlug(input.Name),
 		Description: input.Description,
-		OwnerID:     ownerID,
-		Type:        input.Type,
-		Status:      BoardStatusActive,
+		OwnerID:     &ownerID,
+		IsPublic:    input.IsPublic,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
 }
 
-// NewBoardColumn creates a new board column
-func NewBoardColumn(boardID uuid.UUID, input CreateBoardColumnInput) *BoardColumn {
-	now := time.Now().UTC()
-	return &BoardColumn{
-		ID:          uuid.New(),
-		BoardID:     boardID,
-		Name:        input.Name,
-		Description: input.Description,
-		TaskLimit:   input.TaskLimit,
-		OrderIndex:  input.OrderIndex,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-}
+// GenerateSlug creates a URL-friendly slug from a string
+func GenerateSlug(s string) string {
+	// Convert to lowercase
+	s = strings.ToLower(s)
 
-// AddMember adds a member to the board
-func (b *Board) AddMember(userID uuid.UUID, role BoardMemberRole) *BoardMember {
-	return &BoardMember{
-		BoardID:   b.ID,
-		UserID:    userID,
-		Role:      role,
-		CreatedAt: time.Now().UTC(),
-	}
+	// Replace non-alphanumeric characters with hyphens
+	reg := regexp.MustCompile("[^a-z0-9]+")
+	s = reg.ReplaceAllString(s, "-")
+
+	// Remove leading/trailing hyphens
+	s = strings.Trim(s, "-")
+
+	// Ensure unique by appending timestamp if needed
+	// This will be handled at the repository level
+	return s
 }
 
 // CanUserEdit checks if a user has edit permissions for the board
 func (b *Board) CanUserEdit(userID uuid.UUID) bool {
-	if b.OwnerID == userID {
+	// Owner has full permissions
+	if b.OwnerID != nil && *b.OwnerID == userID {
 		return true
 	}
 
+	// Check member permissions
 	for _, member := range b.Members {
 		if member.UserID == userID {
-			return member.Role == BoardMemberRoleEditor || member.Role == BoardMemberRoleAdmin
+			return member.Role == BoardRoleEditor || member.Role == BoardRoleAdmin
 		}
 	}
 
@@ -139,13 +113,37 @@ func (b *Board) CanUserEdit(userID uuid.UUID) bool {
 
 // CanUserAdmin checks if a user has admin permissions for the board
 func (b *Board) CanUserAdmin(userID uuid.UUID) bool {
-	if b.OwnerID == userID {
+	// Owner has full permissions
+	if b.OwnerID != nil && *b.OwnerID == userID {
 		return true
 	}
 
+	// Check member permissions
 	for _, member := range b.Members {
 		if member.UserID == userID {
-			return member.Role == BoardMemberRoleAdmin
+			return member.Role == BoardRoleAdmin
+		}
+	}
+
+	return false
+}
+
+// CanUserView checks if a user can view the board
+func (b *Board) CanUserView(userID uuid.UUID) bool {
+	// Public boards can be viewed by anyone
+	if b.IsPublic {
+		return true
+	}
+
+	// Owner has full permissions
+	if b.OwnerID != nil && *b.OwnerID == userID {
+		return true
+	}
+
+	// Check member permissions
+	for _, member := range b.Members {
+		if member.UserID == userID {
+			return true
 		}
 	}
 

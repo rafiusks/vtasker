@@ -18,6 +18,11 @@ import type {
 
 const API_BASE = "http://localhost:8000/api";
 
+// Shared headers between all API instances
+const sharedHeaders: Record<string, string | undefined> = {
+	"Content-Type": "application/json",
+};
+
 export interface TaskMoveRequest {
 	status_id: TaskStatusId;
 	order: number;
@@ -54,24 +59,38 @@ export interface TaskUpdateRequest {
 }
 
 export class BaseAPI {
-	private headers: Record<string, string> = {
-		"Content-Type": "application/json",
-	};
-
 	protected async request<T>(
 		endpoint: string,
 		options: RequestInit = {},
 	): Promise<T> {
+		console.log("Making request to:", endpoint);
+		console.log("Current headers:", { ...sharedHeaders });
+		console.log("Auth header:", sharedHeaders.Authorization);
+
+		// Create clean headers object without undefined values
+		const headers: Record<string, string> = {};
+		for (const [key, value] of Object.entries(sharedHeaders)) {
+			if (value !== undefined) {
+				headers[key] = value;
+			}
+		}
+
 		const response = await fetch(`${API_BASE}${endpoint}`, {
 			...options,
 			headers: {
-				...this.headers,
+				...headers,
 				...options.headers,
 			},
 		});
 
 		if (!response.ok) {
 			const data = await response.json().catch(() => null);
+			console.error("Request failed:", {
+				status: response.status,
+				statusText: response.statusText,
+				headers,
+				data,
+			});
 			throw new Error(
 				data?.message ||
 					data?.error ||
@@ -88,11 +107,13 @@ export class BaseAPI {
 	}
 
 	setAuthHeader(value: string): void {
-		this.headers.Authorization = value;
+		console.log("Setting auth header:", value);
+		sharedHeaders.Authorization = value;
 	}
 
 	removeAuthHeader(): void {
-		this.headers.Authorization = "";
+		console.log("Removing auth header");
+		sharedHeaders.Authorization = undefined;
 	}
 }
 
@@ -158,15 +179,21 @@ export class TaskAPI extends BaseAPI {
 	}
 }
 
-class BoardAPI extends BaseAPI {
+export class BoardAPI extends BaseAPI {
 	async listBoards(
 		params: URLSearchParams = new URLSearchParams(),
 	): Promise<Board[]> {
 		return this.request<Board[]>(`/boards?${params.toString()}`);
 	}
 
-	async getBoard(id: string): Promise<Board> {
-		return this.request<Board>(`/boards/${id}`);
+	async getBoard(idOrSlug: string): Promise<Board> {
+		// Try slug-based route first
+		try {
+			return await this.request<Board>(`/boards/by-slug/${idOrSlug}`);
+		} catch (error) {
+			// If not found by slug, try ID-based route
+			return await this.request<Board>(`/boards/${idOrSlug}`);
+		}
 	}
 
 	async createBoard(board: Partial<Board>): Promise<Board> {
@@ -210,6 +237,10 @@ export class AuthAPI extends BaseAPI {
 			method: "POST",
 			body: JSON.stringify({ refreshToken }),
 		});
+	}
+
+	async searchUsers(query: string): Promise<User[]> {
+		return this.request<User[]>(`/users/search?q=${encodeURIComponent(query)}`);
 	}
 }
 

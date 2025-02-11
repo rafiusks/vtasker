@@ -7,10 +7,10 @@ export const RegisterPage = () => {
 	const navigate = useNavigate();
 	const { isAuthenticated } = useAuth();
 
-	// If user is already logged in, redirect to tasks
+	// If user is already logged in, redirect to boards
 	useEffect(() => {
 		if (isAuthenticated) {
-			navigate({ to: "/tasks", replace: true });
+			navigate({ to: "/boards", replace: true });
 		}
 	}, [navigate, isAuthenticated]);
 

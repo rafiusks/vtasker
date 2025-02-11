@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rafaelzasas/vtasker/backend/internal/models"
 	"github.com/rafaelzasas/vtasker/backend/internal/repository"
@@ -25,13 +26,35 @@ func NewTaskHandler(pool *pgxpool.Pool) *TaskHandler {
 
 // ListTasks returns a list of tasks with optional filtering
 func (h *TaskHandler) ListTasks(c *gin.Context) {
+	userIDStr := c.GetString("user_id")
+	if userIDStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
 	filters := repository.TaskFilters{
 		Status:   models.StatusCode(c.Query("status")),
 		Priority: models.PriorityCode(c.Query("priority")),
 		Type:     models.TypeCode(c.Query("type")),
 	}
 
-	tasks, err := h.repo.GetTasks(c.Request.Context(), filters)
+	// Parse board_id if provided
+	if boardIDStr := c.Query("board_id"); boardIDStr != "" {
+		boardID, err := uuid.Parse(boardIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid board ID"})
+			return
+		}
+		filters.BoardID = &boardID
+	}
+
+	tasks, err := h.repo.GetTasks(c.Request.Context(), filters, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -42,6 +65,18 @@ func (h *TaskHandler) ListTasks(c *gin.Context) {
 
 // GetTask returns a single task by ID
 func (h *TaskHandler) GetTask(c *gin.Context) {
+	userIDStr := c.GetString("user_id")
+	if userIDStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
 	task, err := h.repo.GetTask(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -51,25 +86,51 @@ func (h *TaskHandler) GetTask(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
 		return
 	}
+
+	// Check if user has access to the board
+	if task.BoardID != nil {
+		boardRepo := repository.NewBoardRepository(h.repo.GetPool())
+		_, err := boardRepo.GetBoard(c.Request.Context(), task.BoardID.String(), userID)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this task's board"})
+			return
+		}
+	}
+
 	c.JSON(http.StatusOK, task)
 }
 
 // CreateTask creates a new task
 func (h *TaskHandler) CreateTask(c *gin.Context) {
-	var input models.CreateTaskInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Get user ID from context
 	userIDStr := c.GetString("user_id")
 	if userIDStr == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
 	}
 
-	task, err := h.repo.CreateTask(c.Request.Context(), &input, userIDStr)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	var input models.CreateTaskInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Check board access if board_id is provided
+	if input.BoardID != nil {
+		boardRepo := repository.NewBoardRepository(h.repo.GetPool())
+		_, err := boardRepo.GetBoard(c.Request.Context(), input.BoardID.String(), userID)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this board"})
+			return
+		}
+	}
+
+	task, err := h.repo.CreateTask(c.Request.Context(), &input, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -80,20 +141,35 @@ func (h *TaskHandler) CreateTask(c *gin.Context) {
 
 // UpdateTask updates an existing task
 func (h *TaskHandler) UpdateTask(c *gin.Context) {
-	var input models.UpdateTaskInput
-	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	// Get user ID from context
 	userIDStr := c.GetString("user_id")
 	if userIDStr == "" {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
 		return
 	}
 
-	task, err := h.repo.UpdateTask(c.Request.Context(), c.Param("id"), &input, userIDStr)
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	var input models.UpdateTaskInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Check board access if board_id is being updated
+	if input.BoardID != nil {
+		boardRepo := repository.NewBoardRepository(h.repo.GetPool())
+		_, err := boardRepo.GetBoard(c.Request.Context(), input.BoardID.String(), userID)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this board"})
+			return
+		}
+	}
+
+	task, err := h.repo.UpdateTask(c.Request.Context(), c.Param("id"), &input, userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

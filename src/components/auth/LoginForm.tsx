@@ -6,7 +6,11 @@ import { login } from "../../api/auth";
 import { useAuth } from "../../contexts/AuthContext";
 import type { UserLogin } from "../../types/auth";
 
-export const LoginForm = () => {
+interface LoginFormProps {
+	redirectTo?: string;
+}
+
+export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 	const navigate = useNavigate();
 	const { login: authLogin } = useAuth();
 	const [isLoading, setIsLoading] = useState(false);
@@ -33,7 +37,7 @@ export const LoginForm = () => {
 
 		try {
 			const response = await login(formData);
-			authLogin(
+			await authLogin(
 				response.token,
 				response.refresh_token,
 				response.user,
@@ -41,10 +45,22 @@ export const LoginForm = () => {
 				response.refresh_expires_in,
 				formData.rememberMe,
 			);
-			navigate({ to: "/tasks" });
+
+			// Handle redirect after successful login
+			const params = new URLSearchParams(window.location.search);
+			const redirectPath = params.get("redirect");
+			if (redirectPath && redirectPath.startsWith("/")) {
+				try {
+					navigate({ to: redirectPath, replace: true });
+				} catch {
+					// If navigation fails, fallback to /boards
+					navigate({ to: "/boards", replace: true });
+				}
+			} else {
+				navigate({ to: "/boards", replace: true });
+			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to login");
-		} finally {
 			setIsLoading(false);
 		}
 	};
@@ -111,7 +127,8 @@ export const LoginForm = () => {
 						</span>
 					</label>
 
-					<a
+					{/* Temporarily hide forgot password link until route is implemented */}
+					{/* <a
 						href="/forgot-password"
 						className="text-sm font-medium text-blue-600 hover:text-blue-500"
 						onClick={(e) => {
@@ -120,7 +137,7 @@ export const LoginForm = () => {
 						}}
 					>
 						Forgot your password?
-					</a>
+					</a> */}
 				</div>
 
 				<Button
