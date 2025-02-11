@@ -19,6 +19,7 @@ import { TaskForm } from "../components/TaskForm";
 import type { Task } from "../types/task";
 import type { BoardPageParams } from "../types/router";
 import { router } from "../router";
+import { Breadcrumbs } from "../components/common/Breadcrumbs";
 
 export const BoardPage = () => {
 	const navigate = useNavigate();
@@ -213,68 +214,39 @@ export const BoardPage = () => {
 
 	if (!boardSlug) {
 		return (
-			<AppLayout>
-				<div className="text-center py-12">
-					<p className="text-gray-500">Board not found</p>
-				</div>
-			</AppLayout>
+			<div className="text-center py-12">
+				<p className="text-gray-500">Board not found</p>
+			</div>
 		);
 	}
 
 	if (isBoardLoading || !statusesLoaded) {
 		return (
-			<AppLayout>
-				<div
-					className="flex justify-center items-center h-64"
-					data-testid="loading-spinner"
-				>
-					<LoadingSpinner />
-				</div>
-			</AppLayout>
+			<div
+				className="flex justify-center items-center h-64"
+				data-testid="loading-spinner"
+			>
+				<LoadingSpinner />
+			</div>
 		);
 	}
-
-	const handleCopyUrl = () => {
-		if (!board?.slug) return;
-		const url = `${window.location.origin}/b/${board.slug}`;
-		navigator.clipboard.writeText(url).then(() => {
-			toast.success("Board URL copied to clipboard");
-		});
-	};
-
-	const handleDeleteBoard = async () => {
-		if (!board) return;
-		try {
-			await boardAPI.deleteBoard(board.id);
-			toast.success("Board deleted successfully");
-			navigate({ to: "/boards" });
-		} catch (error) {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to delete board",
-			);
-		}
-	};
 
 	if (error) {
 		console.error("Failed to load board:", error);
 		return (
-			<AppLayout>
-				<div className="text-center py-12">
-					<p className="text-red-500">
-						{error instanceof Error ? error.message : "Failed to load board"}
-					</p>
-				</div>
-			</AppLayout>
+			<div className="text-center py-12">
+				<p className="text-red-500">
+					{error instanceof Error ? error.message : "Failed to load board"}
+				</p>
+			</div>
 		);
 	}
 
 	if (!board) {
 		return (
-			<AppLayout>
-				<div className="text-center py-12">
-					<p className="text-gray-500">Board not found</p>
-				</div>
-			</AppLayout>
+			<div className="text-center py-12">
+				<p className="text-gray-500">Board not found</p>
+			</div>
 		);
 	}
 
@@ -285,139 +257,160 @@ export const BoardPage = () => {
 		);
 
 	return (
-		<AppLayout>
-			<div className="space-y-6" data-testid="board-content">
-				<div className="flex justify-between items-start">
-					<div>
-						<h1 className="text-3xl font-bold text-gray-900">{board.name}</h1>
-						{board.description && (
-							<p className="mt-2 text-gray-600">{board.description}</p>
-						)}
-						<div className="mt-2 flex items-center gap-2">
-							<span className="text-sm text-gray-500">
-								{board.is_public ? "Public" : "Private"} board
-							</span>
-							<span className="text-gray-300">•</span>
-							<button
-								type="button"
-								onClick={handleCopyUrl}
-								className="text-sm text-blue-600 hover:text-blue-800"
-							>
-								Copy URL
-							</button>
-						</div>
-					</div>
-					<div className="flex items-center space-x-4">
-						<Button
-							data-testid="create-task-button"
-							onClick={() => setIsTaskFormOpen(true)}
-							disabled={!statusesLoaded}
+		<div className="space-y-6" data-testid="board-content">
+			<Breadcrumbs
+				items={[
+					{ label: "Dashboard", to: "/dashboard" },
+					{ label: "Boards", to: "/boards" },
+					{ label: board.name },
+				]}
+			/>
+			<div className="flex justify-between items-start">
+				<div>
+					<h1 className="text-3xl font-bold text-gray-900">{board.name}</h1>
+					{board.description && (
+						<p className="mt-2 text-gray-600">{board.description}</p>
+					)}
+					<div className="mt-2 flex items-center gap-2">
+						<span className="text-sm text-gray-500">
+							{board.is_public ? "Public" : "Private"} board
+						</span>
+						<span className="text-gray-300">•</span>
+						<button
+							type="button"
+							onClick={() => {
+								if (!board?.slug) return;
+								const url = `${window.location.origin}/b/${board.slug}`;
+								navigator.clipboard.writeText(url).then(() => {
+									toast.success("Board URL copied to clipboard");
+								});
+							}}
+							className="text-sm text-blue-600 hover:text-blue-800"
 						>
-							Create Task
-						</Button>
-						{canManageBoard && (
-							<>
-								<Button
-									variant="outline"
-									onClick={() => setIsSettingsOpen(true)}
-								>
-									Board Settings
-								</Button>
-								<Button
-									variant="outline"
-									className="!bg-red-50 !text-red-600 !border-red-200 hover:!bg-red-100"
-									onClick={() => setIsDeleteConfirmOpen(true)}
-								>
-									Delete Board
-								</Button>
-							</>
-						)}
+							Copy URL
+						</button>
 					</div>
 				</div>
-
-				<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-					{Object.values(TASK_STATUS).map((status) => {
-						// Filter tasks for this column
-						const tasksInColumn =
-							board?.tasks
-								?.map((task) => ({
-									...task,
-									status_id: task.status_id || 0,
-									priority_id: task.priority_id || 0,
-									type_id: task.type_id || 0,
-									order: task.order || 0,
-								}))
-								.filter((task) => task.status_id === status.id) || [];
-
-						return (
-							<TaskColumn
-								key={status.id}
-								status={status}
-								tasks={tasksInColumn}
-								onDrop={handleTaskMove}
-								onEdit={handleTaskEdit}
-								onDelete={handleTaskDelete}
-								isLoading={false}
-								updatingTaskId={updatingTaskId}
-							/>
-						);
-					})}
-				</div>
-
-				{isSettingsOpen && (
-					<BoardSettingsModal
-						isOpen={isSettingsOpen}
-						onClose={() => setIsSettingsOpen(false)}
-						board={board}
-						onBoardDeleted={() => navigate({ to: "/boards" })}
-					/>
-				)}
-
-				{/* Task Form Modal */}
-				{isTaskFormOpen && (
-					<TaskForm
-						isOpen={isTaskFormOpen}
-						onClose={() => {
-							setIsTaskFormOpen(false);
-							setEditingTask(undefined);
-						}}
-						onSubmit={handleTaskSubmit}
-						task={editingTask}
-						isLoading={!statusesLoaded}
-					/>
-				)}
-
-				{/* Delete Confirmation Modal */}
-				{isDeleteConfirmOpen && (
-					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-							<h3 className="text-lg font-medium text-gray-900 mb-2">
+				<div className="flex items-center space-x-4">
+					<Button
+						data-testid="create-task-button"
+						onClick={() => setIsTaskFormOpen(true)}
+						disabled={!statusesLoaded}
+					>
+						Create Task
+					</Button>
+					{canManageBoard && (
+						<>
+							<Button variant="outline" onClick={() => setIsSettingsOpen(true)}>
+								Board Settings
+							</Button>
+							<Button
+								variant="outline"
+								className="!bg-red-50 !text-red-600 !border-red-200 hover:!bg-red-100"
+								onClick={() => setIsDeleteConfirmOpen(true)}
+							>
 								Delete Board
-							</h3>
-							<p className="text-gray-500 mb-4">
-								Are you sure you want to delete "{board.name}"? This action
-								cannot be undone.
-							</p>
-							<div className="flex justify-end space-x-3">
-								<Button
-									type="button"
-									variant="outline"
-									onClick={() => setIsDeleteConfirmOpen(false)}
-								>
-									Cancel
-								</Button>
-								<Button
-									type="button"
-									className="!bg-red-600 hover:!bg-red-700"
-									onClick={handleDeleteBoard}
-								>
-									Delete
-								</Button>
-							</div>
+							</Button>
+						</>
+					)}
+				</div>
+			</div>
+
+			<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+				{Object.values(TASK_STATUS).map((status) => {
+					// Filter tasks for this column
+					const tasksInColumn =
+						board?.tasks
+							?.map((task) => ({
+								...task,
+								status_id: task.status_id || 0,
+								priority_id: task.priority_id || 0,
+								type_id: task.type_id || 0,
+								order: task.order || 0,
+							}))
+							.filter((task) => task.status_id === status.id) || [];
+
+					return (
+						<TaskColumn
+							key={status.id}
+							status={status}
+							tasks={tasksInColumn}
+							onDrop={handleTaskMove}
+							onEdit={handleTaskEdit}
+							onDelete={handleTaskDelete}
+							isLoading={false}
+							updatingTaskId={updatingTaskId}
+						/>
+					);
+				})}
+			</div>
+
+			{isSettingsOpen && (
+				<BoardSettingsModal
+					isOpen={isSettingsOpen}
+					onClose={() => setIsSettingsOpen(false)}
+					board={board}
+					onBoardDeleted={() => navigate({ to: "/boards" })}
+				/>
+			)}
+
+			{/* Task Form Modal */}
+			{isTaskFormOpen && (
+				<TaskForm
+					isOpen={isTaskFormOpen}
+					onClose={() => {
+						setIsTaskFormOpen(false);
+						setEditingTask(undefined);
+					}}
+					onSubmit={handleTaskSubmit}
+					task={editingTask}
+					isLoading={!statusesLoaded}
+				/>
+			)}
+
+			{/* Delete Confirmation Modal */}
+			{isDeleteConfirmOpen && (
+				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+					<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+						<h3 className="text-lg font-medium text-gray-900 mb-2">
+							Delete Board
+						</h3>
+						<p className="text-gray-500 mb-4">
+							Are you sure you want to delete "{board.name}"? This action cannot
+							be undone.
+						</p>
+						<div className="flex justify-end space-x-3">
+							<Button
+								type="button"
+								variant="outline"
+								onClick={() => setIsDeleteConfirmOpen(false)}
+							>
+								Cancel
+							</Button>
+							<Button
+								type="button"
+								className="!bg-red-600 hover:!bg-red-700"
+								onClick={async () => {
+									try {
+										await boardAPI.deleteBoard(board.id);
+										toast.success("Board deleted successfully");
+										navigate({ to: "/boards" });
+									} catch (error) {
+										toast.error(
+											error instanceof Error
+												? error.message
+												: "Failed to delete board",
+										);
+									}
+									setIsDeleteConfirmOpen(false);
+								}}
+							>
+								Delete
+							</Button>
 						</div>
 					</div>
-				)}
-			</div>
-		</AppLayout>
+				</div>
+			)}
+		</div>
 	);
 };

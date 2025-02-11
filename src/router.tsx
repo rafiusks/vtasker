@@ -126,18 +126,6 @@ const boardsRoute = createRoute({
 	},
 });
 
-const boardsSettingsRoute = createRoute({
-	getParentRoute: () => boardsRoute,
-	path: "/settings",
-	component: () => (
-		<ProtectedComponent>
-			<AppLayout>
-				<SettingsPage />
-			</AppLayout>
-		</ProtectedComponent>
-	),
-});
-
 const boardRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/b/$boardSlug",
@@ -160,18 +148,6 @@ const boardRoute = createRoute({
 	),
 });
 
-const boardSettingsRoute = createRoute({
-	getParentRoute: () => boardRoute,
-	path: "/settings",
-	component: () => (
-		<ProtectedComponent>
-			<AppLayout>
-				<SettingsPage />
-			</AppLayout>
-		</ProtectedComponent>
-	),
-});
-
 const taskRoute = createRoute({
 	getParentRoute: () => boardRoute,
 	path: "/$taskId",
@@ -184,13 +160,36 @@ const taskRoute = createRoute({
 	),
 });
 
+const settingsRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/settings",
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<SettingsPage />
+			</AppLayout>
+		</ProtectedComponent>
+	),
+	beforeLoad: async ({ location }) => {
+		if (!checkAuthFromStorage()) {
+			throw new Response(null, {
+				status: 302,
+				headers: {
+					Location: `/login?redirect=${encodeURIComponent(location.pathname)}`,
+				},
+			});
+		}
+	},
+});
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	loginRoute,
 	registerRoute,
 	dashboardRoute.addChildren([dashboardSettingsRoute]),
-	boardsRoute.addChildren([boardsSettingsRoute]),
-	boardRoute.addChildren([boardSettingsRoute, taskRoute]),
+	boardsRoute,
+	boardRoute.addChildren([taskRoute]),
+	settingsRoute,
 ]);
 
 // Create and export the router
