@@ -52,6 +52,7 @@ type CreateBoardInput struct {
 // UpdateBoardInput represents the input for updating a board
 type UpdateBoardInput struct {
 	Name        *string    `json:"name,omitempty"`
+	Slug        *string    `json:"slug,omitempty"`
 	Description *string    `json:"description,omitempty"`
 	IsPublic    *bool      `json:"is_public,omitempty"`
 	Members     []BoardMemberInput `json:"members,omitempty"`

@@ -431,23 +431,34 @@ func (r *BoardRepository) UpdateBoard(ctx context.Context, id string, input *mod
 	}
 	defer tx.Rollback(ctx)
 
+	// If slug is provided, ensure it's unique
+	if input.Slug != nil {
+		uniqueSlug, err := r.ensureUniqueSlug(ctx, *input.Slug)
+		if err != nil {
+			return nil, fmt.Errorf("error ensuring unique slug: %v", err)
+		}
+		input.Slug = &uniqueSlug
+	}
+
 	// Update board
 	query := `
 		UPDATE boards
 		SET
 			name = COALESCE($1, name),
-			description = COALESCE($2, description),
-			is_public = COALESCE($3, is_public),
+			slug = COALESCE($2, slug),
+			description = COALESCE($3, description),
+			is_public = COALESCE($4, is_public),
 			updated_at = CURRENT_TIMESTAMP
-		WHERE id = $4 AND (owner_id = $5 OR EXISTS (
+		WHERE id = $5 AND (owner_id = $6 OR EXISTS (
 			SELECT 1 FROM board_members
-			WHERE board_id = $4 AND user_id = $5 AND role = 'admin'
+			WHERE board_id = $5 AND user_id = $6 AND role = 'admin'
 		))
 		RETURNING id`
 
 	var boardID uuid.UUID
 	err = tx.QueryRow(ctx, query,
 		input.Name,
+		input.Slug,
 		input.Description,
 		input.IsPublic,
 		id,

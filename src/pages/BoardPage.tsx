@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, Link } from "@tanstack/react-router";
 import { boardAPI, taskAPI } from "../api/client";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { TaskColumn } from "../components/task/TaskColumn";
@@ -250,11 +250,16 @@ export const BoardPage = () => {
 		);
 	}
 
-	const canManageBoard =
-		user?.id === board.owner_id ||
-		board.members?.some(
-			(member) => member.user_id === user?.id && member.role === "admin",
-		);
+	const canManageBoard = Boolean(
+		user?.id &&
+			board &&
+			// User is the board owner
+			(board.owner_id === user.id ||
+				// User is a board admin
+				board.members?.some(
+					(member) => member.user_id === user.id && member.role === "admin",
+				)),
+	);
 
 	return (
 		<div className="space-y-6" data-testid="board-content">
@@ -291,7 +296,7 @@ export const BoardPage = () => {
 						</button>
 					</div>
 				</div>
-				<div className="flex items-center space-x-4">
+				<div className="flex items-center gap-4">
 					<Button
 						data-testid="create-task-button"
 						onClick={() => setIsTaskFormOpen(true)}
@@ -300,18 +305,16 @@ export const BoardPage = () => {
 						Create Task
 					</Button>
 					{canManageBoard && (
-						<>
-							<Button variant="outline" onClick={() => setIsSettingsOpen(true)}>
+						<Link
+							to="/b/$boardSlug/settings"
+							params={{ boardSlug: board.slug }}
+							className="inline-flex"
+							data-testid="board-settings-link"
+						>
+							<Button variant="outline" data-testid="board-settings-button">
 								Board Settings
 							</Button>
-							<Button
-								variant="outline"
-								className="!bg-red-50 !text-red-600 !border-red-200 hover:!bg-red-100"
-								onClick={() => setIsDeleteConfirmOpen(true)}
-							>
-								Delete Board
-							</Button>
-						</>
+						</Link>
 					)}
 				</div>
 			</div>

@@ -3,6 +3,14 @@ import type { Task } from "./task";
 
 export type BoardRole = "viewer" | "editor" | "admin";
 
+export interface BoardMember {
+	board_id: string;
+	user_id: string;
+	role: BoardRole;
+	created_at: string;
+	user?: User;
+}
+
 export interface Board {
 	id: string;
 	name: string;
@@ -16,22 +24,23 @@ export interface Board {
 	tasks?: Task[];
 }
 
-export interface BoardMember {
+export interface BoardMemberInput {
 	user_id: string;
-	role: string;
+	role: BoardRole;
 }
 
 export interface CreateBoardInput {
 	name: string;
-	slug?: string;
 	description?: string;
 	is_public?: boolean;
+	members?: BoardMemberInput[];
 }
 
 export interface UpdateBoardInput {
 	name?: string;
 	description?: string;
 	is_public?: boolean;
+	members?: BoardMemberInput[];
 }
 
 export interface BoardResponse {

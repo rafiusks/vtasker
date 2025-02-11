@@ -18,14 +18,15 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { LandingPage } from "./pages/LandingPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { BoardSettingsPage } from "./pages/BoardSettingsPage";
+import { ProtectedComponent } from "./components/ProtectedComponent";
+import { checkAuthFromStorage } from "./utils/auth";
 import type {
 	BoardPageParams,
 	TaskPageParams,
 	BoardLoaderData,
 	TaskLoaderData,
 } from "./types/router";
-import { ProtectedComponent } from "./components/ProtectedComponent";
-import { checkAuthFromStorage } from "./utils/auth";
 
 // Helper function to check auth state
 const isAuthenticated = () => {
@@ -148,6 +149,28 @@ const boardRoute = createRoute({
 	),
 });
 
+const boardSettingsRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/b/$boardSlug/settings",
+	beforeLoad: async ({ location }) => {
+		if (!checkAuthFromStorage()) {
+			throw new Response(null, {
+				status: 302,
+				headers: {
+					Location: `/login?redirect=${encodeURIComponent(location.pathname)}`,
+				},
+			});
+		}
+	},
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<BoardSettingsPage />
+			</AppLayout>
+		</ProtectedComponent>
+	),
+});
+
 const taskRoute = createRoute({
 	getParentRoute: () => boardRoute,
 	path: "/$taskId",
@@ -189,6 +212,7 @@ const routeTree = rootRoute.addChildren([
 	dashboardRoute.addChildren([dashboardSettingsRoute]),
 	boardsRoute,
 	boardRoute.addChildren([taskRoute]),
+	boardSettingsRoute,
 	settingsRoute,
 ]);
 
