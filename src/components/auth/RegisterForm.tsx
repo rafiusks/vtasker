@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { Input } from "../common/Input";
 import { Button } from "../common/Button";
 import { register } from "../../api/auth";
@@ -47,9 +47,12 @@ export const RegisterForm = () => {
 
 		try {
 			await register(formData);
-			navigate("/login", {
-				state: { message: "Registration successful! Please login." },
-			});
+			// For now, we'll use window.location to pass the message
+			window.sessionStorage.setItem(
+				"registerMessage",
+				"Registration successful! Please login.",
+			);
+			navigate({ to: "/login" });
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to register");
 		} finally {
@@ -69,6 +72,10 @@ export const RegisterForm = () => {
 						<a
 							href="/login"
 							className="font-medium text-blue-600 hover:text-blue-500"
+							onClick={(e) => {
+								e.preventDefault();
+								navigate({ to: "/login" });
+							}}
 						>
 							Login here
 						</a>

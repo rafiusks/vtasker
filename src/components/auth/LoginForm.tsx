@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { Input } from "../common/Input";
 import { Button } from "../common/Button";
 import { login } from "../../api/auth";
@@ -41,7 +41,7 @@ export const LoginForm = () => {
 				response.refresh_expires_in,
 				formData.rememberMe,
 			);
-			navigate("/tasks");
+			navigate({ to: "/tasks" });
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to login");
 		} finally {
@@ -59,6 +59,10 @@ export const LoginForm = () => {
 						<a
 							href="/register"
 							className="font-medium text-blue-600 hover:text-blue-500"
+							onClick={(e) => {
+								e.preventDefault();
+								navigate({ to: "/register" });
+							}}
 						>
 							Register here
 						</a>
@@ -110,6 +114,10 @@ export const LoginForm = () => {
 					<a
 						href="/forgot-password"
 						className="text-sm font-medium text-blue-600 hover:text-blue-500"
+						onClick={(e) => {
+							e.preventDefault();
+							navigate({ to: "/forgot-password" });
+						}}
 					>
 						Forgot your password?
 					</a>

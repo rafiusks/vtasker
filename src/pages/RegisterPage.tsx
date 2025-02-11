@@ -1,17 +1,18 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { RegisterForm } from "../components/auth/RegisterForm";
+import { useAuth } from "../contexts/AuthContext";
 
 export const RegisterPage = () => {
 	const navigate = useNavigate();
+	const { isAuthenticated } = useAuth();
 
 	// If user is already logged in, redirect to tasks
 	useEffect(() => {
-		const token = localStorage.getItem("token");
-		if (token) {
-			navigate("/tasks");
+		if (isAuthenticated) {
+			navigate({ to: "/tasks", replace: true });
 		}
-	}, [navigate]);
+	}, [navigate, isAuthenticated]);
 
 	return (
 		<div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">

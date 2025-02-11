@@ -7,7 +7,7 @@ import {
 	useRef,
 	type ReactNode,
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@tanstack/react-router";
 import { setAuthToken, removeAuthToken, refreshToken } from "../api/auth";
 import type { User, StoredAuthData } from "../types/auth";
 
@@ -61,7 +61,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 			window.clearTimeout(refreshTimeoutRef.current);
 		}
 		setIsLoading(false);
-		navigate("/login");
+		navigate({ to: "/login", replace: true });
 	}, [navigate]);
 
 	// Handle token refresh
@@ -255,8 +255,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 			scheduleTokenRefresh(authData);
 			setIsLoading(false);
+			navigate({ to: "/tasks", replace: true });
 		},
-		[scheduleTokenRefresh],
+		[navigate, scheduleTokenRefresh],
 	);
 
 	const value = {
