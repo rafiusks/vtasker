@@ -6,6 +6,9 @@ Now the URL structure is:
 /register - Register page
 
 2. Protected Routes:
+
+- After login, the user will be redirected to the dashboard.
+
 /dashboard - User landing page (shows boards)
 /dashboard/settings - User settings
 /boards - Boards list view
