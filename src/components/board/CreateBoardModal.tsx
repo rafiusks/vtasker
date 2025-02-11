@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createBoard } from "../../api/board";
-import type { CreateBoardInput } from "../../types/board";
+import { useNavigate } from "@tanstack/react-router";
+import { boardAPI } from "../../api/client";
+import type { CreateBoardInput, Board } from "../../types/board";
 import { Button } from "../common/Button";
 import { Input } from "../common/Input";
 
@@ -15,23 +16,56 @@ export const CreateBoardModal = ({
 	onClose,
 }: CreateBoardModalProps) => {
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	const [formData, setFormData] = useState<CreateBoardInput>({
 		name: "",
+		slug: "",
 		description: "",
 		is_public: false,
 	});
 
-	const { mutate: create, isPending: isCreating } = useMutation({
-		mutationFn: createBoard,
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["boards"] });
+	const { mutate: create, isPending: isCreating } = useMutation<
+		Board,
+		Error,
+		CreateBoardInput
+	>({
+		mutationFn: async (input: CreateBoardInput) => {
+			// Create the board
+			const board = await boardAPI.createBoard(input);
+			return board;
+		},
+		onSuccess: async (board) => {
+			console.log("Board created successfully:", board);
+			// Close the modal first
 			onClose();
+			// Invalidate and wait for the boards query to be refetched
+			await queryClient.invalidateQueries({ queryKey: ["boards"] });
+			// Wait for navigation to complete
+			console.log("Navigating to board:", board.id, "with slug:", board.slug);
+			await navigate({ to: "/b/$slug", params: { slug: board.slug } });
+		},
+		onError: (error) => {
+			console.error("Failed to create board:", error);
 		},
 	});
 
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		create(formData);
+	const generateSlug = (name: string) => {
+		if (!name) return "";
+		return name
+			.toLowerCase()
+			.replace(/[^a-z0-9]+/g, "-")
+			.replace(/^-+|-+$/g, "");
+	};
+
+	const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const name = e.target.value;
+		setFormData((prev) => ({
+			...prev,
+			name,
+			// Only auto-generate slug if it's empty or was auto-generated before
+			slug:
+				prev.slug === generateSlug(prev.name) ? generateSlug(name) : prev.slug,
+		}));
 	};
 
 	const handleChange = (
@@ -45,75 +79,89 @@ export const CreateBoardModal = ({
 		}));
 	};
 
+	const handleSubmit = (e: React.FormEvent) => {
+		e.preventDefault();
+		// Always ensure we have a slug
+		const slug = formData.slug || generateSlug(formData.name);
+		create({ ...formData, slug });
+	};
+
 	if (!isOpen) return null;
 
 	return (
-		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-			<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-				<h2 className="text-xl font-semibold text-gray-900 mb-4">
-					Create New Board
-				</h2>
-
-				<form onSubmit={handleSubmit} className="space-y-4">
-					<Input
-						label="Board Name"
-						name="name"
-						value={formData.name}
-						onChange={handleChange}
-						required
-						placeholder="Enter board name"
-					/>
-
-					<div className="space-y-1">
-						<label
-							htmlFor="description"
-							className="block text-sm font-medium text-gray-700"
-						>
-							Description
-						</label>
-						<textarea
-							id="description"
+		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+			<div
+				className="bg-white p-6 rounded-lg shadow-lg w-96"
+				data-testid="create-board-modal"
+			>
+				<h2 className="text-xl font-bold mb-4">Create New Board</h2>
+				<form onSubmit={handleSubmit}>
+					<div className="mb-4">
+						<Input
+							label="Board Name"
+							name="name"
+							value={formData.name}
+							onChange={handleNameChange}
+							required
+							placeholder="Enter board name"
+							data-testid="board-name-input"
+						/>
+					</div>
+					<div className="mb-4">
+						<Input
+							label="URL Slug"
+							name="slug"
+							value={formData.slug}
+							onChange={handleChange}
+							placeholder="Enter URL slug"
+							data-testid="board-slug-input"
+							helperText="This will be used in the board's URL. Leave empty to auto-generate."
+						/>
+					</div>
+					<div className="mb-4">
+						<Input
+							label="Description"
 							name="description"
-							value={formData.description}
+							value={formData.description || ""}
 							onChange={handleChange}
-							rows={3}
-							className="w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 border-gray-300"
 							placeholder="Enter board description"
+							data-testid="board-description-input"
 						/>
 					</div>
-
-					<div className="flex items-center">
-						<input
-							type="checkbox"
-							id="is_public"
-							name="is_public"
-							checked={formData.is_public}
-							onChange={handleChange}
-							className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-						/>
-						<label
-							htmlFor="is_public"
-							className="ml-2 block text-sm text-gray-900"
-						>
-							Make board public
+					<div className="mb-4">
+						<label className="flex items-center">
+							<input
+								type="checkbox"
+								name="is_public"
+								checked={formData.is_public}
+								onChange={(e) =>
+									setFormData({
+										...formData,
+										is_public: e.target.checked,
+									})
+								}
+								className="mr-2"
+								data-testid="board-public-checkbox"
+							/>
+							<span>Public Board</span>
 						</label>
 					</div>
-
-					<div className="flex justify-end space-x-3 pt-4">
+					<div className="flex justify-end gap-2">
 						<Button
 							type="button"
-							variant="outline"
+							variant="secondary"
 							onClick={onClose}
-							disabled={isCreating}
+							data-testid="cancel-create-board-button"
 						>
 							Cancel
 						</Button>
 						<Button
 							type="submit"
-							isLoading={isCreating}
-							disabled={!formData.name}
+							variant="primary"
+							disabled={isCreating}
+							data-testid="submit-create-board-button"
 						>
-							Create Board
+							{isCreating ? "Creating..." : "Create"}
 						</Button>
 					</div>
 				</form>

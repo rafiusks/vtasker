@@ -152,7 +152,11 @@ export interface Board {
 	id: string;
 	name: string;
 	description: string;
+	slug: string;
+	is_public: boolean;
+	owner_id?: string;
 	columns: BoardColumn[];
+	tasks?: Task[];
 	created_at: string;
 	updated_at: string;
 }

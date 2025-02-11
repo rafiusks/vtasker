@@ -1,79 +1,141 @@
 export interface TaskType {
 	id: number;
+	code: string;
 	name: string;
-	color: string;
-	icon: string;
+	description?: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface TaskContent {
+	description: string;
+	acceptance_criteria: AcceptanceCriterion[];
+	implementation_details?: string;
+	notes?: string;
+	attachments: string[];
+	due_date?: string;
+	assignee?: string;
 }
 
 export interface TaskRelationships {
-	assignee_id?: string;
-	board_id: string;
-	parent_id?: string;
-	children_ids?: string[];
-	linked_task_ids?: string[];
+	parent?: string;
+	dependencies: string[];
+	labels: string[];
 }
 
 export interface TaskMetadata {
-	labels?: string[];
-	due_date?: string;
-	estimated_time?: number;
-	spent_time?: number;
-	custom_fields?: Record<string, string | number | boolean>;
+	created_at: string;
+	updated_at: string;
+	board?: string;
+	column?: string;
+}
+
+export interface TaskProgress {
+	acceptance_criteria: {
+		total: number;
+		completed: number;
+	};
+	percentage: number;
+}
+
+export interface TaskStatus {
+	id: number;
+	code: string;
+	name: string;
+	description?: string;
+	color: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface TaskPriority {
+	id: number;
+	name: string;
+	display_order: number;
 }
 
 export interface Task {
 	id: string;
 	title: string;
 	description: string;
-	content?: string;
 	status_id: number;
+	status?: TaskStatus;
 	priority_id: number;
+	priority?: TaskPriority;
 	type_id: number;
+	type?: TaskType;
 	order: number;
-	type: TaskType;
-	relationships?: TaskRelationships;
-	metadata?: TaskMetadata;
+	content?: TaskContent;
+	relationships: TaskRelationships;
+	metadata: TaskMetadata;
+	progress: TaskProgress;
+	status_history?: StatusChange[];
 	created_at: string;
 	updated_at: string;
 }
 
-export interface TaskStatus {
-	id: number;
-	name: string;
-	columnId: string;
-	color: string;
+export interface AcceptanceCriterion {
+	id: string;
+	description: string;
+	completed: boolean;
+	completed_at?: string;
+	completed_by?: string;
+	created_at: string;
+	updated_at: string;
+	order: number;
+	category?: string;
+	notes?: string;
 }
 
-export interface TaskPriority {
-	id: number;
-	name: string;
-	color: string;
-	icon: string;
+export interface StatusChange {
+	task_id: string;
+	from_status_id: number;
+	to_status_id: number;
+	from_status?: TaskStatus;
+	to_status?: TaskStatus;
+	comment?: string;
+	timestamp: string;
+	changed_at: string;
 }
 
-export const TASK_STATUS: Record<string, TaskStatus> = {
-	TODO: {
+// Default task statuses
+export const DEFAULT_TASK_STATUSES: TaskStatus[] = [
+	{
 		id: 1,
+		code: "todo",
 		name: "To Do",
-		columnId: "todo",
 		color: "bg-gray-100",
+		display_order: 1,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
 	},
-	IN_PROGRESS: {
+	{
 		id: 2,
+		code: "in_progress",
 		name: "In Progress",
-		columnId: "in-progress",
 		color: "bg-blue-100",
+		display_order: 2,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
 	},
-	IN_REVIEW: {
+	{
 		id: 3,
+		code: "in_review",
 		name: "In Review",
-		columnId: "in-review",
 		color: "bg-yellow-100",
+		display_order: 3,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
 	},
-	DONE: {
+	{
 		id: 4,
+		code: "done",
 		name: "Done",
-		columnId: "done",
 		color: "bg-green-100",
+		display_order: 4,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
 	},
-};
+];

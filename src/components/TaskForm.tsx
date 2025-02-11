@@ -4,21 +4,16 @@ import { Input } from "./common/Input";
 import { TextArea } from "./common/TextArea";
 import { Button } from "./common/Button";
 import { SELECT_OPTIONS } from "../types/typeReference";
+import { LoadingSpinner } from "./common/LoadingSpinner";
 
 const defaultMetadata: TaskMetadata = {
-	labels: [],
-	due_date: undefined,
-	estimated_time: 0,
-	spent_time: 0,
-	custom_fields: {},
+	created_at: new Date().toISOString(),
+	updated_at: new Date().toISOString(),
 };
 
 const defaultRelationships: TaskRelationships = {
-	board_id: "",
-	parent_id: undefined,
-	children_ids: [],
-	linked_task_ids: [],
-	assignee_id: undefined,
+	dependencies: [],
+	labels: [],
 };
 
 interface TaskFormProps {
@@ -27,6 +22,7 @@ interface TaskFormProps {
 	onSubmit: (task: Partial<Task>) => void;
 	task?: Task;
 	allTasks?: Task[];
+	isLoading?: boolean;
 }
 
 export const TaskForm = ({
@@ -35,6 +31,7 @@ export const TaskForm = ({
 	onSubmit,
 	task,
 	allTasks = [],
+	isLoading = false,
 }: TaskFormProps) => {
 	const [formData, setFormData] = useState<Partial<Task>>({
 		title: task?.title || "",
@@ -73,9 +70,48 @@ export const TaskForm = ({
 
 	if (!isOpen) return null;
 
+	const statusOptions = SELECT_OPTIONS.STATUS;
+	const priorityOptions = SELECT_OPTIONS.PRIORITY;
+	const typeOptions = SELECT_OPTIONS.TYPE;
+
+	console.log("TaskForm render state:", {
+		isLoading,
+		statusOptions,
+		priorityOptions,
+		typeOptions,
+		formData,
+	});
+
+	if (
+		isLoading ||
+		!statusOptions.length ||
+		!priorityOptions.length ||
+		!typeOptions.length
+	) {
+		console.log("TaskForm showing loading state");
+		return (
+			<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+				<div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+					<div className="flex justify-center items-center h-48">
+						<LoadingSpinner />
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	console.log("Task form options:", {
+		statusOptions,
+		priorityOptions,
+		typeOptions,
+	});
+
 	return (
 		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-			<div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
+			<div
+				className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"
+				data-testid="task-form"
+			>
 				<h2 className="text-xl font-semibold text-gray-900 mb-4">
 					{task ? "Edit Task" : "Create Task"}
 				</h2>
@@ -87,6 +123,7 @@ export const TaskForm = ({
 						value={formData.title || ""}
 						onChange={handleChange}
 						required
+						data-testid="task-title-input"
 					/>
 
 					<TextArea
@@ -95,6 +132,7 @@ export const TaskForm = ({
 						value={formData.description || ""}
 						onChange={handleChange}
 						rows={3}
+						data-testid="task-description-input"
 					/>
 
 					<div className="grid grid-cols-2 gap-4">
@@ -112,8 +150,9 @@ export const TaskForm = ({
 								onChange={handleChange}
 								className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
 								required
+								data-testid="task-status-select"
 							>
-								{SELECT_OPTIONS.STATUS.map((option) => (
+								{statusOptions.map((option) => (
 									<option key={option.value} value={option.value}>
 										{option.label}
 									</option>
@@ -135,8 +174,9 @@ export const TaskForm = ({
 								onChange={handleChange}
 								className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
 								required
+								data-testid="task-priority-select"
 							>
-								{SELECT_OPTIONS.PRIORITY.map((option) => (
+								{priorityOptions.map((option) => (
 									<option key={option.value} value={option.value}>
 										{option.label}
 									</option>
@@ -159,8 +199,9 @@ export const TaskForm = ({
 							onChange={handleChange}
 							className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
 							required
+							data-testid="task-type-select"
 						>
-							{SELECT_OPTIONS.TYPE.map((option) => (
+							{typeOptions.map((option) => (
 								<option key={option.value} value={option.value}>
 									{option.label}
 								</option>
@@ -169,10 +210,15 @@ export const TaskForm = ({
 					</div>
 
 					<div className="flex justify-end space-x-3 pt-4">
-						<Button type="button" variant="outline" onClick={onClose}>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={onClose}
+							data-testid="cancel-task-button"
+						>
 							Cancel
 						</Button>
-						<Button type="submit">
+						<Button type="submit" data-testid="submit-task-button">
 							{task ? "Save Changes" : "Create Task"}
 						</Button>
 					</div>

@@ -4,6 +4,8 @@
  * between frontend and backend representations.
  */
 
+import type { TaskStatus, TaskPriority, TaskType } from "./task";
+
 // ============================================================================
 // Core Type Definitions
 // ============================================================================
@@ -14,49 +16,28 @@ export type TaskPriorityId = number;
 export type TaskTypeId = number;
 
 // API Types
-export interface TaskStatusEntity {
-	id: number;
-	code: string;
-	name: string;
-	description?: string;
-	color: string;
-	display_order: number;
-	created_at: string;
-	updated_at: string;
-}
+export interface TaskStatusEntity extends TaskStatus {}
+export interface TaskPriorityEntity extends TaskPriority {}
+export interface TaskTypeEntity extends TaskType {}
 
 // UI Types
 export interface TaskStatusUI {
 	id: number;
-	label: string;
-	columnId: string;
+	code: string;
+	name: string;
+	color: string;
+	display_order: number;
 }
 
 export type TaskStatusUIType = TaskStatusUI;
-
-// Priority Interfaces
-export interface TaskPriorityEntity {
-	id: number;
-	name: string;
-	display_order: number;
-}
-
-// Type Interfaces
-export interface TaskTypeEntity {
-	id: number;
-	code: "feature" | "bug" | "docs" | "chore";
-	name: string;
-	description?: string;
-	display_order: number;
-	created_at: string;
-	updated_at: string;
-}
 
 // Constants
 export const TASK_STATUS: Record<string, TaskStatusUI> = {};
 
 // This function will be used to initialize the task statuses
 export async function initializeTaskStatuses(statuses: TaskStatusEntity[]) {
+	console.log("Initializing task statuses with:", statuses);
+
 	// Clear existing statuses
 	for (const key of Object.keys(TASK_STATUS)) {
 		delete TASK_STATUS[key];
@@ -64,23 +45,29 @@ export async function initializeTaskStatuses(statuses: TaskStatusEntity[]) {
 
 	// Add new statuses
 	for (const status of statuses) {
-		const key = status.name.toUpperCase().replace(/\s+/g, "_");
+		const key = status.code.toUpperCase();
 		TASK_STATUS[key] = {
 			id: status.id,
-			label: status.name,
-			columnId: `${status.id}-column`,
+			code: status.code,
+			name: status.name,
+			color: status.color,
+			display_order: status.display_order,
 		};
 	}
+
+	console.log("Task statuses initialized:", TASK_STATUS);
 }
 
 // Maps will be initialized after loading statuses
 export const STATUS_MAP = new Map<number, TaskStatusUI>();
 
 export function updateStatusMap() {
+	console.log("Updating status map");
 	STATUS_MAP.clear();
 	for (const status of Object.values(TASK_STATUS)) {
 		STATUS_MAP.set(status.id, status);
 	}
+	console.log("Status map updated:", STATUS_MAP);
 }
 
 // Type guard for status IDs
@@ -169,13 +156,17 @@ export function isTaskStatusUI(value: unknown): value is TaskStatusUIType {
 	const status = value as Partial<TaskStatusUI>;
 	return (
 		isTaskStatusId(status.id) &&
-		typeof status.label === "string" &&
-		typeof status.columnId === "string" &&
+		typeof status.code === "string" &&
+		typeof status.name === "string" &&
+		typeof status.color === "string" &&
+		typeof status.display_order === "number" &&
 		Object.values(TASK_STATUS).some(
 			(s) =>
 				s.id === status.id &&
-				s.label === status.label &&
-				s.columnId === status.columnId,
+				s.code === status.code &&
+				s.name === status.name &&
+				s.color === status.color &&
+				s.display_order === status.display_order,
 		)
 	);
 }
@@ -232,17 +223,21 @@ export const SELECT_OPTIONS = {
 	get STATUS() {
 		return Object.values(TASK_STATUS).map((s) => ({
 			value: String(s.id),
-			label: s.label,
+			label: s.name,
 		}));
 	},
-	PRIORITY: Object.values(TASK_PRIORITY).map((p) => ({
-		value: String(p.id),
-		label: p.name,
-	})),
-	TYPE: Object.values(TASK_TYPE).map((t) => ({
-		value: String(t.id),
-		label: t.name,
-	})),
+	get PRIORITY() {
+		return Object.values(TASK_PRIORITY).map((p) => ({
+			value: String(p.id),
+			label: p.name,
+		}));
+	},
+	get TYPE() {
+		return Object.values(TASK_TYPE).map((t) => ({
+			value: String(t.id),
+			label: t.name,
+		}));
+	},
 } as const;
 
 // ============================================================================

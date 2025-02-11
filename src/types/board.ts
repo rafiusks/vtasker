@@ -23,6 +23,7 @@ export interface BoardMember {
 
 export interface CreateBoardInput {
 	name: string;
+	slug?: string;
 	description?: string;
 	is_public?: boolean;
 }

@@ -13,6 +13,7 @@ export const RegisterForm = () => {
 		email: "",
 		password: "",
 		name: "",
+		confirmPassword: "",
 	});
 
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,7 +63,11 @@ export const RegisterForm = () => {
 
 	return (
 		<div className="w-full max-w-md mx-auto">
-			<form onSubmit={handleSubmit} className="space-y-6">
+			<form
+				onSubmit={handleSubmit}
+				className="space-y-6"
+				data-testid="register-form"
+			>
 				<div className="text-center">
 					<h1 className="text-2xl font-bold text-gray-900">
 						Create an Account
@@ -97,6 +102,7 @@ export const RegisterForm = () => {
 					required
 					autoComplete="name"
 					placeholder="Enter your full name"
+					data-testid="name-input"
 				/>
 
 				<Input
@@ -108,6 +114,7 @@ export const RegisterForm = () => {
 					required
 					autoComplete="email"
 					placeholder="Enter your email"
+					data-testid="email-input"
 				/>
 
 				<Input
@@ -119,6 +126,19 @@ export const RegisterForm = () => {
 					required
 					autoComplete="new-password"
 					placeholder="Create a password"
+					data-testid="password-input"
+				/>
+
+				<Input
+					label="Confirm Password"
+					type="password"
+					name="confirmPassword"
+					value={formData.confirmPassword}
+					onChange={handleChange}
+					required
+					autoComplete="new-password"
+					placeholder="Confirm your password"
+					data-testid="confirm-password-input"
 				/>
 
 				<Button

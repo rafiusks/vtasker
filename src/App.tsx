@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { TaskForm } from "./components/TaskForm";
 import { TaskColumn } from "./components/TaskColumn";
 import { Select } from "./components/Select";
-import type { Task } from "./types";
+import type { Task } from "./types/task";
 import type { Option } from "./components/Select";
 import {
 	TASK_STATUS,
@@ -121,7 +121,11 @@ export function App() {
 			if (!isAuthenticated || isAuthLoading) return;
 
 			try {
-				const statuses = await taskAPI.listStatuses();
+				const [statuses, priorities, types] = await Promise.all([
+					taskAPI.listStatuses(),
+					taskAPI.listPriorities(),
+					taskAPI.listTaskTypes(),
+				]);
 				await initializeTaskStatuses(statuses);
 				updateStatusMap();
 				setStatusesLoaded(true);
@@ -572,6 +576,7 @@ export function App() {
 									onClick={() => setIsTaskFormOpen(true)}
 									className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
 									aria-label="Create Task"
+									data-testid="create-task-button"
 								>
 									<PlusIcon className="h-5 w-5" aria-hidden="true" />
 									Create Task
@@ -737,6 +742,7 @@ export function App() {
 							onSubmit={handleTaskSubmit}
 							task={editingTask}
 							allTasks={tasks}
+							isLoading={!statusesLoaded}
 						/>
 						<StatusNotification
 							show={notification.show}

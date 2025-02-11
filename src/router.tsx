@@ -1,65 +1,37 @@
 import * as React from "react";
 import {
 	Outlet,
-	RootRoute,
-	Route,
-	Router,
-	redirect,
+	createRootRoute,
+	createRoute,
+	createRouter,
 } from "@tanstack/react-router";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { AuthProvider } from "./contexts/AuthContext";
 import { LoginPage } from "./pages/LoginPage";
 import { RegisterPage } from "./pages/RegisterPage";
-import { App } from "./App";
 import { BoardPage } from "./pages/BoardPage";
 import { BoardsPage } from "./pages/BoardsPage";
 import { useAuth } from "./contexts/AuthContext";
-import {
-	createRootRoute,
-	createRoute,
-	createRouter,
-} from "@tanstack/react-router";
 import { AppLayout } from "./components/layout/AppLayout";
 import { SettingsPage } from "./pages/SettingsPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
-import type { Router as TanstackRouter } from "@tanstack/react-router";
+import { LandingPage } from "./pages/LandingPage";
+import { DashboardPage } from "./pages/DashboardPage";
+import type {
+	BoardPageParams,
+	TaskPageParams,
+	BoardLoaderData,
+	TaskLoaderData,
+} from "./types/router";
+import { ProtectedComponent } from "./components/ProtectedComponent";
+import { checkAuthFromStorage } from "./utils/auth";
 
 // Helper function to check auth state
 const isAuthenticated = () => {
 	const { user } = useAuth();
 	return !!user;
 };
-
-// Helper function to check auth state from storage
-const checkAuthFromStorage = () => {
-	const storage = typeof window !== "undefined" ? window.localStorage : null;
-	return !!storage?.getItem("auth");
-};
-
-// Route state types
-interface LoginRouteState {
-	message?: string;
-}
-
-interface BoardParams {
-	boardId: string;
-}
-
-interface BoardSlugParams {
-	slug: string;
-}
-
-interface LoginRouteSearch {
-	redirect?:
-		| "/"
-		| "/login"
-		| "/register"
-		| "/boards"
-		| "/boards/$boardId"
-		| "/b/$slug"
-		| "/settings";
-}
 
 // Root Layout Component
 const RootComponent: React.FC = () => {
@@ -72,134 +44,163 @@ const RootComponent: React.FC = () => {
 	);
 };
 
-// Protected Route Component
-const ProtectedComponent: React.FC<{ children: React.ReactNode }> = ({
-	children,
-}) => {
-	const { isAuthenticated: isAuth, isLoading } = useAuth();
-
-	if (isLoading) {
-		return (
-			<div className="min-h-screen flex items-center justify-center">
-				<div className="animate-spin h-8 w-8 border-4 border-blue-600 rounded-full border-t-transparent" />
-			</div>
-		);
-	}
-
-	if (!isAuth) {
-		return null;
-	}
-
-	return <>{children}</>;
-};
-
 // Root route
-export const rootRoute = createRootRoute({
-	component: () => (
-		<AuthProvider>
-			<AppLayout />
-		</AuthProvider>
-	),
-	notFoundComponent: () => <NotFoundPage />,
+const rootRoute = createRootRoute({
+	component: RootComponent,
+	notFoundComponent: NotFoundPage,
 });
 
-// Index route
-export const indexRoute = createRoute({
+// Public routes
+const indexRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/",
-	beforeLoad: () => {
-		const isAuth = checkAuthFromStorage();
-		throw redirect({ to: isAuth ? "/boards" : "/login" });
-	},
-	component: () => null,
+	component: LandingPage,
 });
 
-// Auth routes
-export const loginRoute = createRoute({
+const loginRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/login",
-	validateSearch: (search: Record<string, unknown>): LoginRouteSearch => {
-		const redirect = search.redirect as LoginRouteSearch["redirect"];
-		return { redirect };
-	},
-	beforeLoad: () => {
-		if (checkAuthFromStorage()) {
-			throw redirect({ to: "/boards" });
-		}
-	},
 	component: LoginPage,
 });
 
-export const registerRoute = createRoute({
+const registerRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/register",
-	beforeLoad: () => {
-		if (checkAuthFromStorage()) {
-			throw redirect({ to: "/boards" });
-		}
-	},
 	component: RegisterPage,
 });
 
-// Board routes
-export const boardsRoute = createRoute({
+// Protected routes
+const dashboardRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/dashboard",
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<DashboardPage />
+			</AppLayout>
+		</ProtectedComponent>
+	),
+	beforeLoad: async ({ location }) => {
+		if (!checkAuthFromStorage()) {
+			throw new Response(null, {
+				status: 302,
+				headers: {
+					Location: `/login?redirect=${encodeURIComponent(location.pathname)}`,
+				},
+			});
+		}
+	},
+});
+
+const dashboardSettingsRoute = createRoute({
+	getParentRoute: () => dashboardRoute,
+	path: "/settings",
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<SettingsPage />
+			</AppLayout>
+		</ProtectedComponent>
+	),
+});
+
+const boardsRoute = createRoute({
 	getParentRoute: () => rootRoute,
 	path: "/boards",
-	beforeLoad: () => {
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<BoardsPage />
+			</AppLayout>
+		</ProtectedComponent>
+	),
+	beforeLoad: async ({ location }) => {
 		if (!checkAuthFromStorage()) {
-			throw redirect({ to: "/login" });
+			throw new Response(null, {
+				status: 302,
+				headers: {
+					Location: `/login?redirect=${encodeURIComponent(location.pathname)}`,
+				},
+			});
 		}
 	},
-	component: BoardsPage,
 });
 
-export const boardDetailRoute = createRoute({
-	getParentRoute: () => rootRoute,
-	path: "/boards/$boardId",
-	beforeLoad: () => {
-		if (!checkAuthFromStorage()) {
-			throw redirect({ to: "/login" });
-		}
-	},
-	component: BoardPage,
-});
-
-export const boardBySlugRoute = createRoute({
-	getParentRoute: () => rootRoute,
-	path: "/b/$slug",
-	beforeLoad: () => {
-		if (!checkAuthFromStorage()) {
-			throw redirect({ to: "/login" });
-		}
-	},
-	component: BoardPage,
-});
-
-// Settings route
-export const settingsRoute = createRoute({
-	getParentRoute: () => rootRoute,
+const boardsSettingsRoute = createRoute({
+	getParentRoute: () => boardsRoute,
 	path: "/settings",
-	beforeLoad: () => {
-		if (!checkAuthFromStorage()) {
-			throw redirect({ to: "/login" });
-		}
-	},
-	component: SettingsPage,
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<SettingsPage />
+			</AppLayout>
+		</ProtectedComponent>
+	),
 });
 
-// Create and export the router
-export const routeTree = rootRoute.addChildren([
+const boardRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/b/$boardSlug",
+	beforeLoad: async ({ location }) => {
+		if (!checkAuthFromStorage()) {
+			throw new Response(null, {
+				status: 302,
+				headers: {
+					Location: `/login?redirect=${encodeURIComponent(location.pathname)}`,
+				},
+			});
+		}
+	},
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<BoardPage />
+			</AppLayout>
+		</ProtectedComponent>
+	),
+});
+
+const boardSettingsRoute = createRoute({
+	getParentRoute: () => boardRoute,
+	path: "/settings",
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<SettingsPage />
+			</AppLayout>
+		</ProtectedComponent>
+	),
+});
+
+const taskRoute = createRoute({
+	getParentRoute: () => boardRoute,
+	path: "/$taskId",
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<BoardPage />
+			</AppLayout>
+		</ProtectedComponent>
+	),
+});
+
+const routeTree = rootRoute.addChildren([
 	indexRoute,
 	loginRoute,
 	registerRoute,
-	boardsRoute,
-	boardDetailRoute,
-	boardBySlugRoute,
-	settingsRoute,
+	dashboardRoute.addChildren([dashboardSettingsRoute]),
+	boardsRoute.addChildren([boardsSettingsRoute]),
+	boardRoute.addChildren([boardSettingsRoute, taskRoute]),
 ]);
 
-export const router = createRouter({ routeTree });
+// Create and export the router
+export const router = createRouter({
+	routeTree,
+	defaultPreload: "intent",
+	defaultNotFoundComponent: NotFoundPage,
+});
 
+// Register your router for maximum type safety
 declare module "@tanstack/react-router" {
 	interface Register {
 		router: typeof router;

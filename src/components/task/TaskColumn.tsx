@@ -1,12 +1,17 @@
-import type { Task, TaskStatus } from "../../types/task";
+import { useDrop } from "react-dnd";
+import type { Task } from "../../types/task";
+import { TaskCard } from "./TaskCard";
+import { LoadingSpinner } from "../common/LoadingSpinner";
+import type { TaskStatusUI } from "../../types/typeReference";
 
 interface TaskColumnProps {
-	status: TaskStatus;
+	status: TaskStatusUI;
 	tasks: Task[];
-	onDrop: (taskId: string, statusId: number) => void;
+	onDrop: (taskId: string, newStatusId: number, newIndex?: number) => void;
 	onEdit: (taskId: string) => void;
 	onDelete: (taskId: string) => void;
-	isLoading: boolean;
+	isLoading?: boolean;
+	updatingTaskId?: string;
 }
 
 export const TaskColumn = ({
@@ -15,57 +20,54 @@ export const TaskColumn = ({
 	onDrop,
 	onEdit,
 	onDelete,
-	isLoading,
+	isLoading = false,
+	updatingTaskId,
 }: TaskColumnProps) => {
-	return (
-		<div className="bg-white rounded-lg shadow p-4">
-			<div className="flex items-center justify-between mb-4">
-				<h3 className="text-lg font-medium text-gray-900">{status.name}</h3>
-				<span className="text-sm text-gray-500">{tasks.length}</span>
-			</div>
+	const [{ isOver }, drop] = useDrop({
+		accept: "task",
+		drop: (item: { id: string }) => {
+			onDrop(item.id, status.id);
+		},
+		collect: (monitor) => ({
+			isOver: monitor.isOver(),
+		}),
+	});
 
-			<div className="space-y-2">
+	return (
+		<div
+			ref={drop}
+			className={`bg-white rounded-lg shadow p-4 ${
+				isOver ? "ring-2 ring-blue-500" : ""
+			}`}
+			data-testid={`task-column-${status.code}`}
+		>
+			<h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+				<span
+					className={`w-3 h-3 rounded-full ${status.color}`}
+					aria-hidden="true"
+				/>
+				{status.name}
+				<span className="text-sm font-normal text-gray-500">
+					({tasks.length})
+				</span>
+			</h3>
+
+			<div className="space-y-3">
 				{isLoading ? (
 					<div className="flex justify-center py-4">
-						<div className="animate-spin h-5 w-5 border-2 border-blue-600 rounded-full border-t-transparent" />
+						<LoadingSpinner />
 					</div>
 				) : tasks.length === 0 ? (
-					<div className="text-center py-4">
-						<p className="text-sm text-gray-500">No tasks</p>
-					</div>
+					<p className="text-center text-gray-500 py-4">No tasks</p>
 				) : (
 					tasks.map((task) => (
-						<div
+						<TaskCard
 							key={task.id}
-							className="bg-white border rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow"
-						>
-							<div className="flex justify-between items-start">
-								<h4 className="text-sm font-medium text-gray-900">
-									{task.title}
-								</h4>
-								<div className="flex items-center space-x-2">
-									<button
-										type="button"
-										onClick={() => onEdit(task.id)}
-										className="text-gray-400 hover:text-gray-600"
-									>
-										Edit
-									</button>
-									<button
-										type="button"
-										onClick={() => onDelete(task.id)}
-										className="text-red-400 hover:text-red-600"
-									>
-										Delete
-									</button>
-								</div>
-							</div>
-							{task.description && (
-								<p className="mt-1 text-sm text-gray-600 line-clamp-2">
-									{task.description}
-								</p>
-							)}
-						</div>
+							task={task}
+							onEdit={() => onEdit(task.id)}
+							onDelete={() => onDelete(task.id)}
+							isUpdating={updatingTaskId === task.id}
+						/>
 					))
 				)}
 			</div>

@@ -26,6 +26,7 @@ func (r *BoardRepository) GetBoard(ctx context.Context, id string, userID uuid.U
 		SELECT 
 			b.id, 
 			b.name,
+			b.slug,
 			b.description,
 			b.owner_id,
 			b.is_public,
@@ -44,6 +45,7 @@ func (r *BoardRepository) GetBoard(ctx context.Context, id string, userID uuid.U
 	err := r.db.QueryRow(ctx, query, id, userID).Scan(
 		&board.ID,
 		&board.Name,
+		&board.Slug,
 		&board.Description,
 		&board.OwnerID,
 		&board.IsPublic,
@@ -147,6 +149,7 @@ func (r *BoardRepository) ListBoards(ctx context.Context, userID uuid.UUID) ([]*
 		SELECT DISTINCT
 			b.id, 
 			b.name,
+			b.slug,
 			b.description,
 			b.owner_id,
 			b.is_public,
@@ -171,6 +174,7 @@ func (r *BoardRepository) ListBoards(ctx context.Context, userID uuid.UUID) ([]*
 		err := rows.Scan(
 			&board.ID,
 			&board.Name,
+			&board.Slug,
 			&board.Description,
 			&board.OwnerID,
 			&board.IsPublic,
@@ -310,54 +314,40 @@ func (r *BoardRepository) GetBoardBySlug(ctx context.Context, slug string, userI
 	return &board, nil
 }
 
-// ensureUniqueSlug makes sure the slug is unique by appending a number if needed
-func (r *BoardRepository) ensureUniqueSlug(ctx context.Context, slug string) (string, error) {
-	var exists bool
-	var counter int = 0
-	finalSlug := slug
-
-	for {
-		err := r.db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM boards WHERE slug = $1)", finalSlug).Scan(&exists)
-		if err != nil {
-			return "", fmt.Errorf("error checking slug existence: %v", err)
-		}
-
-		if !exists {
-			break
-		}
-
-		counter++
-		finalSlug = fmt.Sprintf("%s-%d", slug, counter)
-	}
-
-	return finalSlug, nil
-}
-
 // CreateBoard creates a new board
 func (r *BoardRepository) CreateBoard(ctx context.Context, input *models.CreateBoardInput, ownerID uuid.UUID) (*models.Board, error) {
-	board := models.NewBoard(*input, ownerID)
-
-	// Ensure unique slug
-	uniqueSlug, err := r.ensureUniqueSlug(ctx, board.Slug)
-	if err != nil {
-		return nil, err
+	// Generate initial slug from input or board name
+	slug := input.Slug
+	if slug == "" {
+		slug = models.GenerateSlug(input.Name)
 	}
+
+	// Ensure the slug is unique
+	uniqueSlug, err := r.ensureUniqueSlug(ctx, slug)
+	if err != nil {
+		return nil, fmt.Errorf("error ensuring unique slug: %v", err)
+	}
+
+	// Create the board
+	board := models.NewBoard(*input, ownerID)
 	board.Slug = uniqueSlug
 
-	// Start transaction
-	tx, err := r.db.Begin(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error starting transaction: %v", err)
-	}
-	defer tx.Rollback(ctx)
-
-	// Create board
 	query := `
-		INSERT INTO boards (id, name, slug, description, owner_id, is_public, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id`
+		INSERT INTO boards (
+			id,
+			name,
+			slug,
+			description,
+			owner_id,
+			is_public,
+			created_at,
+			updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING id, name, slug, description, owner_id, is_public, created_at, updated_at`
 
-	err = tx.QueryRow(ctx, query,
+	err = r.db.QueryRow(
+		ctx,
+		query,
 		board.ID,
 		board.Name,
 		board.Slug,
@@ -366,8 +356,16 @@ func (r *BoardRepository) CreateBoard(ctx context.Context, input *models.CreateB
 		board.IsPublic,
 		board.CreatedAt,
 		board.UpdatedAt,
-	).Scan(&board.ID)
-
+	).Scan(
+		&board.ID,
+		&board.Name,
+		&board.Slug,
+		&board.Description,
+		&board.OwnerID,
+		&board.IsPublic,
+		&board.CreatedAt,
+		&board.UpdatedAt,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating board: %v", err)
 	}
@@ -376,13 +374,16 @@ func (r *BoardRepository) CreateBoard(ctx context.Context, input *models.CreateB
 	if len(input.Members) > 0 {
 		membersQuery := `
 			INSERT INTO board_members (board_id, user_id, role, created_at)
-			VALUES ($1, $2, $3, CURRENT_TIMESTAMP)`
+			VALUES ($1, $2, $3, $4)`
 
 		for _, member := range input.Members {
-			_, err = tx.Exec(ctx, membersQuery,
+			_, err = r.db.Exec(
+				ctx,
+				membersQuery,
 				board.ID,
 				member.UserID,
 				member.Role,
+				board.CreatedAt,
 			)
 			if err != nil {
 				return nil, fmt.Errorf("error adding board member: %v", err)
@@ -390,12 +391,35 @@ func (r *BoardRepository) CreateBoard(ctx context.Context, input *models.CreateB
 		}
 	}
 
-	// Commit transaction
-	if err = tx.Commit(ctx); err != nil {
-		return nil, fmt.Errorf("error committing transaction: %v", err)
+	return board, nil
+}
+
+// ensureUniqueSlug ensures the slug is unique by appending a number if necessary
+func (r *BoardRepository) ensureUniqueSlug(ctx context.Context, slug string) (string, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM boards WHERE slug = $1`
+	err := r.db.QueryRow(ctx, query, slug).Scan(&count)
+	if err != nil {
+		return "", fmt.Errorf("error checking slug uniqueness: %v", err)
 	}
 
-	return r.GetBoard(ctx, board.ID.String(), ownerID)
+	if count == 0 {
+		return slug, nil
+	}
+
+	// If slug exists, append a number
+	i := 1
+	for {
+		newSlug := fmt.Sprintf("%s-%d", slug, i)
+		err = r.db.QueryRow(ctx, query, newSlug).Scan(&count)
+		if err != nil {
+			return "", fmt.Errorf("error checking slug uniqueness: %v", err)
+		}
+		if count == 0 {
+			return newSlug, nil
+		}
+		i++
+	}
 }
 
 // UpdateBoard updates an existing board

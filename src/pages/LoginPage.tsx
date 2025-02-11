@@ -8,10 +8,10 @@ export const LoginPage = () => {
 	const { isAuthenticated } = useAuth();
 	const [message, setMessage] = useState<string | null>(null);
 
-	// If user is already logged in, redirect to boards
+	// If user is already logged in, redirect to dashboard
 	useEffect(() => {
 		if (isAuthenticated) {
-			navigate({ to: "/boards", replace: true });
+			navigate({ to: "/dashboard", replace: true });
 		}
 
 		// Check for registration message

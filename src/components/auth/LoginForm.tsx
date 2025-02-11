@@ -53,11 +53,11 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 				try {
 					navigate({ to: redirectPath, replace: true });
 				} catch {
-					// If navigation fails, fallback to /boards
-					navigate({ to: "/boards", replace: true });
+					// If navigation fails, fallback to dashboard
+					navigate({ to: "/dashboard", replace: true });
 				}
 			} else {
-				navigate({ to: "/boards", replace: true });
+				navigate({ to: "/dashboard", replace: true });
 			}
 		} catch (err) {
 			setError(err instanceof Error ? err.message : "Failed to login");
@@ -67,7 +67,11 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 
 	return (
 		<div className="w-full max-w-md mx-auto">
-			<form onSubmit={handleSubmit} className="space-y-6">
+			<form
+				onSubmit={handleSubmit}
+				className="space-y-6"
+				data-testid="login-form"
+			>
 				<div className="text-center">
 					<h1 className="text-2xl font-bold text-gray-900">Login to VTasker</h1>
 					<p className="mt-2 text-sm text-gray-600">
@@ -100,6 +104,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 					required
 					autoComplete="email"
 					placeholder="Enter your email"
+					data-testid="email-input"
 				/>
 
 				<Input
@@ -111,6 +116,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 					required
 					autoComplete="current-password"
 					placeholder="Enter your password"
+					data-testid="password-input"
 				/>
 
 				<div className="flex items-center justify-between">

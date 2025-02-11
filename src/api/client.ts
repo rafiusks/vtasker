@@ -7,7 +7,7 @@ import type {
 	TaskTypeEntity,
 	TaskPriorityEntity,
 } from "../types/typeReference";
-import type { Board } from "../types";
+import type { Board } from "../types/board";
 import type {
 	LoginResponse,
 	User,
@@ -16,7 +16,7 @@ import type {
 	RefreshTokenResponse,
 } from "../types/auth";
 
-const API_BASE = "http://localhost:8000/api";
+const API_BASE = "http://localhost:8000";
 
 // Shared headers between all API instances
 const sharedHeaders: Record<string, string | undefined> = {
@@ -119,23 +119,23 @@ export class BaseAPI {
 
 export class TaskAPI extends BaseAPI {
 	listTasks = async (): Promise<Task[]> => {
-		const response = await this.request<ApiTask[]>("/tasks");
+		const response = await this.request<ApiTask[]>("/api/tasks");
 		return response?.map(convertAPITaskToTask) || [];
 	};
 
 	async getTask(id: string): Promise<Task> {
-		return this.request<Task>(`/tasks/${id}`);
+		return this.request<Task>(`/api/tasks/${id}`);
 	}
 
 	async createTask(task: Partial<Task>): Promise<Task> {
-		return this.request<Task>("/tasks", {
+		return this.request<Task>("/api/tasks", {
 			method: "POST",
 			body: JSON.stringify(task),
 		});
 	}
 
 	async updateTask(id: string, updates: TaskUpdateRequest): Promise<Task> {
-		return this.request<Task>(`/tasks/${id}`, {
+		return this.request<Task>(`/api/tasks/${id}`, {
 			method: "PUT",
 			body: JSON.stringify({
 				...updates,
@@ -154,28 +154,28 @@ export class TaskAPI extends BaseAPI {
 	}
 
 	async moveTask(taskId: string, request: TaskMoveRequest): Promise<Task> {
-		return this.request<Task>(`/tasks/${taskId}/move`, {
+		return this.request<Task>(`/api/tasks/${taskId}/move`, {
 			method: "PUT",
 			body: JSON.stringify(request),
 		});
 	}
 
 	async deleteTask(id: string): Promise<void> {
-		return this.request<void>(`/tasks/${id}`, {
+		return this.request<void>(`/api/tasks/${id}`, {
 			method: "DELETE",
 		});
 	}
 
 	async listStatuses(): Promise<TaskStatusEntity[]> {
-		return this.request<TaskStatusEntity[]>("/task-statuses");
+		return this.request<TaskStatusEntity[]>("/api/task-statuses");
 	}
 
 	async listTaskTypes(): Promise<TaskTypeEntity[]> {
-		return this.request<TaskTypeEntity[]>("/task-types");
+		return this.request<TaskTypeEntity[]>("/api/task-types");
 	}
 
 	async listPriorities(): Promise<TaskPriorityEntity[]> {
-		return this.request<TaskPriorityEntity[]>("/task-priorities");
+		return this.request<TaskPriorityEntity[]>("/api/task-priorities");
 	}
 }
 
@@ -183,35 +183,35 @@ export class BoardAPI extends BaseAPI {
 	async listBoards(
 		params: URLSearchParams = new URLSearchParams(),
 	): Promise<Board[]> {
-		return this.request<Board[]>(`/boards?${params.toString()}`);
+		return this.request<Board[]>(`/api/boards?${params.toString()}`);
 	}
 
 	async getBoard(idOrSlug: string): Promise<Board> {
 		// Try slug-based route first
 		try {
-			return await this.request<Board>(`/boards/by-slug/${idOrSlug}`);
+			return await this.request<Board>(`/api/b/${idOrSlug}`);
 		} catch (error) {
 			// If not found by slug, try ID-based route
-			return await this.request<Board>(`/boards/${idOrSlug}`);
+			return await this.request<Board>(`/api/boards/${idOrSlug}`);
 		}
 	}
 
 	async createBoard(board: Partial<Board>): Promise<Board> {
-		return this.request<Board>("/boards", {
+		return this.request<Board>("/api/boards", {
 			method: "POST",
 			body: JSON.stringify(board),
 		});
 	}
 
 	async updateBoard(id: string, updates: Partial<Board>): Promise<Board> {
-		return this.request<Board>(`/boards/${id}`, {
+		return this.request<Board>(`/api/boards/${id}`, {
 			method: "PUT",
 			body: JSON.stringify(updates),
 		});
 	}
 
 	async deleteBoard(id: string): Promise<void> {
-		return this.request<void>(`/boards/${id}`, {
+		return this.request<void>(`/api/boards/${id}`, {
 			method: "DELETE",
 		});
 	}
@@ -219,21 +219,21 @@ export class BoardAPI extends BaseAPI {
 
 export class AuthAPI extends BaseAPI {
 	async register(data: UserCreate): Promise<User> {
-		return this.request<User>("/auth/register", {
+		return this.request<User>("/api/auth/register", {
 			method: "POST",
 			body: JSON.stringify(data),
 		});
 	}
 
 	async login(data: UserLogin): Promise<LoginResponse> {
-		return this.request<LoginResponse>("/auth/login", {
+		return this.request<LoginResponse>("/api/auth/login", {
 			method: "POST",
 			body: JSON.stringify(data),
 		});
 	}
 
 	async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
-		return this.request<RefreshTokenResponse>("/auth/refresh", {
+		return this.request<RefreshTokenResponse>("/api/auth/refresh", {
 			method: "POST",
 			body: JSON.stringify({ refreshToken }),
 		});
@@ -244,6 +244,7 @@ export class AuthAPI extends BaseAPI {
 	}
 }
 
+// Create and export API instances
 export const taskAPI = new TaskAPI();
 export const boardAPI = new BoardAPI();
 export const authAPI = new AuthAPI();

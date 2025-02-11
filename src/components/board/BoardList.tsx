@@ -1,24 +1,19 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { getBoards } from "../../api/board";
 import type { Board } from "../../types/board";
+import { useBoardQueries } from "../../hooks/useBoardQueries";
 import { Button } from "../common/Button";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { CreateBoardModal } from "./CreateBoardModal";
+import { cn } from "../../lib/utils";
+import { Skeleton } from "../ui/skeleton";
+import { useAuth } from "../../contexts/AuthContext";
 
 export const BoardList = () => {
 	const navigate = useNavigate();
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-	const {
-		data: boards,
-		isLoading,
-		error,
-	} = useQuery({
-		queryKey: ["boards"],
-		queryFn: getBoards,
-	});
+	const { boards, isLoading, error } = useBoardQueries();
 
 	if (isLoading) {
 		return (
@@ -39,16 +34,25 @@ export const BoardList = () => {
 	}
 
 	return (
-		<div className="space-y-6">
+		<div className="space-y-6" data-testid="boards-list">
 			<div className="flex justify-between items-center">
 				<h2 className="text-2xl font-bold text-gray-900">Your Boards</h2>
-				<Button onClick={() => setIsCreateModalOpen(true)}>Create Board</Button>
+				<Button
+					onClick={() => setIsCreateModalOpen(true)}
+					data-testid="create-board-button"
+				>
+					Create Board
+				</Button>
 			</div>
 
 			{boards?.length === 0 ? (
 				<div className="text-center py-12">
 					<p className="text-gray-500">No boards found</p>
-					<Button className="mt-4" onClick={() => setIsCreateModalOpen(true)}>
+					<Button
+						className="mt-4"
+						onClick={() => setIsCreateModalOpen(true)}
+						data-testid="create-board-button"
+					>
 						Create your first board
 					</Button>
 				</div>
@@ -60,8 +64,9 @@ export const BoardList = () => {
 							board={board}
 							onClick={() =>
 								navigate({
-									to: "/boards/$boardId",
-									params: { boardId: board.id },
+									to: "/b/$boardSlug",
+									params: { boardSlug: board.slug },
+									search: {},
 								})
 							}
 						/>

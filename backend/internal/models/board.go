@@ -43,6 +43,7 @@ type BoardMember struct {
 // CreateBoardInput represents the input for creating a new board
 type CreateBoardInput struct {
 	Name        string    `json:"name" validate:"required"`
+	Slug        string    `json:"slug"`
 	Description string    `json:"description"`
 	IsPublic    bool      `json:"is_public"`
 	Members     []BoardMemberInput `json:"members,omitempty"`
@@ -68,7 +69,7 @@ func NewBoard(input CreateBoardInput, ownerID uuid.UUID) *Board {
 	return &Board{
 		ID:          uuid.New(),
 		Name:        input.Name,
-		Slug:        GenerateSlug(input.Name),
+		Slug:        input.Slug,
 		Description: input.Description,
 		OwnerID:     &ownerID,
 		IsPublic:    input.IsPublic,

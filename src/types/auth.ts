@@ -10,6 +10,7 @@ export interface UserCreate {
 	email: string;
 	password: string;
 	name: string;
+	confirmPassword: string;
 }
 
 export interface UserLogin {

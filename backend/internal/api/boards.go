@@ -176,8 +176,13 @@ func (h *BoardHandler) Register(router *gin.RouterGroup) {
 		boards.GET("", h.ListBoards)
 		boards.POST("", h.CreateBoard)
 		boards.GET("/:id", h.GetBoard)
-		boards.GET("/by-slug/:slug", h.GetBoardBySlug)
 		boards.PUT("/:id", h.UpdateBoard)
 		boards.DELETE("/:id", h.DeleteBoard)
+	}
+
+	// Add a separate route group for board slugs
+	boardSlugs := router.Group("/b")
+	{
+		boardSlugs.GET("/:slug", h.GetBoardBySlug)
 	}
 } 
