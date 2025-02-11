@@ -4,6 +4,9 @@
 
 ### Currently Active Tables
 - ✅ `users` - Fully implemented with authentication
+- ✅ `user_roles` - Implemented with default roles
+- ✅ `boards` - Basic board management implemented
+- ✅ `board_members` - Board membership implemented
 - ✅ `task_statuses` - Implemented with default statuses
 - ✅ `task_priorities` - Implemented with default priorities
 - ✅ `task_types` - Implemented with default types
@@ -15,64 +18,66 @@
 - 🔄 `task_dependencies` - For tracking task relationships
 - 🔄 `acceptance_criteria` - For task completion criteria
 - 🔄 `task_collaborators` - For team collaboration on tasks
+- 🔄 `activity_logs` - For tracking user and system activities
+- 🔄 `audit_logs` - For tracking super admin actions
+- 🔄 `system_metrics` - For monitoring system performance
+- 🔄 `error_logs` - For tracking system errors
 
 ## Overview
 The application uses PostgreSQL as its database system. This document outlines the database schema, including tables, relationships, indexes, triggers, and other database objects.
 
 ## Tables
 
-### users
-Stores user information and authentication details.
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|----------|-------------|
-| id | UUID | no | gen_random_uuid() | Primary key |
-| email | VARCHAR(255) | no | | Unique email address |
-| password_hash | VARCHAR(255) | no | | Bcrypt hashed password |
-| name | VARCHAR(100) | no | | User's full name |
-| avatar_url | VARCHAR(255) | yes | | URL to user's avatar |
-| role | VARCHAR(20) | no | 'user' | User role (admin/user) |
-| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
-| last_login_at | TIMESTAMP WITH TIME ZONE | yes | | Last login timestamp |
+### User Roles
+- `id` (SERIAL, Primary Key): Unique identifier for the role
+- `code` (VARCHAR(50), Unique): Role code identifier
+  - Values: 'super_admin', 'admin', 'user'
+- `name` (VARCHAR(100)): Display name for the role
+- `description` (TEXT): Role description
+- `created_at` (TIMESTAMP WITH TIME ZONE): When the role was created
+- `updated_at` (TIMESTAMP WITH TIME ZONE): When the role was last updated
 
-### boards
-Stores board information.
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|----------|-------------|
-| id | UUID | no | gen_random_uuid() | Primary key |
-| name | VARCHAR(255) | no | | Board name |
-| description | TEXT | yes | | Board description |
-| owner_id | UUID | no | | Reference to users |
-| is_public | BOOLEAN | no | false | Whether the board is public |
-| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
+### Users
+- `id` (UUID, Primary Key): Unique identifier for the user
+- `email` (VARCHAR(255), Unique): User's email address
+- `password_hash` (VARCHAR(255)): Hashed password
+- `full_name` (VARCHAR(255)): User's full name
+- `avatar_url` (VARCHAR(255)): URL to user's avatar image
+- `role_id` (INTEGER, Foreign Key): Reference to user_roles.id
+- `created_at` (TIMESTAMP WITH TIME ZONE): When the user was created
+- `updated_at` (TIMESTAMP WITH TIME ZONE): When the user was last updated
+- `last_login_at` (TIMESTAMP WITH TIME ZONE): When the user last logged in
 
-### board_members
-Manages board members and their roles.
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|----------|-------------|
-| board_id | UUID | no | | Reference to boards |
-| user_id | UUID | no | | Reference to users |
-| role | VARCHAR(20) | no | | Collaborator role |
-| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
-| PRIMARY KEY (board_id, user_id) | | | | Composite primary key |
+### Boards
+- `id` (UUID, Primary Key): Unique identifier for the board
+- `name` (VARCHAR(255)): Board name
+- `slug` (VARCHAR(255), Unique): URL-friendly identifier
+- `description` (TEXT): Board description
+- `owner_id` (UUID, Foreign Key): Reference to users.id
+- `is_public` (BOOLEAN): Whether the board is publicly accessible
+- `created_at` (TIMESTAMP WITH TIME ZONE): When the board was created
+- `updated_at` (TIMESTAMP WITH TIME ZONE): When the board was last updated
 
-### tasks
-Main tasks table.
-| Column | Type | Nullable | Default | Description |
-|--------|------|----------|----------|-------------|
-| id | UUID | no | gen_random_uuid() | Primary key |
-| title | VARCHAR(255) | no | | Task title |
-| description | TEXT | yes | | Task description |
-| status_id | INTEGER | yes | | Reference to task_statuses |
-| priority_id | INTEGER | yes | | Reference to task_priorities |
-| type_id | INTEGER | yes | | Reference to task_types |
-| owner_id | UUID | yes | | Reference to users |
-| parent_id | UUID | yes | | Reference to parent task |
-| board_id | UUID | yes | | Reference to boards |
-| order_index | INTEGER | no | 0 | Display order within status |
-| created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
-| updated_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Last update timestamp |
+### Board Members
+- `board_id` (UUID, Foreign Key): Reference to boards.id
+- `user_id` (UUID, Foreign Key): Reference to users.id
+- `role` (ENUM): Member's role in the board
+  - Values: 'admin', 'editor', 'viewer'
+- `created_at` (TIMESTAMP WITH TIME ZONE): When the member was added
+
+### Tasks
+- `id` (UUID, Primary Key): Unique identifier for the task
+- `title` (VARCHAR(255)): Task title
+- `description` (TEXT): Task description
+- `status_id` (INTEGER): Task status
+- `priority_id` (INTEGER): Task priority
+- `type_id` (INTEGER): Task type
+- `owner_id` (UUID, Foreign Key): Reference to users.id
+- `parent_id` (UUID, Foreign Key): Reference to tasks.id for subtasks
+- `board_id` (UUID, Foreign Key): Reference to boards.id
+- `order_index` (INTEGER): Position in the board
+- `created_at` (TIMESTAMP WITH TIME ZONE): When the task was created
+- `updated_at` (TIMESTAMP WITH TIME ZONE): When the task was last updated
 
 ### task_contents
 Stores detailed task content.
@@ -175,36 +180,104 @@ Manages task collaborators and their roles.
 | role | VARCHAR(20) | no | 'viewer' | Collaborator role |
 | created_at | TIMESTAMP WITH TIME ZONE | no | CURRENT_TIMESTAMP | Creation timestamp |
 
+### Activity Logs
+- `id` (UUID, Primary Key): Unique identifier for the log entry
+- `actor_id` (UUID, Foreign Key): Reference to users.id who performed the action
+- `entity_type` (VARCHAR(50)): Type of entity (user, board, task, etc.)
+- `entity_id` (UUID): ID of the affected entity
+- `action` (VARCHAR(50)): Type of action (create, update, delete, etc.)
+- `details` (JSONB): Additional details about the action
+- `ip_address` (VARCHAR(45)): IP address of the actor
+- `user_agent` (VARCHAR(255)): User agent of the actor
+- `created_at` (TIMESTAMP WITH TIME ZONE): When the action occurred
+
+### Audit Logs
+- `id` (UUID, Primary Key): Unique identifier for the audit entry
+- `admin_id` (UUID, Foreign Key): Reference to users.id (super admin)
+- `action` (VARCHAR(50)): Type of action performed
+- `entity_type` (VARCHAR(50)): Type of entity affected
+- `entity_id` (UUID): ID of the affected entity
+- `previous_state` (JSONB): State before the change
+- `new_state` (JSONB): State after the change
+- `ip_address` (VARCHAR(45)): IP address of the admin
+- `user_agent` (VARCHAR(255)): User agent of the admin
+- `created_at` (TIMESTAMP WITH TIME ZONE): When the action occurred
+
+### System Metrics
+- `id` (UUID, Primary Key): Unique identifier for the metric entry
+- `metric_type` (VARCHAR(50)): Type of metric (cpu, memory, db_connections, etc.)
+- `value` (NUMERIC): Metric value
+- `unit` (VARCHAR(20)): Unit of measurement
+- `labels` (JSONB): Additional labels/tags for the metric
+- `timestamp` (TIMESTAMP WITH TIME ZONE): When the metric was recorded
+
+### Error Logs
+- `id` (UUID, Primary Key): Unique identifier for the error
+- `error_type` (VARCHAR(50)): Type of error
+- `severity` (VARCHAR(20)): Error severity (info, warning, error, fatal)
+- `message` (TEXT): Error message
+- `stack_trace` (TEXT): Stack trace if available
+- `context` (JSONB): Additional context about the error
+- `created_at` (TIMESTAMP WITH TIME ZONE): When the error occurred
+
+## Relationships
+
+### Users
+- One-to-Many with Boards (as owner)
+- One-to-Many with Tasks (as owner)
+- Many-to-Many with Boards (through Board Members)
+- Many-to-One with User Roles
+
+### User Roles
+- One-to-Many with Users
+- Special roles:
+  - super_admin: Full system access
+  - admin: Administrative access
+  - user: Standard access
+
+### Boards
+- Many-to-One with Users (owner)
+- Many-to-Many with Users (through Board Members)
+- One-to-Many with Tasks
+
+### Tasks
+- Many-to-One with Users (owner)
+- Many-to-One with Boards
+- One-to-Many with Tasks (subtasks)
+
+### Activity Logs
+- Many-to-One with Users (actor)
+- Polymorphic relationship with various entities
+
+### Audit Logs
+- Many-to-One with Users (admin)
+- Polymorphic relationship with various entities
+
 ## Indexes
-- `idx_tasks_status_id` on `tasks(status_id)`
-- `idx_tasks_priority_id` on `tasks(priority_id)`
-- `idx_tasks_type_id` on `tasks(type_id)`
-- `idx_tasks_owner_id` on `tasks(owner_id)`
-- `idx_tasks_parent_id` on `tasks(parent_id)`
-- `idx_tasks_board_id` on `tasks(board_id)`
-- `idx_task_contents_task_id` on `task_contents(task_id)`
-- `idx_task_labels_task_id` on `task_labels(task_id)`
-- `idx_task_dependencies_task_id` on `task_dependencies(task_id)`
-- `idx_task_dependencies_dependency_id` on `task_dependencies(dependency_id)`
-- `idx_acceptance_criteria_task_id` on `acceptance_criteria(task_id)`
-- `idx_task_collaborators_task_id` on `task_collaborators(task_id)`
-- `idx_task_collaborators_user_id` on `task_collaborators(user_id)`
-- `idx_users_email` on `users(email)`
-- `idx_boards_owner_id` on `boards(owner_id)`
-- `idx_board_members_user_id` on `board_members(user_id)`
+- `users_email_idx` on users(email)
+- `users_role_id_idx` on users(role_id)
+- `boards_slug_idx` on boards(slug)
+- `boards_owner_id_idx` on boards(owner_id)
+- `board_members_board_user_idx` on board_members(board_id, user_id)
+- `tasks_board_id_idx` on tasks(board_id)
+- `tasks_owner_id_idx` on tasks(owner_id)
+
+### Additional Indexes
+- `idx_activity_logs_actor` on activity_logs(actor_id)
+- `idx_activity_logs_entity` on activity_logs(entity_type, entity_id)
+- `idx_activity_logs_created_at` on activity_logs(created_at)
+- `idx_audit_logs_admin` on audit_logs(admin_id)
+- `idx_audit_logs_entity` on audit_logs(entity_type, entity_id)
+- `idx_audit_logs_created_at` on audit_logs(created_at)
+- `idx_system_metrics_type` on system_metrics(metric_type)
+- `idx_system_metrics_timestamp` on system_metrics(timestamp)
+- `idx_error_logs_type` on error_logs(error_type)
+- `idx_error_logs_severity` on error_logs(severity)
+- `idx_error_logs_created_at` on error_logs(created_at)
 
 ## Triggers
-1. `update_updated_at_column()` function:
-   - Updates `updated_at` to current timestamp whenever a record is modified
-   - Applied to tables:
-     - task_statuses
-     - task_priorities
-     - task_types
-     - users
-     - tasks
-     - task_contents
-     - acceptance_criteria
-     - boards
+- `update_updated_at`: Updates the updated_at timestamp when a record is modified
+  - Applied to: users, boards, tasks, user_roles
 
 ## Constraints
 1. Primary Keys on all tables
@@ -235,8 +308,12 @@ Manages task collaborators and their roles.
 None currently defined.
 
 ## Types
-- `UserRole`: 'admin' | 'user'
-- `BoardRole`: 'viewer' | 'editor' | 'admin'
-- `StatusCode`: 'backlog' | 'todo' | 'in_progress' | 'review' | 'done'
-- `PriorityCode`: 'low' | 'medium' | 'high' | 'critical'
-- `TypeCode`: 'feature' | 'bug' | 'chore' | 'docs'
+- `user_role`: ENUM ('super_admin', 'admin', 'user')
+- `board_member_role`: ENUM ('admin', 'editor', 'viewer')
+- `task_status`: INTEGER references task_statuses(id)
+- `task_priority`: INTEGER references task_priorities(id)
+- `task_type`: INTEGER references task_types(id)
+- `activity_type`: ENUM ('create', 'update', 'delete', 'login', 'logout', etc.)
+- `audit_action`: ENUM ('user_role_change', 'board_delete', 'system_config_change', etc.)
+- `metric_type`: ENUM ('cpu_usage', 'memory_usage', 'db_connections', 'api_latency', etc.)
+- `error_severity`: ENUM ('info', 'warning', 'error', 'fatal')

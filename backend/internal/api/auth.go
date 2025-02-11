@@ -7,7 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rafaelzasas/vtasker/backend/internal/models"
+	"github.com/rafaelzasas/vtasker/backend/internal/models/user"
 	"github.com/rafaelzasas/vtasker/backend/internal/services"
 )
 
@@ -22,7 +22,7 @@ func NewAuthHandler(authService *services.AuthService) *AuthHandler {
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
-	var input models.CreateUserInput
+	var input user.CreateInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -42,7 +42,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	var input services.LoginInput
+	var input user.LoginInput
 	if err := c.ShouldBindJSON(&input); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -57,6 +57,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	// Log the response for debugging
+	fmt.Printf("Login response: %+v\n", tokenPair)
+	fmt.Printf("User data: %+v\n", tokenPair.User)
 
 	c.JSON(http.StatusOK, tokenPair)
 }

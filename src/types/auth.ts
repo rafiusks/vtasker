@@ -1,15 +1,16 @@
 export interface User {
 	id: string;
 	email: string;
-	name: string;
+	full_name: string;
 	avatar_url?: string;
-	createdAt: string;
+	role: "super_admin" | "admin" | "user";
+	created_at: string;
 }
 
 export interface UserCreate {
 	email: string;
 	password: string;
-	name: string;
+	full_name: string;
 	confirmPassword: string;
 }
 

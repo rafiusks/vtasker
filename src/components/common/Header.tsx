@@ -16,7 +16,7 @@ export const Header = () => {
 					</div>
 
 					<div className="flex items-center space-x-4">
-						<div className="text-sm text-gray-700">{user?.name}</div>
+						<div className="text-sm text-gray-700">{user?.full_name}</div>
 						<Button variant="outline" onClick={logout} className="text-sm">
 							Logout
 						</Button>

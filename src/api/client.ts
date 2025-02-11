@@ -15,6 +15,7 @@ import type {
 	UserLogin,
 	RefreshTokenResponse,
 } from "../types/auth";
+import axios from "axios";
 
 const API_BASE = "http://localhost:8000";
 
@@ -22,6 +23,11 @@ const API_BASE = "http://localhost:8000";
 const sharedHeaders: Record<string, string | undefined> = {
 	"Content-Type": "application/json",
 };
+
+const api = axios.create({
+	baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080",
+	withCredentials: true,
+});
 
 export interface TaskMoveRequest {
 	status_id: TaskStatusId;
@@ -203,16 +209,23 @@ export class BoardAPI extends BaseAPI {
 		});
 	}
 
-	async updateBoard(id: string, updates: Partial<Board>): Promise<Board> {
-		return this.request<Board>(`/api/boards/${id}`, {
-			method: "PUT",
-			body: JSON.stringify(updates),
-		});
-	}
-
 	async deleteBoard(id: string): Promise<void> {
 		return this.request<void>(`/api/boards/${id}`, {
 			method: "DELETE",
+		});
+	}
+
+	async listAllBoards(): Promise<Board[]> {
+		return this.request<Board[]>("/api/boards/all");
+	}
+
+	async updateBoard(
+		id: string,
+		updates: { is_public: boolean; is_active?: boolean },
+	): Promise<Board> {
+		return this.request<Board>(`/api/boards/${id}`, {
+			method: "PATCH",
+			body: JSON.stringify(updates),
 		});
 	}
 }
@@ -248,3 +261,19 @@ export class AuthAPI extends BaseAPI {
 export const taskAPI = new TaskAPI();
 export const boardAPI = new BoardAPI();
 export const authAPI = new AuthAPI();
+
+// User API
+export const userAPI = {
+	// ... existing methods
+	listUsers: async (): Promise<User[]> => {
+		const response = await api.get("/api/users");
+		return response.data;
+	},
+	updateUser: async (
+		id: string,
+		updates: { role: "user" | "admin" | "super_admin"; is_active?: boolean },
+	): Promise<User> => {
+		const response = await api.patch(`/api/users/${id}`, updates);
+		return response.data;
+	},
+};

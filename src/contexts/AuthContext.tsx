@@ -193,6 +193,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 						expiresAt: new Date(data.expiresAt).toISOString(),
 						refreshExpiresAt: new Date(data.refreshExpiresAt).toISOString(),
 						now: new Date().toISOString(),
+						user: data.user,
 					});
 
 					if (Date.now() >= data.refreshExpiresAt) {
@@ -231,6 +232,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 						expiresAt: new Date(data.expiresAt).toISOString(),
 						refreshExpiresAt: new Date(data.refreshExpiresAt).toISOString(),
 						now: new Date().toISOString(),
+						user: data.user,
 					});
 
 					if (Date.now() >= data.refreshExpiresAt) {
@@ -304,6 +306,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 				// Set user state
 				setUser(newUser);
+				console.log("User state set:", newUser);
 
 				// Prepare auth data
 				const authData: StoredAuthData = {

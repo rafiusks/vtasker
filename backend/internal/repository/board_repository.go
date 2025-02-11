@@ -63,7 +63,7 @@ func (r *BoardRepository) GetBoard(ctx context.Context, id string, userID uuid.U
 			bm.user_id,
 			bm.role,
 			bm.created_at,
-			u.name,
+			u.full_name,
 			u.email,
 			u.avatar_url
 		FROM board_members bm
@@ -84,7 +84,7 @@ func (r *BoardRepository) GetBoard(ctx context.Context, id string, userID uuid.U
 			&member.UserID,
 			&member.Role,
 			&member.CreatedAt,
-			&user.Name,
+			&user.FullName,
 			&user.Email,
 			&user.AvatarURL,
 		)
@@ -234,7 +234,7 @@ func (r *BoardRepository) GetBoardBySlug(ctx context.Context, slug string, userI
 			bm.user_id,
 			bm.role,
 			bm.created_at,
-			u.name,
+			u.full_name,
 			u.email,
 			u.avatar_url
 		FROM board_members bm
@@ -255,7 +255,7 @@ func (r *BoardRepository) GetBoardBySlug(ctx context.Context, slug string, userI
 			&member.UserID,
 			&member.Role,
 			&member.CreatedAt,
-			&user.Name,
+			&user.FullName,
 			&user.Email,
 			&user.AvatarURL,
 		)
@@ -521,4 +521,47 @@ func (r *BoardRepository) DeleteBoard(ctx context.Context, id string, userID uui
 	}
 
 	return nil
+}
+
+// ListAllBoards retrieves all boards in the system (super admin only)
+func (r *BoardRepository) ListAllBoards(ctx context.Context) ([]*models.Board, error) {
+	query := `
+		SELECT DISTINCT
+			b.id, 
+			b.name,
+			b.slug,
+			b.description,
+			b.owner_id,
+			b.is_public,
+			b.created_at,
+			b.updated_at
+		FROM boards b
+		ORDER BY b.created_at DESC`
+
+	rows, err := r.db.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("error listing boards: %v", err)
+	}
+	defer rows.Close()
+
+	var boards []*models.Board
+	for rows.Next() {
+		var board models.Board
+		err := rows.Scan(
+			&board.ID,
+			&board.Name,
+			&board.Slug,
+			&board.Description,
+			&board.OwnerID,
+			&board.IsPublic,
+			&board.CreatedAt,
+			&board.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("error scanning board: %v", err)
+		}
+		boards = append(boards, &board)
+	}
+
+	return boards, nil
 } 

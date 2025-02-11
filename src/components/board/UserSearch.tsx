@@ -107,18 +107,15 @@ export const UserSearch = ({
 							className="w-full text-left py-3 px-4 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
 							onClick={() => handleUserSelect(user)}
 						>
-							<div className="flex items-center space-x-4">
-								{user.avatar_url && (
-									<img
-										src={user.avatar_url}
-										alt=""
-										className="h-8 w-8 rounded-full"
-										aria-hidden="true"
-									/>
-								)}
-								<div>
+							<div className="flex items-center">
+								<img
+									src={user.avatar_url || "/default-avatar.png"}
+									alt={user.full_name}
+									className="h-8 w-8 rounded-full"
+								/>
+								<div className="ml-3">
 									<p className="text-sm font-medium text-gray-900">
-										{user.name}
+										{user.full_name}
 									</p>
 									<p className="text-sm text-gray-500">{user.email}</p>
 								</div>

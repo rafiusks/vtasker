@@ -27,6 +27,7 @@ import type {
 	BoardLoaderData,
 	TaskLoaderData,
 } from "./types/router";
+import { SuperAdminDashboard } from "./pages/SuperAdminDashboard";
 
 // Helper function to check auth state
 const isAuthenticated = () => {
@@ -205,6 +206,39 @@ const settingsRoute = createRoute({
 	},
 });
 
+const superAdminRoute = createRoute({
+	getParentRoute: () => rootRoute,
+	path: "/super-admin",
+	component: () => (
+		<ProtectedComponent>
+			<AppLayout>
+				<SuperAdminDashboard />
+			</AppLayout>
+		</ProtectedComponent>
+	),
+	beforeLoad: async ({ location }) => {
+		const auth = JSON.parse(
+			localStorage.getItem("auth") || sessionStorage.getItem("auth") || "{}",
+		);
+		if (!auth?.user?.role || auth.user.role !== "super_admin") {
+			throw new Response(null, {
+				status: 403,
+				headers: {
+					Location: `/dashboard`,
+				},
+			});
+		}
+		if (!checkAuthFromStorage()) {
+			throw new Response(null, {
+				status: 302,
+				headers: {
+					Location: `/login?redirect=${encodeURIComponent(location.pathname)}`,
+				},
+			});
+		}
+	},
+});
+
 const routeTree = rootRoute.addChildren([
 	indexRoute,
 	loginRoute,
@@ -214,6 +248,7 @@ const routeTree = rootRoute.addChildren([
 	boardRoute.addChildren([taskRoute]),
 	boardSettingsRoute,
 	settingsRoute,
+	superAdminRoute,
 ]);
 
 // Create and export the router

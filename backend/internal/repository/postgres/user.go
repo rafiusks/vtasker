@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rafaelzasas/vtasker/backend/internal/config"
 	"github.com/rafaelzasas/vtasker/backend/internal/models/user"
 	"github.com/rafaelzasas/vtasker/backend/internal/repository"
 )
@@ -23,19 +24,37 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 }
 
 // Create creates a new user
-func (r *UserRepository) Create(ctx context.Context, user *user.User) error {
+func (r *UserRepository) Create(ctx context.Context, u *user.User) error {
+	// Get default role ID for users
+	var defaultRoleID int
+	err := r.db.QueryRow(ctx, "SELECT id FROM user_roles WHERE code = $1", user.RoleCodeUser).Scan(&defaultRoleID)
+	if err != nil {
+		return fmt.Errorf("failed to get default role ID: %w", err)
+	}
+
+	// Check if user should be superadmin by email
+	cfg := config.Load()
+	if cfg.SuperAdminEmail != "" && u.Email == cfg.SuperAdminEmail {
+		err = r.db.QueryRow(ctx, "SELECT id FROM user_roles WHERE code = $1", user.RoleCodeSuperAdmin).Scan(&u.RoleID)
+		if err != nil {
+			return fmt.Errorf("failed to get super admin role ID: %w", err)
+		}
+	} else if u.RoleID == 0 {
+		u.RoleID = defaultRoleID
+	}
+
 	query := `
 		INSERT INTO users (
-			id, email, username, password_hash, full_name, avatar_url, role,
+			id, email, password_hash, full_name, avatar_url, role_id,
 			created_at, updated_at, last_login_at
 		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+			$1, $2, $3, $4, $5, $6, $7, $8, $9
 		)`
 
-	_, err := r.db.Exec(ctx, query,
-		user.ID, user.Email, user.Username, user.PasswordHash,
-		user.FullName, user.AvatarURL, user.Role,
-		user.CreatedAt, user.UpdatedAt, user.LastLoginAt,
+	_, err = r.db.Exec(ctx, query,
+		u.ID, u.Email, u.PasswordHash,
+		u.FullName, u.AvatarURL, u.RoleID,
+		u.CreatedAt, u.UpdatedAt, u.LastLoginAt,
 	)
 
 	if err != nil {
@@ -48,16 +67,22 @@ func (r *UserRepository) Create(ctx context.Context, user *user.User) error {
 // GetByID retrieves a user by ID
 func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User, error) {
 	query := `
-		SELECT id, email, username, password_hash, full_name, avatar_url, role,
-			created_at, updated_at, last_login_at
-		FROM users
-		WHERE id = $1`
+		SELECT 
+			u.id, u.email, u.password_hash, u.full_name, u.avatar_url, u.role_id,
+			u.created_at, u.updated_at, u.last_login_at,
+			r.id, r.code, r.name, r.description, r.created_at, r.updated_at
+		FROM users u
+		JOIN user_roles r ON r.id = u.role_id
+		WHERE u.id = $1`
 
 	var u user.User
+	var role user.UserRole
 	err := r.db.QueryRow(ctx, query, id).Scan(
-		&u.ID, &u.Email, &u.Username, &u.PasswordHash,
-		&u.FullName, &u.AvatarURL, &u.Role,
+		&u.ID, &u.Email, &u.PasswordHash,
+		&u.FullName, &u.AvatarURL, &u.RoleID,
 		&u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
+		&role.ID, &role.Code, &role.Name, &role.Description,
+		&role.CreatedAt, &role.UpdatedAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -67,22 +92,29 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*user.User,
 		return nil, fmt.Errorf("failed to get user by ID: %w", err)
 	}
 
+	u.Role = &role
 	return &u, nil
 }
 
 // GetByEmail retrieves a user by email
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.User, error) {
 	query := `
-		SELECT id, email, username, password_hash, full_name, avatar_url, role,
-			created_at, updated_at, last_login_at
-		FROM users
-		WHERE email = $1`
+		SELECT 
+			u.id, u.email, u.password_hash, u.full_name, u.avatar_url, u.role_id,
+			u.created_at, u.updated_at, u.last_login_at,
+			r.id, r.code, r.name, r.description, r.created_at, r.updated_at
+		FROM users u
+		JOIN user_roles r ON r.id = u.role_id
+		WHERE u.email = $1`
 
 	var u user.User
+	var role user.UserRole
 	err := r.db.QueryRow(ctx, query, email).Scan(
-		&u.ID, &u.Email, &u.Username, &u.PasswordHash,
-		&u.FullName, &u.AvatarURL, &u.Role,
+		&u.ID, &u.Email, &u.PasswordHash,
+		&u.FullName, &u.AvatarURL, &u.RoleID,
 		&u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
+		&role.ID, &role.Code, &role.Name, &role.Description,
+		&role.CreatedAt, &role.UpdatedAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -92,22 +124,29 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*user.Us
 		return nil, fmt.Errorf("failed to get user by email: %w", err)
 	}
 
+	u.Role = &role
 	return &u, nil
 }
 
 // GetByUsername retrieves a user by username
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*user.User, error) {
 	query := `
-		SELECT id, email, username, password_hash, full_name, avatar_url, role,
-			created_at, updated_at, last_login_at
-		FROM users
-		WHERE username = $1`
+		SELECT 
+			u.id, u.email, u.password_hash, u.full_name, u.avatar_url, u.role_id,
+			u.created_at, u.updated_at, u.last_login_at,
+			r.id, r.code, r.name, r.description, r.created_at, r.updated_at
+		FROM users u
+		JOIN user_roles r ON r.id = u.role_id
+		WHERE u.email = $1`
 
 	var u user.User
+	var role user.UserRole
 	err := r.db.QueryRow(ctx, query, username).Scan(
-		&u.ID, &u.Email, &u.Username, &u.PasswordHash,
-		&u.FullName, &u.AvatarURL, &u.Role,
+		&u.ID, &u.Email, &u.PasswordHash,
+		&u.FullName, &u.AvatarURL, &u.RoleID,
 		&u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
+		&role.ID, &role.Code, &role.Name, &role.Description,
+		&role.CreatedAt, &role.UpdatedAt,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -117,22 +156,46 @@ func (r *UserRepository) GetByUsername(ctx context.Context, username string) (*u
 		return nil, fmt.Errorf("failed to get user by username: %w", err)
 	}
 
+	u.Role = &role
 	return &u, nil
 }
 
 // Update updates an existing user
-func (r *UserRepository) Update(ctx context.Context, user *user.User) error {
+func (r *UserRepository) Update(ctx context.Context, u *user.User) error {
+	// Get current user
+	currentUser, err := r.GetByID(ctx, u.ID)
+	if err != nil {
+		return fmt.Errorf("failed to get current user: %w", err)
+	}
+
+	// Check if user is superadmin by email
+	cfg := config.Load()
+	isSuperAdmin := cfg.SuperAdminEmail != "" && u.Email == cfg.SuperAdminEmail
+
+	// If user is superadmin by email, ensure role is superadmin
+	if isSuperAdmin {
+		err = r.db.QueryRow(ctx, "SELECT id FROM user_roles WHERE code = $1", user.RoleCodeSuperAdmin).Scan(&u.RoleID)
+		if err != nil {
+			return fmt.Errorf("failed to get super admin role ID: %w", err)
+		}
+	} else if currentUser.Role.Code == user.RoleCodeSuperAdmin && u.RoleID != currentUser.RoleID {
+		// Prevent removing superadmin role if user is superadmin by email
+		if currentUser.Email == cfg.SuperAdminEmail {
+			return fmt.Errorf("cannot remove superadmin role from designated superadmin")
+		}
+	}
+
 	query := `
 		UPDATE users
-		SET email = $1, username = $2, password_hash = $3,
-			full_name = $4, avatar_url = $5, role = $6,
-			updated_at = $7, last_login_at = $8
-		WHERE id = $9`
+		SET email = $1, password_hash = $2,
+			full_name = $3, avatar_url = $4, role_id = $5,
+			updated_at = $6, last_login_at = $7
+		WHERE id = $8`
 
 	result, err := r.db.Exec(ctx, query,
-		user.Email, user.Username, user.PasswordHash,
-		user.FullName, user.AvatarURL, user.Role,
-		user.UpdatedAt, user.LastLoginAt, user.ID,
+		u.Email, u.PasswordHash,
+		u.FullName, u.AvatarURL, u.RoleID,
+		u.UpdatedAt, u.LastLoginAt, u.ID,
 	)
 
 	if err != nil {
@@ -188,22 +251,25 @@ func (r *UserRepository) List(ctx context.Context, filter repository.UserFilter)
 	argCount := 1
 
 	if filter.Role != nil {
-		conditions = append(conditions, fmt.Sprintf("role = $%d", argCount))
+		conditions = append(conditions, fmt.Sprintf("r.code = $%d", argCount))
 		args = append(args, *filter.Role)
 		argCount++
 	}
 
 	if filter.Search != "" {
 		searchTerm := "%" + filter.Search + "%"
-		conditions = append(conditions, fmt.Sprintf("(username ILIKE $%d OR email ILIKE $%d OR full_name ILIKE $%d)", argCount, argCount, argCount))
+		conditions = append(conditions, fmt.Sprintf("(u.email ILIKE $%d OR u.full_name ILIKE $%d)", argCount, argCount))
 		args = append(args, searchTerm)
 		argCount++
 	}
 
 	query := `
-		SELECT id, email, username, password_hash, full_name, avatar_url, role,
-			created_at, updated_at, last_login_at
-		FROM users`
+		SELECT 
+			u.id, u.email, u.password_hash, u.full_name, u.avatar_url, u.role_id,
+			u.created_at, u.updated_at, u.last_login_at,
+			r.id, r.code, r.name, r.description, r.created_at, r.updated_at
+		FROM users u
+		JOIN user_roles r ON r.id = u.role_id`
 
 	if len(conditions) > 0 {
 		query += " WHERE " + strings.Join(conditions, " AND ")
@@ -230,14 +296,18 @@ func (r *UserRepository) List(ctx context.Context, filter repository.UserFilter)
 	var users []*user.User
 	for rows.Next() {
 		var u user.User
+		var role user.UserRole
 		err := rows.Scan(
-			&u.ID, &u.Email, &u.Username, &u.PasswordHash,
-			&u.FullName, &u.AvatarURL, &u.Role,
+			&u.ID, &u.Email, &u.PasswordHash,
+			&u.FullName, &u.AvatarURL, &u.RoleID,
 			&u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
+			&role.ID, &role.Code, &role.Name, &role.Description,
+			&role.CreatedAt, &role.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan user row: %w", err)
 		}
+		u.Role = &role
 		users = append(users, &u)
 	}
 
@@ -246,4 +316,42 @@ func (r *UserRepository) List(ctx context.Context, filter repository.UserFilter)
 	}
 
 	return users, nil
+}
+
+// ValidateAndEnsureSuperAdmin checks if the user should be a super admin based on email
+// and updates their role if necessary
+func (r *UserRepository) ValidateAndEnsureSuperAdmin(ctx context.Context, u *user.User) error {
+	cfg := config.Load()
+	if cfg.SuperAdminEmail != "" && u.Email == cfg.SuperAdminEmail {
+		var roleID int
+		err := r.db.QueryRow(ctx, "SELECT id FROM user_roles WHERE code = $1", user.RoleCodeSuperAdmin).Scan(&roleID)
+		if err != nil {
+			return fmt.Errorf("failed to get super admin role ID: %w", err)
+		}
+
+		if u.RoleID != roleID {
+			u.RoleID = roleID
+			// Update the role in the database
+			query := `UPDATE users SET role_id = $1 WHERE id = $2`
+			_, err := r.db.Exec(ctx, query, roleID, u.ID)
+			if err != nil {
+				return fmt.Errorf("failed to update super admin role: %w", err)
+			}
+
+			// Load the role information
+			var role user.UserRole
+			err = r.db.QueryRow(ctx, `
+				SELECT id, code, name, description, created_at, updated_at
+				FROM user_roles WHERE id = $1
+			`, roleID).Scan(
+				&role.ID, &role.Code, &role.Name, &role.Description,
+				&role.CreatedAt, &role.UpdatedAt,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to load role information: %w", err)
+			}
+			u.Role = &role
+		}
+	}
+	return nil
 } 

@@ -1,5 +1,10 @@
 # Project Todo List
 
+## Current Bugs/Issues
+- [ ] user's name not showing in the navbar | high priority
+- [ ] superadmin menu not showing in the navbar | high priority
+- [ ] /super-admin dashboard not working | high priority
+
 ## Board Management
 - [x] Create database schema for boards
 - [x] Implement board repository and API handlers
@@ -13,9 +18,24 @@
   - [x] Role management
   - [x] Board deletion
 - [ ] Add board search and filtering
+  - [ ] Implement search by name/description
+  - [ ] Filter by ownership/membership
+  - [ ] Filter by visibility (public/private)
+  - [ ] Sort by creation/update date
 - [ ] Implement board sharing functionality
+  - [ ] Generate share links
+  - [ ] Manage link permissions
+  - [ ] Track link usage
 - [ ] Add board activity log
+  - [ ] Track board creation/deletion
+  - [ ] Track member changes
+  - [ ] Track setting changes
+  - [ ] Add activity log UI
 - [ ] Add board templates
+  - [ ] Create template system
+  - [ ] Save board as template
+  - [ ] Create board from template
+  - [ ] Manage template permissions
 
 ## Task Management
 - [x] Basic task CRUD operations
@@ -24,64 +44,270 @@
 - [x] Task content management
 - [x] Task board integration
 - [ ] Task dependencies
+  - [ ] Add dependency relationships
+  - [ ] Visualize dependencies
+  - [ ] Validate circular dependencies
+  - [ ] Manage dependency constraints
 - [ ] Task comments
+  - [ ] Add comment system
+  - [ ] Support rich text formatting
+  - [ ] @mentions and notifications
+  - [ ] Comment attachments
 - [ ] Task attachments
+  - [ ] File upload system
+  - [ ] File preview
+  - [ ] File versioning
+  - [ ] Storage management
 - [ ] Task templates
+  - [ ] Create template system
+  - [ ] Save task as template
+  - [ ] Create task from template
+  - [ ] Template variables
 - [ ] Task export/import
+  - [ ] Export to CSV/JSON
+  - [ ] Import from CSV/JSON
+  - [ ] Batch operations
+  - [ ] Data validation
 
 ## User Management
 - [x] User authentication
 - [x] User registration
 - [ ] User profile management
+  - [ ] Profile editing
+  - [ ] Avatar management
+  - [ ] Password change
+  - [ ] Email verification
 - [ ] User roles and permissions
+  - [x] Basic role system
+  - [x] Super admin role
+  - [ ] Custom permissions
+  - [ ] Role inheritance
 - [ ] Team management
+  - [ ] Create teams
+  - [ ] Team roles
+  - [ ] Team settings
+  - [ ] Team resources
 - [ ] User notifications
+  - [ ] Notification system
+  - [ ] Email notifications
+  - [ ] In-app notifications
+  - [ ] Notification preferences
+- [ ] User activity tracking
+  - [ ] Track user logins/logouts
+  - [ ] Track user actions
+  - [ ] Track role changes
+  - [ ] Add activity log UI
+
+## Super Admin Features
+- [x] Add super admin role to user model
+- [x] Create super admin dashboard page
+- [x] Add backend endpoints for super admin operations
+- [x] Update database schema for super admin role
+- [x] Add user management features
+  - [x] List all users
+  - [x] Update user roles
+  - [x] Delete users
+  - [ ] View user activity logs
+- [x] Add board management features
+  - [x] List all boards
+  - [x] Update board settings
+  - [x] Delete boards
+  - [ ] View board activity logs
+- [ ] Add system monitoring
+  - [ ] View system metrics
+  - [ ] View error logs
+  - [ ] View audit logs
+  - [ ] Add monitoring dashboard
 
 ## UI/UX
 - [x] Responsive layout
 - [x] Dark/light mode
 - [x] Board management UI
 - [ ] Keyboard shortcuts
+  - [ ] Navigation shortcuts
+  - [ ] Action shortcuts
+  - [ ] Custom shortcuts
+  - [ ] Shortcut help modal
 - [ ] Drag and drop improvements
+  - [ ] Smooth animations
+  - [ ] Multi-item drag
+  - [ ] Cross-board drag
+  - [ ] Touch support
 - [ ] Accessibility improvements
+  - [ ] ARIA labels
+  - [ ] Keyboard navigation
+  - [ ] Screen reader support
+  - [ ] Color contrast
 - [ ] Loading states and error handling
+  - [ ] Skeleton loaders
+  - [ ] Error boundaries
+  - [ ] Retry mechanisms
+  - [ ] Offline support
 - [ ] Toast notifications
+  - [ ] Success/error toasts
+  - [ ] Action toasts
+  - [ ] Toast queue
+  - [ ] Custom duration
 - [ ] Confirmation dialogs
+  - [ ] Action confirmation
+  - [ ] Destructive action warnings
+  - [ ] Custom confirmations
+  - [ ] Bulk action confirmation
 
 ## Performance
 - [ ] Implement caching
+  - [ ] API response caching
+  - [ ] Static asset caching
+  - [ ] State management optimization
+  - [ ] Local storage caching
 - [ ] Add pagination
+  - [ ] Server-side pagination
+  - [ ] Infinite scroll
+  - [ ] Virtual lists
+  - [ ] Cursor pagination
 - [ ] Optimize database queries
+  - [ ] Query optimization
+  - [ ] Index optimization
+  - [ ] Connection pooling
+  - [ ] Query caching
 - [ ] Add rate limiting
+  - [ ] API rate limiting
+  - [ ] User-based limits
+  - [ ] IP-based limits
+  - [ ] Custom limits
 - [ ] Add request throttling
+  - [ ] API throttling
+  - [ ] Concurrent request limiting
+  - [ ] Batch request handling
+  - [ ] Queue system
 
 ## Testing
 - [ ] Unit tests for backend
+  - [ ] Repository tests
+  - [ ] Service tests
+  - [ ] Handler tests
+  - [ ] Utility tests
 - [ ] Integration tests
+  - [ ] API tests
+  - [ ] Database tests
+  - [ ] Authentication tests
+  - [ ] End-to-end flows
 - [ ] E2E tests with Playwright
+  - [x] Authentication flow
+  - [ ] Board management flow
+  - [ ] Task management flow
+  - [ ] User management flow
 - [ ] Performance testing
+  - [ ] Load testing
+  - [ ] Stress testing
+  - [ ] Scalability testing
+  - [ ] Benchmark tests
 - [ ] Load testing
+  - [ ] API load tests
+  - [ ] Database load tests
+  - [ ] Concurrent user simulation
+  - [ ] Resource monitoring
 
 ## Documentation
 - [x] Database schema documentation
 - [ ] API documentation
+  - [ ] OpenAPI/Swagger specs
+  - [ ] API reference
+  - [ ] Authentication docs
+  - [ ] Examples
 - [ ] User guide
+  - [ ] Getting started
+  - [ ] Feature guides
+  - [ ] Best practices
+  - [ ] Troubleshooting
 - [ ] Developer guide
+  - [ ] Setup guide
+  - [ ] Architecture overview
+  - [ ] Contributing guide
+  - [ ] Code style guide
 - [ ] Deployment guide
+  - [ ] Environment setup
+  - [ ] Configuration guide
+  - [ ] Scaling guide
+  - [ ] Monitoring guide
 - [ ] Contributing guide
+  - [ ] Code standards
+  - [ ] PR process
+  - [ ] Issue guidelines
+  - [ ] Development workflow
 
 ## Infrastructure
 - [ ] Docker setup
+  - [ ] Development environment
+  - [ ] Production environment
+  - [ ] Multi-stage builds
+  - [ ] Docker Compose
 - [ ] CI/CD pipeline
+  - [ ] Build automation
+  - [ ] Test automation
+  - [ ] Deployment automation
+  - [ ] Environment management
 - [ ] Monitoring and logging
+  - [ ] Application monitoring
+  - [ ] Error tracking
+  - [ ] Performance monitoring
+  - [ ] Log aggregation
 - [ ] Backup and restore
+  - [ ] Database backups
+  - [ ] File backups
+  - [ ] Disaster recovery
+  - [ ] Data retention
 - [ ] Security hardening
+  - [ ] Security audits
+  - [ ] Vulnerability scanning
+  - [ ] Security headers
+  - [ ] Access controls
 
 ## Future Features
 - [ ] Calendar view
+  - [ ] Task calendar
+  - [ ] Timeline view
+  - [ ] Resource scheduling
+  - [ ] Calendar sync
 - [ ] Gantt chart
+  - [ ] Task dependencies
+  - [ ] Critical path
+  - [ ] Resource allocation
+  - [ ] Timeline management
 - [ ] Time tracking
+  - [ ] Task time tracking
+  - [ ] Time reports
+  - [ ] Time estimates
+  - [ ] Time analytics
 - [ ] Reports and analytics
+  - [ ] Task analytics
+  - [ ] User analytics
+  - [ ] Board analytics
+  - [ ] Custom reports
 - [ ] Mobile app
+  - [ ] React Native app
+  - [ ] Offline support
+  - [ ] Push notifications
+  - [ ] Mobile optimizations
 - [ ] API webhooks
+  - [ ] Webhook management
+  - [ ] Event triggers
+  - [ ] Retry logic
+  - [ ] Webhook security
 - [ ] Third-party integrations
+  - [ ] GitHub integration
+  - [ ] Slack integration
+  - [ ] Google Calendar
+  - [ ] Custom integrations
+
+## Random Ideas
+- [ ] Add a "My Day" view that shows all tasks due today.
+- [ ] Integrate with AI agents to help with task creation and management.
+- [ ] API endpoints for AI agents to use.
+  - [ ] Get current issues with the board
+  - [ ] Get project updates
+  - [ ] Get next actions
+  - [ ] Get estimated time to finish the project
+  - [ ] Get suggested actions based on the current state
+  - [ ] Get suggested actions based on the user's profile
+  - [ ] Get suggested actions based on the user's preferences

@@ -36,8 +36,8 @@ type UserRepository interface {
 
 // UserFilter defines the filter options for listing users
 type UserFilter struct {
-	Role     *user.UserRole
-	Search   string // Search in username, email, or full name
+	Role     *string // Role code (super_admin, admin, user)
+	Search   string  // Search in email or full name
 	Limit    int
 	Offset   int
 	OrderBy  string

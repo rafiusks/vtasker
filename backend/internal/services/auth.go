@@ -3,14 +3,15 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"golang.org/x/crypto/bcrypt"
 
-	"github.com/rafaelzasas/vtasker/backend/internal/models"
+	"github.com/rafaelzasas/vtasker/backend/internal/models/user"
+	"github.com/rafaelzasas/vtasker/backend/internal/repository/postgres"
 )
 
 var (
@@ -39,14 +40,14 @@ type Claims struct {
 }
 
 type TokenPair struct {
-	AccessToken      string             `json:"token"`
-	RefreshToken     string             `json:"refresh_token"`
-	ExpiresIn        int64              `json:"expires_in"`
-	RefreshExpiresIn int64              `json:"refresh_expires_in"`
-	User             *models.UserResponse `json:"user"`
+	AccessToken      string        `json:"token"`
+	RefreshToken     string        `json:"refresh_token"`
+	ExpiresIn        int64         `json:"expires_in"`
+	RefreshExpiresIn int64         `json:"refresh_expires_in"`
+	User             *user.User    `json:"user"`
 }
 
-func (s *AuthService) Register(ctx context.Context, input models.CreateUserInput) (*models.UserResponse, error) {
+func (s *AuthService) Register(ctx context.Context, input user.CreateInput) (*user.User, error) {
 	// Check if user exists
 	var exists bool
 	err := s.db.QueryRow(ctx, "SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", input.Email).Scan(&exists)
@@ -57,64 +58,69 @@ func (s *AuthService) Register(ctx context.Context, input models.CreateUserInput
 		return nil, ErrUserExists
 	}
 
+	// Get default role ID
+	var defaultRoleID int
+	err = s.db.QueryRow(ctx, "SELECT id FROM user_roles WHERE code = $1", user.RoleCodeUser).Scan(&defaultRoleID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get default role ID: %w", err)
+	}
+
 	// Create user
-	user, err := models.NewUser(input)
+	newUser, err := user.New(input, defaultRoleID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Save user to database
-	err = s.db.QueryRow(ctx,
-		`INSERT INTO users (id, email, password_hash, name, avatar_url, role, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-		RETURNING id, email, name, created_at`,
-		user.ID, user.Email, user.PasswordHash, user.Name, user.AvatarURL, user.Role, user.CreatedAt, user.UpdatedAt,
-	).Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt)
-	if err != nil {
+	userRepo := postgres.NewUserRepository(s.db)
+	if err := userRepo.Create(ctx, newUser); err != nil {
 		return nil, err
 	}
 
-	return &models.UserResponse{
-		ID:        user.ID,
-		Email:     user.Email,
-		Name:      user.Name,
-		CreatedAt: user.CreatedAt,
-	}, nil
+	return newUser, nil
 }
 
-type LoginInput struct {
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required"`
-}
-
-func (s *AuthService) Login(ctx context.Context, input LoginInput) (*TokenPair, error) {
-	var user models.User
-	err := s.db.QueryRow(ctx,
-		"SELECT id, email, password_hash, name, created_at FROM users WHERE email = $1",
-		input.Email,
-	).Scan(&user.ID, &user.Email, &user.PasswordHash, &user.Name, &user.CreatedAt)
+func (s *AuthService) Login(ctx context.Context, input user.LoginInput) (*TokenPair, error) {
+	userRepo := postgres.NewUserRepository(s.db)
+	u, err := userRepo.GetByEmail(ctx, input.Email)
 	if err != nil {
 		return nil, ErrInvalidCredentials
 	}
 
 	// Verify password
-	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.Password))
-	if err != nil {
+	if !u.ValidatePassword(input.Password) {
 		return nil, ErrInvalidCredentials
 	}
 
+	// Validate and ensure super admin role
+	if err := userRepo.ValidateAndEnsureSuperAdmin(ctx, u); err != nil {
+		return nil, fmt.Errorf("failed to validate super admin: %w", err)
+	}
+
+	// Load role information if not already loaded
+	if u.Role == nil {
+		var role user.UserRole
+		err = s.db.QueryRow(ctx, `
+			SELECT id, code, name, description, created_at, updated_at
+			FROM user_roles WHERE id = $1
+		`, u.RoleID).Scan(
+			&role.ID, &role.Code, &role.Name, &role.Description,
+			&role.CreatedAt, &role.UpdatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load role information: %w", err)
+		}
+		u.Role = &role
+	}
+
 	// Generate token pair
-	tokenPair, err := s.generateTokenPair(&user)
+	tokenPair, err := s.generateTokenPair(u)
 	if err != nil {
 		return nil, err
 	}
 
 	// Update last login time
-	_, err = s.db.Exec(ctx,
-		"UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = $1",
-		user.ID,
-	)
-	if err != nil {
+	if err := userRepo.UpdateLastLogin(ctx, u.ID); err != nil {
 		return nil, err
 	}
 
@@ -129,20 +135,17 @@ func (s *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*T
 	}
 
 	// Get user from database
-	var user models.User
-	err = s.db.QueryRow(ctx,
-		"SELECT id, email, name, created_at FROM users WHERE id = $1",
-		claims.UserID,
-	).Scan(&user.ID, &user.Email, &user.Name, &user.CreatedAt)
+	userRepo := postgres.NewUserRepository(s.db)
+	user, err := userRepo.GetByID(ctx, claims.UserID)
 	if err != nil {
 		return nil, ErrInvalidToken
 	}
 
 	// Generate new token pair
-	return s.generateTokenPair(&user)
+	return s.generateTokenPair(user)
 }
 
-func (s *AuthService) generateTokenPair(user *models.User) (*TokenPair, error) {
+func (s *AuthService) generateTokenPair(user *user.User) (*TokenPair, error) {
 	// Generate access token
 	accessTokenExpiry := time.Now().Add(15 * time.Minute)
 	accessClaims := Claims{
@@ -182,12 +185,7 @@ func (s *AuthService) generateTokenPair(user *models.User) (*TokenPair, error) {
 		RefreshToken:     signedRefreshToken,
 		ExpiresIn:       int64(accessTokenExpiry.Sub(time.Now()).Seconds()),
 		RefreshExpiresIn: int64(refreshTokenExpiry.Sub(time.Now()).Seconds()),
-		User: &models.UserResponse{
-			ID:        user.ID,
-			Email:     user.Email,
-			Name:      user.Name,
-			CreatedAt: user.CreatedAt,
-		},
+		User:            user,
 	}, nil
 }
 

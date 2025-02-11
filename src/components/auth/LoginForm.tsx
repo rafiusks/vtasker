@@ -37,6 +37,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 
 		try {
 			const response = await login(formData);
+			console.log("Login response:", response);
 			await authLogin(
 				response.token,
 				response.refresh_token,
@@ -60,6 +61,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 				navigate({ to: "/dashboard", replace: true });
 			}
 		} catch (err) {
+			console.error("Login error:", err);
 			setError(err instanceof Error ? err.message : "Failed to login");
 			setIsLoading(false);
 		}
