@@ -222,10 +222,27 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 		return
 	}
 
-	// Delete the target user
+	// Get the target user
 	targetID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid user ID"})
+		return
+	}
+
+	// Check if target user is a super admin
+	targetUser, err := h.repo.GetByID(c.Request.Context(), targetID)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Prevent deletion of super admin users
+	if targetUser.IsSuperAdmin() {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Super admin users cannot be deleted"})
 		return
 	}
 

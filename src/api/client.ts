@@ -97,6 +97,12 @@ export class BaseAPI {
 				headers,
 				data,
 			});
+
+			// Handle specific error cases
+			if (response.status === 409) {
+				throw new Error("User already exists");
+			}
+
 			throw new Error(
 				data?.message ||
 					data?.error ||
@@ -283,6 +289,12 @@ export class UserAPI extends BaseAPI {
 		return this.request<User[]>(
 			`/api/users/search?q=${encodeURIComponent(query)}`,
 		);
+	}
+
+	async deleteUser(id: string): Promise<void> {
+		return this.request<void>(`/api/users/${id}`, {
+			method: "DELETE",
+		});
 	}
 }
 

@@ -2,10 +2,12 @@ import { useAuth } from "../contexts/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { boardAPI } from "../api/client";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { Button } from "../components/common/Button";
 
 export const DashboardPage = () => {
 	const { user } = useAuth();
+	const navigate = useNavigate();
 	const {
 		data: boards,
 		isLoading,
@@ -32,6 +34,8 @@ export const DashboardPage = () => {
 			</div>
 		);
 	}
+
+	const hasBoards = boards && boards.length > 0;
 
 	return (
 		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -63,12 +67,23 @@ export const DashboardPage = () => {
 			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 				{/* Recent Boards Widget */}
 				<div className="bg-white rounded-lg shadow p-6">
-					<h2 className="text-lg font-semibold text-gray-900 mb-4">
-						Recent Boards
-					</h2>
-					{boards && boards.length > 0 ? (
-						<div className="space-y-3">
-							{boards.slice(0, 5).map((board) => (
+					<div className="flex justify-between items-center mb-4">
+						<h2 className="text-lg font-semibold text-gray-900">
+							Recent Boards
+						</h2>
+						{hasBoards && (
+							<Button
+								variant="primary"
+								data-testid="create-board-button"
+								onClick={() => navigate({ to: "/boards" })}
+							>
+								Create Board
+							</Button>
+						)}
+					</div>
+					<div className="space-y-3" data-testid="boards-list">
+						{hasBoards ? (
+							boards.slice(0, 5).map((board) => (
 								<Link
 									key={board.id}
 									to="/b/$boardSlug"
@@ -83,11 +98,20 @@ export const DashboardPage = () => {
 										</div>
 									)}
 								</Link>
-							))}
-						</div>
-					) : (
-						<p className="text-gray-500 text-sm">No boards yet</p>
-					)}
+							))
+						) : (
+							<div className="text-center py-8">
+								<p className="text-gray-500 text-sm mb-4">No boards yet</p>
+								<Button
+									variant="primary"
+									data-testid="create-first-board-button"
+									onClick={() => navigate({ to: "/boards" })}
+								>
+									Create your first board
+								</Button>
+							</div>
+						)}
+					</div>
 				</div>
 
 				{/* Pending Tasks Widget - Placeholder */}

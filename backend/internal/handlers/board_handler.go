@@ -152,7 +152,10 @@ func (h *BoardHandler) DeleteBoard(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	user := r.Context().Value("user").(*models.User)
 
-	if err := h.boardRepo.DeleteBoard(r.Context(), id, user.ID); err != nil {
+	// Check if user is super admin
+	isSuperAdmin := user.IsSuperAdmin()
+
+	if err := h.boardRepo.DeleteBoard(r.Context(), id, user.ID, isSuperAdmin); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

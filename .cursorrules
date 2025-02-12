@@ -1,12 +1,14 @@
 Instructions:
+* Always check the '/docs/user-flow.md' file for the latest information about the user flow.
 * Always check the '/docs/project-todo.md' file for the latest information about the project.
 * Always use type safety is paramount, should be used everywhere and shared between frontend and backend.
 * Always use the latest version of the libraries.
 * Don't stop and start the backend or frontend servers unless explicitly told to do so.
-* Always update '/docs/project-todo.md' and expand on the tasks. If there are no tasks, create some,
+* Always update the '/docs/user-flow.md' file with the latest information about the user flow.
+* Always update the '/docs/project-todo.md' and expand on the tasks. If there are no tasks, create some,
 add robust checklists.
 * Always update the README.md file with the latest information about the project.
-* Always update '/docs/database.md' file with the latest information about the database.
+* Always update the '/docs/database.md' file with the latest information about the database.
 
 Database information:
 - PostgreSQL

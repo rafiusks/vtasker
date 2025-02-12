@@ -206,3 +206,9 @@ func (s *AuthService) ValidateToken(tokenString string) (*Claims, error) {
 
 	return nil, ErrInvalidToken
 }
+
+// GetUserByID retrieves a user by their ID
+func (s *AuthService) GetUserByID(ctx context.Context, userID uuid.UUID) (*user.User, error) {
+	userRepo := postgres.NewUserRepository(s.db)
+	return userRepo.GetByID(ctx, userID)
+}

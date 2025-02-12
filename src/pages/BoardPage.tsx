@@ -262,158 +262,77 @@ export const BoardPage = () => {
 	);
 
 	return (
-		<div className="space-y-6" data-testid="board-content">
-			<Breadcrumbs
-				items={[
-					{ label: "Dashboard", to: "/dashboard" },
-					{ label: "Boards", to: "/boards" },
-					{ label: board.name },
-				]}
-			/>
-			<div className="flex justify-between items-start">
-				<div>
-					<h1 className="text-3xl font-bold text-gray-900">{board.name}</h1>
-					{board.description && (
-						<p className="mt-2 text-gray-600">{board.description}</p>
-					)}
-					<div className="mt-2 flex items-center gap-2">
-						<span className="text-sm text-gray-500">
-							{board.is_public ? "Public" : "Private"} board
-						</span>
-						<span className="text-gray-300">•</span>
-						<button
-							type="button"
-							onClick={() => {
-								if (!board?.slug) return;
-								const url = `${window.location.origin}/b/${board.slug}`;
-								navigator.clipboard.writeText(url).then(() => {
-									toast.success("Board URL copied to clipboard");
-								});
-							}}
-							className="text-sm text-blue-600 hover:text-blue-800"
+		<AppLayout>
+			<div className="flex flex-col h-full">
+				<div className="flex justify-between items-center mb-4">
+					<Breadcrumbs
+						items={[
+							{ label: "Dashboard", to: "/dashboard" },
+							{ label: "Boards", to: "/boards" },
+							{ label: board.name },
+						]}
+					/>
+					<div className="flex gap-2">
+						<Button
+							data-testid="create-task-button"
+							onClick={() => setIsTaskFormOpen(true)}
+							variant="primary"
+							disabled={!statusesLoaded}
 						>
-							Copy URL
-						</button>
-					</div>
-				</div>
-				<div className="flex items-center gap-4">
-					<Button
-						data-testid="create-task-button"
-						onClick={() => setIsTaskFormOpen(true)}
-						disabled={!statusesLoaded}
-					>
-						Create Task
-					</Button>
-					{canManageBoard && (
-						<Link
-							to="/b/$boardSlug/settings"
-							params={{ boardSlug: board.slug }}
-							className="inline-flex"
-							data-testid="board-settings-link"
-						>
-							<Button variant="outline" data-testid="board-settings-button">
+							Create Task
+						</Button>
+						{user?.id === board.owner_id && (
+							<Button
+								onClick={() => setIsSettingsOpen(true)}
+								variant="secondary"
+							>
 								Board Settings
 							</Button>
-						</Link>
-					)}
+						)}
+					</div>
 				</div>
-			</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-				{Object.values(TASK_STATUS).map((status) => {
-					// Filter tasks for this column
-					const tasksInColumn =
-						board?.tasks
-							?.map((task) => ({
-								...task,
-								status_id: task.status_id || 0,
-								priority_id: task.priority_id || 0,
-								type_id: task.type_id || 0,
-								order: task.order || 0,
-							}))
-							.filter((task) => task.status_id === status.id) || [];
-
-					return (
+				<div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-grow">
+					{Object.entries(TASK_STATUS).map(([id, status]) => (
 						<TaskColumn
-							key={status.id}
+							key={id}
 							status={status}
-							tasks={tasksInColumn}
+							tasks={
+								board.tasks?.filter(
+									(task) => task.status_id === Number.parseInt(id, 10),
+								) || []
+							}
 							onDrop={handleTaskMove}
 							onEdit={handleTaskEdit}
 							onDelete={handleTaskDelete}
 							isLoading={false}
 							updatingTaskId={updatingTaskId}
 						/>
-					);
-				})}
-			</div>
-
-			{isSettingsOpen && (
-				<BoardSettingsModal
-					isOpen={isSettingsOpen}
-					onClose={() => setIsSettingsOpen(false)}
-					board={board}
-					onBoardDeleted={() => navigate({ to: "/boards" })}
-				/>
-			)}
-
-			{/* Task Form Modal */}
-			{isTaskFormOpen && (
-				<TaskForm
-					isOpen={isTaskFormOpen}
-					onClose={() => {
-						setIsTaskFormOpen(false);
-						setEditingTask(undefined);
-					}}
-					onSubmit={handleTaskSubmit}
-					task={editingTask}
-					isLoading={!statusesLoaded}
-				/>
-			)}
-
-			{/* Delete Confirmation Modal */}
-			{isDeleteConfirmOpen && (
-				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-					<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-						<h3 className="text-lg font-medium text-gray-900 mb-2">
-							Delete Board
-						</h3>
-						<p className="text-gray-500 mb-4">
-							Are you sure you want to delete "{board.name}"? This action cannot
-							be undone.
-						</p>
-						<div className="flex justify-end space-x-3">
-							<Button
-								type="button"
-								variant="outline"
-								onClick={() => setIsDeleteConfirmOpen(false)}
-							>
-								Cancel
-							</Button>
-							<Button
-								type="button"
-								className="!bg-red-600 hover:!bg-red-700"
-								onClick={async () => {
-									try {
-										await boardAPI.deleteBoard(board.id);
-										toast.success("Board deleted successfully");
-										navigate({ to: "/boards" });
-									} catch (error) {
-										toast.error(
-											error instanceof Error
-												? error.message
-												: "Failed to delete board",
-										);
-									}
-									setIsDeleteConfirmOpen(false);
-								}}
-							>
-								Delete
-							</Button>
-						</div>
-					</div>
+					))}
 				</div>
-			)}
-		</div>
+
+				{isTaskFormOpen && statusesLoaded && (
+					<TaskForm
+						isOpen={isTaskFormOpen}
+						onClose={() => {
+							setIsTaskFormOpen(false);
+							setEditingTask(undefined);
+						}}
+						onSubmit={handleTaskSubmit}
+						task={editingTask}
+						isLoading={false}
+					/>
+				)}
+
+				{isSettingsOpen && (
+					<BoardSettingsModal
+						isOpen={isSettingsOpen}
+						board={board}
+						onClose={() => setIsSettingsOpen(false)}
+						onBoardDeleted={() => setIsDeleteConfirmOpen(true)}
+					/>
+				)}
+			</div>
+		</AppLayout>
 	);
 };

@@ -16,30 +16,71 @@ export const RegisterForm = () => {
 		confirmPassword: "",
 	});
 
+	const [validationErrors, setValidationErrors] = useState({
+		full_name: "",
+		email: "",
+		password: "",
+		confirmPassword: "",
+	});
+
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value } = e.target;
 		setFormData((prev) => ({ ...prev, [name]: value }));
 		setError(""); // Clear error when user types
+		setValidationErrors((prev) => ({ ...prev, [name]: "" })); // Clear field validation
+	};
+
+	const validateField = (name: string, value: string) => {
+		switch (name) {
+			case "full_name":
+				return !value ? "Full name is required" : "";
+			case "email":
+				return !value
+					? "Email is required"
+					: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+						? "Invalid email format"
+						: "";
+			case "password":
+				return !value
+					? "Password is required"
+					: value.length < 8
+						? "Password must be at least 8 characters"
+						: "";
+			case "confirmPassword":
+				return !value
+					? "Please confirm your password"
+					: value !== formData.password
+						? "Passwords do not match"
+						: "";
+			default:
+				return "";
+		}
+	};
+
+	const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+		const { name, value } = e.target;
+		const error = validateField(name, value);
+		setValidationErrors((prev) => ({ ...prev, [name]: error }));
 	};
 
 	const validateForm = () => {
-		if (!formData.email || !formData.password || !formData.full_name) {
-			return "All fields are required";
-		}
-		if (formData.password.length < 8) {
-			return "Password must be at least 8 characters long";
-		}
-		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-			return "Please enter a valid email address";
-		}
-		return "";
+		const newErrors = {
+			full_name: validateField("full_name", formData.full_name),
+			email: validateField("email", formData.email),
+			password: validateField("password", formData.password),
+			confirmPassword: validateField(
+				"confirmPassword",
+				formData.confirmPassword,
+			),
+		};
+
+		setValidationErrors(newErrors);
+		return !Object.values(newErrors).some(Boolean);
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-		const validationError = validateForm();
-		if (validationError) {
-			setError(validationError);
+		if (!validateForm()) {
 			return;
 		}
 
@@ -47,15 +88,25 @@ export const RegisterForm = () => {
 		setError("");
 
 		try {
-			await register(formData);
-			// For now, we'll use window.location to pass the message
+			const response = await register(formData);
+			console.log("Registration successful:", response);
+
 			window.sessionStorage.setItem(
 				"registerMessage",
-				"Registration successful! Please login.",
+				"Account created successfully",
 			);
-			navigate({ to: "/login" });
+
+			// Use a small delay to ensure state is updated before navigation
+			setTimeout(() => {
+				window.location.href = "/login";
+			}, 100);
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Failed to register");
+			console.error("Registration failed:", err);
+			if (err instanceof Error) {
+				setError(err.message);
+			} else {
+				setError("Failed to register");
+			}
 		} finally {
 			setIsLoading(false);
 		}
@@ -99,10 +150,12 @@ export const RegisterForm = () => {
 					name="full_name"
 					value={formData.full_name}
 					onChange={handleChange}
+					onBlur={handleBlur}
 					required
 					autoComplete="name"
 					placeholder="Enter your full name"
-					data-testid="name-input"
+					data-testid="fullname-input"
+					error={validationErrors.full_name}
 				/>
 
 				<Input
@@ -111,10 +164,12 @@ export const RegisterForm = () => {
 					name="email"
 					value={formData.email}
 					onChange={handleChange}
+					onBlur={handleBlur}
 					required
 					autoComplete="email"
 					placeholder="Enter your email"
 					data-testid="email-input"
+					error={validationErrors.email}
 				/>
 
 				<Input
@@ -123,10 +178,12 @@ export const RegisterForm = () => {
 					name="password"
 					value={formData.password}
 					onChange={handleChange}
+					onBlur={handleBlur}
 					required
 					autoComplete="new-password"
 					placeholder="Create a password"
 					data-testid="password-input"
+					error={validationErrors.password}
 				/>
 
 				<Input
@@ -135,10 +192,12 @@ export const RegisterForm = () => {
 					name="confirmPassword"
 					value={formData.confirmPassword}
 					onChange={handleChange}
+					onBlur={handleBlur}
 					required
 					autoComplete="new-password"
 					placeholder="Confirm your password"
 					data-testid="confirm-password-input"
+					error={validationErrors.confirmPassword}
 				/>
 
 				<Button
@@ -148,6 +207,7 @@ export const RegisterForm = () => {
 					disabled={
 						!formData.email || !formData.password || !formData.full_name
 					}
+					data-testid="register-button"
 				>
 					Create Account
 				</Button>

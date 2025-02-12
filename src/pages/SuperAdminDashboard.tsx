@@ -20,6 +20,7 @@ export const SuperAdminDashboard = () => {
 	const [activeTab, setActiveTab] = useState<
 		"users" | "boards" | "settings" | "logs"
 	>("users");
+	const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
 	useEffect(() => {
 		if (!user) {
@@ -117,85 +118,158 @@ export const SuperAdminDashboard = () => {
 		},
 	});
 
+	const deleteUserMutation = useMutation({
+		mutationFn: async (userId: string) => {
+			return userAPI.deleteUser(userId);
+		},
+		onSuccess: () => {
+			toast.success("User deleted successfully");
+			queryClient.invalidateQueries({ queryKey: ["users"] });
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to delete user",
+			);
+		},
+	});
+
 	const renderTabContent = () => {
 		switch (activeTab) {
 			case "users":
 				return (
-					<div className="bg-white shadow rounded-lg p-6">
-						<h2 className="text-xl font-semibold mb-4">Users Management</h2>
-						<div className="space-y-4">
-							{users?.map((u) => (
-								<div
-									key={u.id}
-									className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-								>
-									<div>
-										<p className="font-medium">{u.full_name}</p>
-										<p className="text-sm text-gray-500">{u.email}</p>
-										<p className="text-xs text-gray-400">Role: {u.role_code}</p>
+					<div data-testid="users-tab-content">
+						<h2 className="text-xl font-semibold mb-4">User Management</h2>
+						{isLoadingUsers ? (
+							<div className="flex justify-center">
+								<LoadingSpinner />
+							</div>
+						) : usersError ? (
+							<div className="text-red-500">
+								{usersError instanceof Error
+									? usersError.message
+									: "Failed to load users"}
+							</div>
+						) : (
+							<div className="space-y-4">
+								{users?.map((user) => (
+									<div
+										key={user.id}
+										className="bg-white p-4 rounded-lg shadow"
+										data-testid="user-item"
+									>
+										<div className="flex items-center justify-between">
+											<div>
+												<h3 className="font-medium">{user.full_name}</h3>
+												<p className="text-sm text-gray-500">{user.email}</p>
+												<p className="text-sm text-gray-500">
+													Role: {user.role_code}
+												</p>
+											</div>
+											<div className="space-x-2">
+												<Button
+													variant="secondary"
+													onClick={() => setSelectedUser(user)}
+													type="button"
+													data-testid="edit-user-button"
+												>
+													Edit Role
+												</Button>
+												<div className="relative inline-block">
+													<Button
+														variant="danger"
+														onClick={() => setUserToDelete(user)}
+														type="button"
+														data-testid="delete-user-button"
+														disabled={user.role_code === "super_admin"}
+														title={
+															user.role_code === "super_admin"
+																? "Super admin users cannot be deleted"
+																: undefined
+														}
+													>
+														Delete
+													</Button>
+													{user.role_code === "super_admin" && (
+														<div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1 text-sm text-white bg-gray-800 rounded-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+															Super admin users cannot be deleted
+														</div>
+													)}
+												</div>
+											</div>
+										</div>
 									</div>
-									<div className="space-x-2">
-										<Button
-											variant="outline"
-											className="text-sm"
-											onClick={() => setSelectedUser(u)}
-										>
-											Edit
-										</Button>
-									</div>
-								</div>
-							))}
-						</div>
+								))}
+							</div>
+						)}
 					</div>
 				);
 			case "boards":
 				return (
-					<div className="bg-white shadow rounded-lg p-6">
-						<h2 className="text-xl font-semibold mb-4">Boards Management</h2>
-						<div className="space-y-4">
-							{boards?.map((b) => (
-								<div
-									key={b.id}
-									className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-								>
-									<div>
-										<p className="font-medium">{b.name}</p>
-										<p className="text-sm text-gray-500">Slug: {b.slug}</p>
-										<p className="text-xs text-gray-400">
-											Public: {b.is_public ? "Yes" : "No"}
-										</p>
+					<div data-testid="boards-tab-content">
+						<h2 className="text-xl font-semibold mb-4">Board Management</h2>
+						{isLoadingBoards ? (
+							<div className="flex justify-center">
+								<LoadingSpinner />
+							</div>
+						) : boardsError ? (
+							<div className="text-red-500">
+								{boardsError instanceof Error
+									? boardsError.message
+									: "Failed to load boards"}
+							</div>
+						) : (
+							<div className="space-y-4">
+								{boards?.map((board) => (
+									<div
+										key={board.id}
+										className="bg-white p-4 rounded-lg shadow"
+										data-testid="board-item"
+									>
+										<div className="flex items-center justify-between">
+											<div>
+												<h3 className="font-medium">{board.name}</h3>
+												<p className="text-sm text-gray-500">
+													{board.description}
+												</p>
+												<p className="text-sm text-gray-500">
+													Visibility: {board.is_public ? "Public" : "Private"}
+												</p>
+											</div>
+											<div className="space-x-2">
+												<Button
+													variant="secondary"
+													onClick={() => setSelectedBoard(board)}
+													type="button"
+													data-testid="edit-board-button"
+												>
+													Edit
+												</Button>
+												<Button
+													variant="danger"
+													onClick={() => setBoardToDelete(board)}
+													type="button"
+													data-testid="delete-board-button"
+												>
+													Delete
+												</Button>
+											</div>
+										</div>
 									</div>
-									<div className="space-x-2">
-										<Button
-											variant="outline"
-											className="text-sm"
-											onClick={() => setSelectedBoard(b)}
-										>
-											Edit
-										</Button>
-										<Button
-											variant="danger"
-											className="text-sm"
-											onClick={() => setBoardToDelete(b)}
-										>
-											Delete
-										</Button>
-									</div>
-								</div>
-							))}
-						</div>
+								))}
+							</div>
+						)}
 					</div>
 				);
 			case "settings":
 				return (
-					<div className="bg-white shadow rounded-lg p-6">
+					<div data-testid="settings-tab-content">
 						<h2 className="text-xl font-semibold mb-4">System Settings</h2>
 						<p className="text-gray-500">Coming soon...</p>
 					</div>
 				);
 			case "logs":
 				return (
-					<div className="bg-white shadow rounded-lg p-6">
+					<div data-testid="logs-tab-content">
 						<h2 className="text-xl font-semibold mb-4">System Logs</h2>
 						<p className="text-gray-500">Coming soon...</p>
 					</div>
@@ -226,70 +300,79 @@ export const SuperAdminDashboard = () => {
 	}
 
 	return (
-		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-			<div className="flex justify-between items-center mb-8">
-				<h1 className="text-2xl font-bold text-gray-900">
-					Super Admin Dashboard
-				</h1>
-				<div className="text-sm text-gray-500">
-					Logged in as {user?.full_name}
+		<div
+			className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+			data-testid="super-admin-dashboard"
+		>
+			<div className="bg-white shadow rounded-lg">
+				<div className="px-4 py-5 sm:p-6">
+					<div className="mb-6">
+						<h1 className="text-2xl font-bold text-gray-900">
+							Super Admin Dashboard
+						</h1>
+						<p className="mt-1 text-sm text-gray-500">
+							Manage users, boards, and system settings
+						</p>
+					</div>
+
+					{/* Navigation Menu */}
+					<div className="border-b border-gray-200 mb-6">
+						<nav className="-mb-px flex space-x-4">
+							<button
+								type="button"
+								onClick={() => setActiveTab("users")}
+								className={`${
+									activeTab === "users"
+										? "border-blue-500 text-blue-600"
+										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+								} whitespace-nowrap pb-4 px-1 border-b-2 font-medium`}
+								data-testid="users-tab"
+							>
+								Users
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("boards")}
+								className={`${
+									activeTab === "boards"
+										? "border-blue-500 text-blue-600"
+										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+								} whitespace-nowrap pb-4 px-1 border-b-2 font-medium`}
+								data-testid="boards-tab"
+							>
+								Boards
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("settings")}
+								className={`${
+									activeTab === "settings"
+										? "border-blue-500 text-blue-600"
+										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+								} whitespace-nowrap pb-4 px-1 border-b-2 font-medium`}
+								data-testid="settings-tab"
+							>
+								Settings
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("logs")}
+								className={`${
+									activeTab === "logs"
+										? "border-blue-500 text-blue-600"
+										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+								} whitespace-nowrap pb-4 px-1 border-b-2 font-medium`}
+								data-testid="logs-tab"
+							>
+								System Logs
+							</button>
+						</nav>
+					</div>
+
+					{/* Tab Content */}
+					{renderTabContent()}
 				</div>
 			</div>
-
-			{/* Navigation Menu */}
-			<nav className="mb-8">
-				<div className="border-b border-gray-200">
-					<div className="flex -mb-px space-x-8">
-						<button
-							type="button"
-							onClick={() => setActiveTab("users")}
-							className={`py-4 px-1 border-b-2 font-medium text-sm ${
-								activeTab === "users"
-									? "border-blue-500 text-blue-600"
-									: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-							}`}
-						>
-							Users
-						</button>
-						<button
-							type="button"
-							onClick={() => setActiveTab("boards")}
-							className={`py-4 px-1 border-b-2 font-medium text-sm ${
-								activeTab === "boards"
-									? "border-blue-500 text-blue-600"
-									: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-							}`}
-						>
-							Boards
-						</button>
-						<button
-							type="button"
-							onClick={() => setActiveTab("settings")}
-							className={`py-4 px-1 border-b-2 font-medium text-sm ${
-								activeTab === "settings"
-									? "border-blue-500 text-blue-600"
-									: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-							}`}
-						>
-							Settings
-						</button>
-						<button
-							type="button"
-							onClick={() => setActiveTab("logs")}
-							className={`py-4 px-1 border-b-2 font-medium text-sm ${
-								activeTab === "logs"
-									? "border-blue-500 text-blue-600"
-									: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-							}`}
-						>
-							System Logs
-						</button>
-					</div>
-				</div>
-			</nav>
-
-			{/* Tab Content */}
-			{renderTabContent()}
 
 			{/* User Edit Modal */}
 			{selectedUser && (
@@ -398,29 +481,69 @@ export const SuperAdminDashboard = () => {
 
 			{/* Board Delete Confirmation Modal */}
 			{boardToDelete && (
-				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-					<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-						<h3 className="text-lg font-medium text-gray-900 mb-4">
-							Delete Board
-						</h3>
-						<p className="text-gray-600 mb-4">
+				<div
+					className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+					data-testid="delete-board-modal"
+				>
+					<div className="bg-white p-6 rounded-lg shadow-lg w-96">
+						<h2 className="text-xl font-bold mb-4">Delete Board</h2>
+						<p className="mb-4">
 							Are you sure you want to delete the board "{boardToDelete.name}"?
 							This action cannot be undone.
 						</p>
-						<div className="flex justify-end space-x-3">
+						<div className="flex justify-end gap-2">
 							<Button
-								variant="outline"
-								className="text-sm"
+								variant="secondary"
 								onClick={() => setBoardToDelete(null)}
+								type="button"
+								data-testid="cancel-delete-board"
 							>
 								Cancel
 							</Button>
 							<Button
 								variant="danger"
 								onClick={() => deleteBoardMutation.mutate(boardToDelete.id)}
-								isLoading={deleteBoardMutation.isPending}
+								type="button"
+								data-testid="confirm-delete-board"
 							>
-								Delete Board
+								Delete
+							</Button>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* User Delete Confirmation Modal */}
+			{userToDelete && (
+				<div
+					className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+					data-testid="delete-user-modal"
+				>
+					<div className="bg-white p-6 rounded-lg shadow-lg w-96">
+						<h2 className="text-xl font-bold mb-4">Delete User</h2>
+						<p className="mb-4">
+							Are you sure you want to delete the user "{userToDelete.full_name}
+							"? This action cannot be undone.
+						</p>
+						<div className="flex justify-end gap-2">
+							<Button
+								variant="secondary"
+								onClick={() => setUserToDelete(null)}
+								type="button"
+								data-testid="cancel-delete-user"
+							>
+								Cancel
+							</Button>
+							<Button
+								variant="danger"
+								onClick={() => {
+									deleteUserMutation.mutate(userToDelete.id);
+									setUserToDelete(null);
+								}}
+								type="button"
+								data-testid="confirm-delete-user"
+							>
+								Delete
 							</Button>
 						</div>
 					</div>

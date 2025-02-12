@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rafaelzasas/vtasker/backend/internal/models"
+	"github.com/rafaelzasas/vtasker/backend/internal/models/user"
 	"github.com/rafaelzasas/vtasker/backend/internal/repository"
 )
 
@@ -138,7 +139,11 @@ func (h *BoardHandler) DeleteBoard(c *gin.Context) {
 		return
 	}
 
-	if err := h.repo.DeleteBoard(c.Request.Context(), c.Param("id"), userID); err != nil {
+	// Get the user to check if they are a super admin
+	user := c.MustGet("user").(*user.User)
+	isSuperAdmin := user.IsSuperAdmin()
+
+	if err := h.repo.DeleteBoard(c.Request.Context(), c.Param("id"), userID, isSuperAdmin); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

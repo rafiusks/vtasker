@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rafaelzasas/vtasker/backend/internal/models"
 )
@@ -503,21 +504,57 @@ func (r *BoardRepository) UpdateBoard(ctx context.Context, id string, input *mod
 }
 
 // DeleteBoard deletes a board
-func (r *BoardRepository) DeleteBoard(ctx context.Context, id string, userID uuid.UUID) error {
-	query := `
-		DELETE FROM boards
-		WHERE id = $1 AND (owner_id = $2 OR EXISTS (
-			SELECT 1 FROM board_members
-			WHERE board_id = $1 AND user_id = $2 AND role = 'admin'
-		))`
+func (r *BoardRepository) DeleteBoard(ctx context.Context, id string, userID uuid.UUID, isSuperAdmin bool) error {
+	// Start a transaction
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer tx.Rollback(ctx)
 
-	result, err := r.db.Exec(ctx, query, id, userID)
+	// Delete tasks first
+	_, err = tx.Exec(ctx, `DELETE FROM tasks WHERE board_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("error deleting board tasks: %v", err)
+	}
+
+	// Delete board members
+	_, err = tx.Exec(ctx, `DELETE FROM board_members WHERE board_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("error deleting board members: %v", err)
+	}
+
+	// Delete the board
+	var query string
+	if isSuperAdmin {
+		query = `DELETE FROM boards WHERE id = $1`
+	} else {
+		query = `
+			DELETE FROM boards
+			WHERE id = $1 AND (owner_id = $2 OR EXISTS (
+				SELECT 1 FROM board_members
+				WHERE board_id = $1 AND user_id = $2 AND role = 'admin'
+			))`
+	}
+
+	var result pgconn.CommandTag
+	if isSuperAdmin {
+		result, err = tx.Exec(ctx, query, id)
+	} else {
+		result, err = tx.Exec(ctx, query, id, userID)
+	}
+
 	if err != nil {
 		return fmt.Errorf("error deleting board: %v", err)
 	}
 
 	if result.RowsAffected() == 0 {
 		return fmt.Errorf("board not found or user not authorized")
+	}
+
+	// Commit the transaction
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
 	}
 
 	return nil

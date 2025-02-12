@@ -136,9 +136,17 @@ func (h *AuthHandler) AuthMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// Add user claims to context
+		// Fetch the complete user object
+		user, err := h.authService.GetUserByID(c.Request.Context(), claims.UserID)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user details"})
+			return
+		}
+
+		// Add user claims and complete user object to context
 		c.Set("user_id", claims.UserID.String())
 		c.Set("user_email", claims.Email)
+		c.Set("user", user)
 		c.Next()
 	}
 } 
