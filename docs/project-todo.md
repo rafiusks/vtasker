@@ -143,7 +143,7 @@
 
 ## UI/UX
 - [x] Responsive layout
-- [x] Dark/light mode
+- [ ] Dark/light mode
 - [x] Board management UI
 - [ ] Keyboard shortcuts
   - [ ] Navigation shortcuts
