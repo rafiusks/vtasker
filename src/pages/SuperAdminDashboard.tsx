@@ -18,7 +18,7 @@ export const SuperAdminDashboard = () => {
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
 	const [boardToDelete, setBoardToDelete] = useState<Board | null>(null);
 	const [activeTab, setActiveTab] = useState<
-		"users" | "boards" | "settings" | "logs"
+		"users" | "boards" | "settings" | "logs" | "maintenance"
 	>("users");
 	const [userToDelete, setUserToDelete] = useState<User | null>(null);
 
@@ -129,6 +129,155 @@ export const SuperAdminDashboard = () => {
 		onError: (error) => {
 			toast.error(
 				error instanceof Error ? error.message : "Failed to delete user",
+			);
+		},
+	});
+
+	const deleteTestUsersMutation = useMutation({
+		mutationFn: async () => {
+			const testUsers =
+				users?.filter(
+					(u) => u.email.startsWith("test") && u.email.endsWith("@example.com"),
+				) || [];
+
+			// First, delete all boards owned by test users
+			const boardDeletionResults = await Promise.allSettled(
+				boards
+					?.filter((board) =>
+						testUsers.some((user) => user.id === board.owner_id),
+					)
+					.map((board) => boardAPI.deleteBoard(board.id)) || [],
+			);
+
+			console.log("Board deletion results:", boardDeletionResults);
+
+			// Wait a bit to ensure board deletions are processed
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+
+			// Then delete the users
+			const userDeletionResults = await Promise.allSettled(
+				testUsers.map((user) => userAPI.deleteUser(user.id)),
+			);
+
+			const succeeded = userDeletionResults.filter(
+				(r) => r.status === "fulfilled",
+			).length;
+			const failed = userDeletionResults.filter(
+				(r) => r.status === "rejected",
+			).length;
+			const boardsDeleted = boardDeletionResults.filter(
+				(r) => r.status === "fulfilled",
+			).length;
+
+			return { succeeded, failed, total: testUsers.length, boardsDeleted };
+		},
+		onSuccess: (result) => {
+			toast.success(
+				`Successfully deleted ${result.succeeded} test users and ${result.boardsDeleted} boards${result.failed > 0 ? ` (${result.failed} failed)` : ""}`,
+			);
+			// Invalidate both users and boards queries
+			queryClient.invalidateQueries({ queryKey: ["users"] });
+			queryClient.invalidateQueries({ queryKey: ["boards", "all"] });
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to delete test users",
+			);
+		},
+	});
+
+	const deleteUsersWithBoardsMutation = useMutation({
+		mutationFn: async () => {
+			const usersWithBoards =
+				users?.filter(
+					(u) =>
+						u.role_code !== "super_admin" &&
+						boards?.some((b) => b.owner_id === u.id),
+				) || [];
+
+			// First, delete all boards
+			const boardDeletionResults = await Promise.allSettled(
+				boards
+					?.filter((board) =>
+						usersWithBoards.some((user) => user.id === board.owner_id),
+					)
+					.map((board) => boardAPI.deleteBoard(board.id)) || [],
+			);
+
+			// Wait a bit to ensure board deletions are processed
+			await new Promise((resolve) => setTimeout(resolve, 1000));
+
+			// Then delete the users
+			const userDeletionResults = await Promise.allSettled(
+				usersWithBoards.map((user) => userAPI.deleteUser(user.id)),
+			);
+
+			const succeededUsers = userDeletionResults.filter(
+				(r) => r.status === "fulfilled",
+			).length;
+			const failedUsers = userDeletionResults.filter(
+				(r) => r.status === "rejected",
+			).length;
+			const boardsDeleted = boardDeletionResults.filter(
+				(r) => r.status === "fulfilled",
+			).length;
+
+			return {
+				succeededUsers,
+				failedUsers,
+				boardsDeleted,
+				total: usersWithBoards.length,
+			};
+		},
+		onSuccess: (result) => {
+			toast.success(
+				`Successfully deleted ${result.succeededUsers} users and ${result.boardsDeleted} boards${result.failedUsers > 0 ? ` (${result.failedUsers} failed)` : ""}`,
+			);
+			queryClient.invalidateQueries({ queryKey: ["users"] });
+			queryClient.invalidateQueries({ queryKey: ["boards", "all"] });
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to delete users with boards",
+			);
+		},
+	});
+
+	const deleteUsersWithoutBoardsMutation = useMutation({
+		mutationFn: async () => {
+			const usersWithoutBoards =
+				users?.filter(
+					(u) =>
+						u.role_code !== "super_admin" &&
+						!boards?.some((b) => b.owner_id === u.id),
+				) || [];
+
+			const userDeletionResults = await Promise.allSettled(
+				usersWithoutBoards.map((user) => userAPI.deleteUser(user.id)),
+			);
+
+			const succeeded = userDeletionResults.filter(
+				(r) => r.status === "fulfilled",
+			).length;
+			const failed = userDeletionResults.filter(
+				(r) => r.status === "rejected",
+			).length;
+
+			return { succeeded, failed, total: usersWithoutBoards.length };
+		},
+		onSuccess: (result) => {
+			toast.success(
+				`Successfully deleted ${result.succeeded} users${result.failed > 0 ? ` (${result.failed} failed)` : ""}`,
+			);
+			queryClient.invalidateQueries({ queryKey: ["users"] });
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Failed to delete users without boards",
 			);
 		},
 	});
@@ -274,6 +423,246 @@ export const SuperAdminDashboard = () => {
 						<p className="text-gray-500">Coming soon...</p>
 					</div>
 				);
+			case "maintenance":
+				return (
+					<div data-testid="maintenance-tab-content" className="space-y-6">
+						<h2 className="text-xl font-semibold mb-4">System Maintenance</h2>
+
+						{/* Test User Management Section */}
+						<div className="bg-white p-6 rounded-lg shadow">
+							<h3 className="text-lg font-medium mb-2">Test User Management</h3>
+							<p className="text-gray-600 mb-4">
+								Delete all test users (matching pattern: test*@example.com)
+							</p>
+							<div className="flex items-center space-x-4">
+								<Button
+									variant="danger"
+									onClick={() => {
+										if (
+											window.confirm(
+												"Are you sure you want to delete all test users? This action cannot be undone.",
+											)
+										) {
+											deleteTestUsersMutation.mutate();
+										}
+									}}
+									isLoading={deleteTestUsersMutation.isPending}
+									data-testid="delete-test-users-button"
+								>
+									Delete All Test Users
+								</Button>
+								{users && (
+									<span className="text-sm text-gray-500">
+										{
+											users.filter(
+												(u) =>
+													u.email.startsWith("test") &&
+													u.email.endsWith("@example.com"),
+											).length
+										}{" "}
+										test users found
+									</span>
+								)}
+							</div>
+						</div>
+
+						{/* User-Board Relationship Section */}
+						<div className="bg-white p-6 rounded-lg shadow">
+							<h3 className="text-lg font-medium mb-4">
+								User-Board Relationships
+							</h3>
+
+							{/* Debug info */}
+							<div className="text-sm text-gray-500 mb-4">
+								{users
+									? `Users loaded: ${users.filter((u) => u.role_code !== "super_admin").length}`
+									: "No users loaded"}{" "}
+								|{" "}
+								{boards
+									? `Boards loaded: ${boards.length}`
+									: "No boards loaded"}
+							</div>
+
+							{/* Content */}
+							<div className="space-y-4">
+								{/* Stats */}
+								<div className="flex items-center gap-4 text-sm text-gray-500 bg-gray-50 p-3 rounded">
+									<span>
+										{users?.filter(
+											(u) =>
+												u.role_code !== "super_admin" &&
+												boards?.some((b) => b.owner_id === u.id) &&
+												boards?.filter((b) => b.owner_id === u.id).length > 0,
+										).length || 0}{" "}
+										users with active boards
+									</span>
+									<span className="text-gray-300">|</span>
+									<span>
+										{users?.filter(
+											(u) =>
+												u.role_code !== "super_admin" &&
+												boards?.some((b) => b.owner_id === u.id) &&
+												!boards?.filter((b) => b.owner_id === u.id).length,
+										).length || 0}{" "}
+										users with orphaned boards
+									</span>
+									<span className="text-gray-300">|</span>
+									<span>
+										{users?.filter(
+											(u) =>
+												u.role_code !== "super_admin" &&
+												!boards?.some((b) => b.owner_id === u.id),
+										).length || 0}{" "}
+										users without boards
+									</span>
+								</div>
+
+								{/* Action Buttons */}
+								<div className="space-y-2">
+									<Button
+										variant="danger"
+										onClick={() => {
+											if (
+												window.confirm(
+													"Are you sure you want to delete all users without any board relationships? This action cannot be undone.",
+												)
+											) {
+												deleteUsersWithoutBoardsMutation.mutate();
+											}
+										}}
+										isLoading={deleteUsersWithoutBoardsMutation.isPending}
+										data-testid="delete-users-without-boards-button"
+										className="w-full"
+									>
+										Delete Users Without Boards
+									</Button>
+									<Button
+										variant="danger"
+										onClick={() => {
+											if (
+												window.confirm(
+													"Are you sure you want to delete all users with boards? This will delete all their boards first. This action cannot be undone.",
+												)
+											) {
+												deleteUsersWithBoardsMutation.mutate();
+											}
+										}}
+										isLoading={deleteUsersWithBoardsMutation.isPending}
+										disabled={true}
+										title="This operation is currently disabled until we implement proper board cleanup logic"
+										data-testid="delete-users-with-boards-button"
+										className="w-full"
+									>
+										Delete Users With Boards (Disabled)
+									</Button>
+								</div>
+
+								{/* Users Table */}
+								<div className="mt-6 overflow-x-auto border rounded-lg shadow">
+									<table className="min-w-full divide-y divide-gray-200">
+										<thead className="bg-gray-50">
+											<tr>
+												<th
+													scope="col"
+													className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+												>
+													User
+												</th>
+												<th
+													scope="col"
+													className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+												>
+													Email
+												</th>
+												<th
+													scope="col"
+													className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+												>
+													Owned Boards
+												</th>
+												<th
+													scope="col"
+													className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+												>
+													Status
+												</th>
+											</tr>
+										</thead>
+										<tbody className="bg-white divide-y divide-gray-200">
+											{users
+												?.filter((user) => user.role_code !== "super_admin")
+												.map((user) => {
+													const userBoards =
+														boards?.filter(
+															(board) => board.owner_id === user.id,
+														) || [];
+													const hasOrphanedBoards =
+														userBoards.length === 0 &&
+														boards?.some((board) => board.owner_id === user.id);
+
+													return (
+														<tr key={user.id} className="hover:bg-gray-50">
+															<td className="px-6 py-4 whitespace-nowrap">
+																<div className="text-sm font-medium text-gray-900">
+																	{user.full_name}
+																</div>
+															</td>
+															<td className="px-6 py-4 whitespace-nowrap">
+																<div className="text-sm text-gray-500">
+																	{user.email}
+																</div>
+															</td>
+															<td className="px-6 py-4">
+																<div className="text-sm text-gray-900">
+																	{userBoards.length > 0 ? (
+																		<div className="space-y-1">
+																			{userBoards.map((board) => (
+																				<div
+																					key={board.id}
+																					className="flex items-center space-x-2"
+																				>
+																					<span>{board.name}</span>
+																				</div>
+																			))}
+																		</div>
+																	) : hasOrphanedBoards ? (
+																		<span className="text-red-500">
+																			Orphaned board references found
+																		</span>
+																	) : (
+																		<span className="text-gray-500">
+																			No board ownership
+																		</span>
+																	)}
+																</div>
+															</td>
+															<td className="px-6 py-4 whitespace-nowrap">
+																<span
+																	className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+																		hasOrphanedBoards
+																			? "bg-red-100 text-red-800"
+																			: userBoards.length > 0
+																				? "bg-yellow-100 text-yellow-800"
+																				: "bg-green-100 text-green-800"
+																	}`}
+																>
+																	{hasOrphanedBoards
+																		? "Data Inconsistency"
+																		: userBoards.length > 0
+																			? "Has Board Ownership"
+																			: "No Board Ownership"}
+																</span>
+															</td>
+														</tr>
+													);
+												})}
+										</tbody>
+									</table>
+								</div>
+							</div>
+						</div>
+					</div>
+				);
 			default:
 				return null;
 		}
@@ -341,6 +730,18 @@ export const SuperAdminDashboard = () => {
 								data-testid="boards-tab"
 							>
 								Boards
+							</button>
+							<button
+								type="button"
+								onClick={() => setActiveTab("maintenance")}
+								className={`${
+									activeTab === "maintenance"
+										? "border-blue-500 text-blue-600"
+										: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+								} whitespace-nowrap pb-4 px-1 border-b-2 font-medium`}
+								data-testid="maintenance-tab"
+							>
+								Maintenance
 							</button>
 							<button
 								type="button"
@@ -537,8 +938,11 @@ export const SuperAdminDashboard = () => {
 							<Button
 								variant="danger"
 								onClick={() => {
-									deleteUserMutation.mutate(userToDelete.id);
-									setUserToDelete(null);
+									deleteUserMutation.mutate(userToDelete.id, {
+										onSuccess: () => {
+											setUserToDelete(null);
+										},
+									});
 								}}
 								type="button"
 								data-testid="confirm-delete-user"

@@ -211,15 +211,38 @@ func (r *UserRepository) Update(ctx context.Context, u *user.User) error {
 
 // Delete deletes a user by ID
 func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	query := `DELETE FROM users WHERE id = $1`
+	// Start a transaction
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback(ctx)
 
-	result, err := r.db.Exec(ctx, query, id)
+	// First, delete any board memberships
+	_, err = tx.Exec(ctx, `DELETE FROM board_members WHERE user_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete board memberships: %w", err)
+	}
+
+	// Then, delete any boards owned by the user
+	_, err = tx.Exec(ctx, `DELETE FROM boards WHERE owner_id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete boards: %w", err)
+	}
+
+	// Finally, delete the user
+	result, err := tx.Exec(ctx, `DELETE FROM users WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("failed to delete user: %w", err)
 	}
 
 	if result.RowsAffected() == 0 {
 		return repository.ErrNotFound
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
