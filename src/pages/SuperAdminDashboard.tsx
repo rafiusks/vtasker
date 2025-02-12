@@ -16,6 +16,7 @@ export const SuperAdminDashboard = () => {
 	const queryClient = useQueryClient();
 	const [selectedUser, setSelectedUser] = useState<User | null>(null);
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
+	const [boardToDelete, setBoardToDelete] = useState<Board | null>(null);
 	const [activeTab, setActiveTab] = useState<
 		"users" | "boards" | "settings" | "logs"
 	>("users");
@@ -100,6 +101,22 @@ export const SuperAdminDashboard = () => {
 		},
 	});
 
+	const deleteBoardMutation = useMutation({
+		mutationFn: async (boardId: string) => {
+			return boardAPI.deleteBoard(boardId);
+		},
+		onSuccess: () => {
+			toast.success("Board deleted successfully");
+			queryClient.invalidateQueries({ queryKey: ["boards", "all"] });
+			setBoardToDelete(null);
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to delete board",
+			);
+		},
+	});
+
 	const renderTabContent = () => {
 		switch (activeTab) {
 			case "users":
@@ -155,6 +172,13 @@ export const SuperAdminDashboard = () => {
 											onClick={() => setSelectedBoard(b)}
 										>
 											Edit
+										</Button>
+										<Button
+											variant="danger"
+											className="text-sm"
+											onClick={() => setBoardToDelete(b)}
+										>
+											Delete
 										</Button>
 									</div>
 								</div>
@@ -367,6 +391,37 @@ export const SuperAdminDashboard = () => {
 									Save Changes
 								</Button>
 							</div>
+						</div>
+					</div>
+				</div>
+			)}
+
+			{/* Board Delete Confirmation Modal */}
+			{boardToDelete && (
+				<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+					<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+						<h3 className="text-lg font-medium text-gray-900 mb-4">
+							Delete Board
+						</h3>
+						<p className="text-gray-600 mb-4">
+							Are you sure you want to delete the board "{boardToDelete.name}"?
+							This action cannot be undone.
+						</p>
+						<div className="flex justify-end space-x-3">
+							<Button
+								variant="outline"
+								className="text-sm"
+								onClick={() => setBoardToDelete(null)}
+							>
+								Cancel
+							</Button>
+							<Button
+								variant="danger"
+								onClick={() => deleteBoardMutation.mutate(boardToDelete.id)}
+								isLoading={deleteBoardMutation.isPending}
+							>
+								Delete Board
+							</Button>
 						</div>
 					</div>
 				</div>
