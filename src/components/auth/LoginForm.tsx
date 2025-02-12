@@ -21,6 +21,26 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 		rememberMe: false,
 	});
 
+	const [validationErrors, setValidationErrors] = useState({
+		email: "",
+		password: "",
+	});
+
+	const validateField = (name: string, value: string) => {
+		switch (name) {
+			case "email":
+				return !value
+					? "Email is required"
+					: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+						? "Invalid email format"
+						: "";
+			case "password":
+				return !value ? "Password is required" : "";
+			default:
+				return "";
+		}
+	};
+
 	const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
 		const { name, value, type, checked } = e.target;
 		setFormData((prev) => ({
@@ -28,10 +48,31 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 			[name]: type === "checkbox" ? checked : value,
 		}));
 		setError(""); // Clear error when user types
+		setValidationErrors((prev) => ({ ...prev, [name]: "" })); // Clear field validation
+	};
+
+	const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+		const { name, value } = e.target;
+		const error = validateField(name, value);
+		setValidationErrors((prev) => ({ ...prev, [name]: error }));
+	};
+
+	const validateForm = () => {
+		const newErrors = {
+			email: validateField("email", formData.email),
+			password: validateField("password", formData.password),
+		};
+
+		setValidationErrors(newErrors);
+		return !Object.values(newErrors).some(Boolean);
 	};
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
+		if (!validateForm()) {
+			return;
+		}
+
 		setIsLoading(true);
 		setError("");
 
@@ -62,7 +103,17 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 			}
 		} catch (err) {
 			console.error("Login error:", err);
-			setError(err instanceof Error ? err.message : "Failed to login");
+			if (err instanceof Error) {
+				if (err.message?.includes("401")) {
+					setError("Invalid credentials");
+				} else if (err.message?.includes("Failed to fetch")) {
+					setError("Failed to login");
+				} else {
+					setError(err.message);
+				}
+			} else {
+				setError("Failed to login");
+			}
 			setIsLoading(false);
 		}
 	};
@@ -103,10 +154,12 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 					name="email"
 					value={formData.email}
 					onChange={handleChange}
+					onBlur={handleBlur}
 					required
 					autoComplete="email"
 					placeholder="Enter your email"
 					data-testid="email-input"
+					error={validationErrors.email}
 				/>
 
 				<Input
@@ -115,10 +168,12 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 					name="password"
 					value={formData.password}
 					onChange={handleChange}
+					onBlur={handleBlur}
 					required
 					autoComplete="current-password"
 					placeholder="Enter your password"
 					data-testid="password-input"
+					error={validationErrors.password}
 				/>
 
 				<div className="flex items-center justify-between">
@@ -153,6 +208,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 					className="w-full"
 					isLoading={isLoading}
 					disabled={!formData.email || !formData.password}
+					data-testid="login-button"
 				>
 					Login
 				</Button>

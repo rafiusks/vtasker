@@ -28,20 +28,20 @@ export const TEST_USER = generateTestUser();
 
 export async function registerTestUser(page: Page, user = generateTestUser()) {
 	await page.goto("/register");
-	await page.getByLabel("Full Name").fill(user.fullName);
-	await page.getByLabel("Email").fill(user.email);
-	await page.getByLabel("Password").fill(user.password);
-	await page.getByLabel("Confirm Password").fill(user.password);
-	await page.getByRole("button", { name: /create account/i }).click();
+	await page.getByTestId("fullname-input").fill(user.fullName);
+	await page.getByTestId("email-input").fill(user.email);
+	await page.getByTestId("password-input").fill(user.password);
+	await page.getByTestId("confirm-password-input").fill(user.password);
+	await page.getByTestId("register-button").click();
 	await expectToBeOnPage(page, "/login");
 	return user;
 }
 
 export async function loginTestUser(page: Page, user = TEST_USER) {
 	await page.goto("/login");
-	await page.getByLabel("Email").fill(user.email);
-	await page.getByLabel("Password").fill(user.password);
-	await page.getByRole("button", { name: /login/i }).click();
+	await page.getByTestId("email-input").fill(user.email);
+	await page.getByTestId("password-input").fill(user.password);
+	await page.getByTestId("login-button").click();
 	await expectToBeOnPage(page, "/dashboard");
 	return user;
 }

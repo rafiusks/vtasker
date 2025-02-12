@@ -77,6 +77,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		setTokenSafely(null);
 		setUser(null);
 		localStorage.removeItem("auth");
+		localStorage.removeItem("tokenRefreshTimeout");
 		sessionStorage.removeItem("auth");
 		if (refreshTimeoutRef.current) {
 			window.clearTimeout(refreshTimeoutRef.current);
@@ -139,6 +140,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		(authData: StoredAuthData) => {
 			if (refreshTimeoutRef.current) {
 				window.clearTimeout(refreshTimeoutRef.current);
+				localStorage.removeItem("tokenRefreshTimeout");
 			}
 
 			const now = Date.now();
@@ -175,6 +177,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 			refreshTimeoutRef.current = window.setTimeout(() => {
 				handleTokenRefresh(authData);
 			}, timeUntilRefresh);
+
+			// Store timeout ID in localStorage
+			localStorage.setItem(
+				"tokenRefreshTimeout",
+				String(refreshTimeoutRef.current),
+			);
 		},
 		[handleTokenRefresh],
 	);
@@ -290,54 +298,42 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		};
 	}, [handleLogout, handleTokenRefresh, scheduleTokenRefresh, setTokenSafely]);
 
-	const login = useCallback(
+	// Login function implementation
+	const handleLogin = useCallback(
 		async (
-			newToken: string,
-			newRefreshToken: string,
-			newUser: User,
+			token: string,
+			refreshToken: string,
+			user: User,
 			expiresIn: number,
 			refreshExpiresIn: number,
-			rememberMe = false,
+			rememberMe?: boolean,
 		) => {
-			try {
-				console.log("Starting login process...");
-				const expiresAt = Date.now() + expiresIn * 1000;
-				const refreshExpiresAt = Date.now() + refreshExpiresIn * 1000;
+			console.log("Starting login process...");
+			const expiresAt = Date.now() + expiresIn * 1000;
+			const refreshExpiresAt = Date.now() + refreshExpiresIn * 1000;
 
-				// Set token and wait for it to be ready
-				await setTokenSafely(newToken);
-				console.log("Token set successfully");
+			const authData: StoredAuthData = {
+				token,
+				refresh_token: refreshToken,
+				user,
+				expiresAt,
+				refreshExpiresAt,
+			};
 
-				// Set user state
-				setUser(newUser);
-				console.log("User state set:", newUser);
+			// Store in appropriate storage based on remember me
+			const storage = rememberMe ? localStorage : sessionStorage;
+			storage.setItem("auth", JSON.stringify(authData));
+			console.log("Auth data stored");
 
-				// Prepare auth data
-				const authData: StoredAuthData = {
-					token: newToken,
-					refresh_token: newRefreshToken,
-					user: newUser,
-					expiresAt,
-					refreshExpiresAt,
-				};
+			// Set token and user state
+			await setTokenSafely(token);
+			setUser(user);
 
-				// Store auth data
-				const storage = rememberMe ? localStorage : sessionStorage;
-				storage.setItem("auth", JSON.stringify(authData));
-				console.log("Auth data stored");
-
-				// Schedule token refresh
-				scheduleTokenRefresh(authData);
-				console.log("Token refresh scheduled");
-
-				// Update loading state
-				setIsLoading(false);
-			} catch (error) {
-				console.error("Login process failed:", error);
-				handleLogout();
-			}
+			// Schedule token refresh
+			scheduleTokenRefresh(authData);
+			console.log("Token refresh scheduled");
 		},
-		[scheduleTokenRefresh, setTokenSafely, handleLogout],
+		[setTokenSafely, scheduleTokenRefresh],
 	);
 
 	const updateUser = useCallback(
@@ -374,10 +370,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 	const value = {
 		user,
 		token,
-		isAuthenticated: !!token,
+		isAuthenticated: !!token && !!user,
 		isLoading,
 		tokenReady,
-		login,
+		login: handleLogin,
 		logout: handleLogout,
 		updateUser,
 	};
