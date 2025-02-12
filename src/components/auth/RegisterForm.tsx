@@ -96,10 +96,8 @@ export const RegisterForm = () => {
 				"Account created successfully",
 			);
 
-			// Use a small delay to ensure state is updated before navigation
-			setTimeout(() => {
-				window.location.href = "/login";
-			}, 100);
+			// Use window.location.href to ensure a full page reload
+			window.location.href = "/login";
 		} catch (err) {
 			console.error("Registration failed:", err);
 			if (err instanceof Error) {

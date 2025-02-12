@@ -1,5 +1,5 @@
 import { useDrag } from "react-dnd";
-import type { Task } from "../../types/task";
+import type { Task } from "../../types";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 
 interface TaskCardProps {

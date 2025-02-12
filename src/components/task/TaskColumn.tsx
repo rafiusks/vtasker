@@ -1,5 +1,5 @@
 import { useDrop } from "react-dnd";
-import type { Task } from "../../types/task";
+import type { Task } from "../../types";
 import { TaskCard } from "./TaskCard";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import type { TaskStatusUI } from "../../types/typeReference";

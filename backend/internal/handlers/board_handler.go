@@ -92,10 +92,16 @@ func (h *BoardHandler) CreateBoard(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
 	board, err := h.boardRepo.CreateBoard(r.Context(), &input, user.ID)
 	if err != nil {
+		if err == repository.ErrBoardNameExists {
+			w.WriteHeader(http.StatusConflict)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(board)
 }
 

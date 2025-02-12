@@ -12,7 +12,13 @@ export async function clearInput(page: Page, selector: string) {
 }
 
 export async function waitForToast(page: Page, text: string) {
-	await expect(page.getByText(text)).toBeVisible({ timeout: 5000 });
+	await expect(page.getByText(text).first()).toBeVisible({ timeout: 5000 });
+}
+
+export interface TestUser {
+	fullName: string;
+	email: string;
+	password: string;
 }
 
 export function generateTestUser(prefix = "") {

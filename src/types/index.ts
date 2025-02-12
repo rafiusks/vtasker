@@ -23,6 +23,38 @@ export type {
 	TaskTypeEntity,
 };
 
+export interface TaskStatus {
+	id: number;
+	code: string;
+	name: string;
+	description?: string;
+	color: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
+
+export interface TaskPriority {
+	id: number;
+	code: string;
+	name: string;
+	description?: string;
+	color?: string;
+	display_order: number;
+	created_at?: string;
+	updated_at?: string;
+}
+
+export interface TaskType {
+	id: number;
+	code: string;
+	name: string;
+	description?: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
+
 export interface TaskContent {
 	description: string;
 	acceptance_criteria: AcceptanceCriterion[];

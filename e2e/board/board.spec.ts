@@ -48,15 +48,22 @@ test.describe("Board Management", () => {
 		await page.waitForLoadState("networkidle");
 
 		// Verify board name is displayed
-		await expect(page.getByText(boardName)).toBeVisible();
+		await expect(page.getByRole("heading", { name: boardName })).toBeVisible();
 
-		// Open board settings
-		await page.getByRole("button", { name: /board settings/i }).click();
+		// Wait for and click board settings button
+		const settingsButton = page.getByRole("button", {
+			name: /board settings/i,
+		});
+		await expect(settingsButton).toBeVisible();
+		await settingsButton.click();
 
 		// Click delete button in settings modal
-		await page
-			.getByRole("button", { name: "Delete Board", exact: true })
-			.click();
+		const deleteButton = page.getByRole("button", {
+			name: "Delete Board",
+			exact: true,
+		});
+		await expect(deleteButton).toBeVisible();
+		await deleteButton.click();
 
 		// Wait for and verify delete confirmation dialog
 		await expect(
@@ -65,7 +72,7 @@ test.describe("Board Management", () => {
 			),
 		).toBeVisible();
 
-		// Click delete button and wait for response and navigation
+		// Click delete button and wait for response
 		await Promise.all([
 			page.waitForResponse(
 				(response) =>
@@ -84,8 +91,10 @@ test.describe("Board Management", () => {
 		// Verify success message
 		await waitForToast(page, "Board deleted successfully");
 
-		// Verify the board is no longer in the list
-		await expect(page.getByText(boardName)).not.toBeVisible();
+		// Verify the board is no longer in the list by checking for its name in a button
+		await expect(
+			page.getByRole("button", { name: boardName }),
+		).not.toBeVisible();
 	});
 
 	test("should show validation errors for empty fields", async ({ page }) => {
@@ -142,27 +151,22 @@ test.describe("Board Management", () => {
 		await page.getByTestId("create-board-button").click();
 		await page.getByTestId("board-name-input").fill("Duplicate Board");
 
-		// Submit and expect error with increased timeout
-		try {
-			const [errorResponse] = await Promise.all([
-				page.waitForResponse(
-					(response) =>
-						response.url().includes("/api/boards") && response.status() === 409,
-					{ timeout: 30000 },
-				),
-				page.getByTestId("submit-create-board-button").click(),
-			]);
+		// Submit and expect error
+		const [errorResponse] = await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/boards") && response.status() === 409,
+				{ timeout: 10000 },
+			),
+			page.getByTestId("submit-create-board-button").click(),
+		]);
 
-			// Verify error response
-			const errorData = await errorResponse.json();
-			expect(errorData.error).toBe("Board name already exists");
+		// Verify error response
+		const errorData = await errorResponse.json();
+		expect(errorData.error).toBe("board name already exists");
 
-			// Verify error message in toast
-			await waitForToast(page, "Board name already exists");
-		} catch (error) {
-			console.error("Error during duplicate board test:", error);
-			throw error;
-		}
+		// Verify error message in toast
+		await waitForToast(page, "board name already exists");
 	});
 
 	test("should handle modal interactions", async ({ page }) => {

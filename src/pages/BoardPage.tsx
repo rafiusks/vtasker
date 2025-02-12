@@ -1,53 +1,152 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, Link } from "@tanstack/react-router";
+import { useParams, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { boardAPI, taskAPI } from "../api/client";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { TaskColumn } from "../components/task/TaskColumn";
-import {
-	TASK_STATUS,
-	initializeTaskStatuses,
-	updateStatusMap,
-	isTaskStatusId,
-} from "../types/typeReference";
-import { Button } from "../components/common/Button";
+import { TaskModal } from "../components/task/TaskModal";
 import { BoardSettingsModal } from "../components/board/BoardSettingsModal";
-import { useAuth } from "../contexts/AuthContext";
+import { Button } from "../components/common/Button";
 import { toast } from "sonner";
-import { AppLayout } from "../App";
-import { TaskForm } from "../components/TaskForm";
-import type { Task } from "../types/task";
-import type { BoardPageParams } from "../types/router";
-import { router } from "../router";
-import { Breadcrumbs } from "../components/common/Breadcrumbs";
+import type {
+	Task,
+	TaskContent,
+	TaskMetadata,
+	TaskProgress,
+	TaskRelationships,
+} from "../types";
+import type {
+	TaskStatusUI,
+	TaskStatusEntity,
+	TaskPriorityEntity,
+	TaskTypeEntity,
+} from "../types/typeReference";
+
+interface TaskStatusResponse {
+	id: number;
+	code: string;
+	name: string;
+	description?: string;
+	color: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
+
+interface TaskAPIResponse {
+	id: number;
+	code: string;
+	name: string;
+	description?: string;
+	color: string;
+	display_order: number;
+	created_at: string;
+	updated_at: string;
+}
 
 export const BoardPage = () => {
-	const navigate = useNavigate();
-	const boardSlug = window.location.pathname.split("/b/")[1]?.split("/")[0];
-	const { user } = useAuth();
+	const { boardSlug } = useParams({ from: "/b/$boardSlug" });
 	const queryClient = useQueryClient();
-	const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-	const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
-	const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
-	const [statusesLoaded, setStatusesLoaded] = useState(false);
-	const [editingTask, setEditingTask] = useState<Task>();
-	const [updatingTaskId, setUpdatingTaskId] = useState<string>();
+	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+	const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+	const [editingTask, setEditingTask] = useState<Task | null>(null);
+	const navigate = useNavigate();
 
-	// Task mutations
-	const { mutate: updateTask } = useMutation({
-		mutationFn: async ({
-			taskId,
-			updates,
-		}: {
-			taskId: string;
-			updates: Partial<Task>;
-		}) => {
-			return taskAPI.updateTask(taskId, updates);
+	// Load board data
+	const {
+		data: board,
+		isLoading: isLoadingBoard,
+		error: boardError,
+	} = useQuery({
+		queryKey: ["board", boardSlug],
+		queryFn: () => boardAPI.getBoard(boardSlug),
+	});
+
+	// Load task statuses
+	const {
+		data: taskStatuses,
+		isLoading: isLoadingStatuses,
+		error: statusesError,
+	} = useQuery<TaskStatusEntity[]>({
+		queryKey: ["taskStatuses"],
+		queryFn: () => taskAPI.listStatuses(),
+	});
+
+	// Load task priorities
+	const {
+		data: taskPriorities,
+		isLoading: isLoadingPriorities,
+		error: prioritiesError,
+	} = useQuery<TaskPriorityEntity[]>({
+		queryKey: ["taskPriorities"],
+		queryFn: () => taskAPI.listPriorities(),
+	});
+
+	// Load task types
+	const {
+		data: taskTypes,
+		isLoading: isLoadingTypes,
+		error: typesError,
+	} = useQuery<TaskTypeEntity[]>({
+		queryKey: ["taskTypes"],
+		queryFn: () => taskAPI.listTaskTypes(),
+	});
+
+	// Create task mutation
+	const createTaskMutation = useMutation({
+		mutationFn: async (data: Partial<Task>) => {
+			const now = new Date().toISOString();
+			const metadata: TaskMetadata = {
+				created_at: now,
+				updated_at: now,
+				board: board?.id,
+			};
+			const relationships: TaskRelationships = {
+				parent: undefined,
+				dependencies: [],
+				labels: [],
+			};
+			const progress: TaskProgress = {
+				acceptance_criteria: {
+					total: 0,
+					completed: 0,
+				},
+				percentage: 0,
+			};
+			const content: TaskContent = {
+				description: data.description || "",
+				acceptance_criteria: [],
+				attachments: [],
+			};
+
+			return taskAPI.createTask({
+				...data,
+				metadata,
+				relationships,
+				progress,
+				content,
+			});
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["boards", boardSlug] });
-			setIsTaskFormOpen(false);
-			setEditingTask(undefined);
+			queryClient.invalidateQueries({ queryKey: ["board", boardSlug] });
+			setIsCreateModalOpen(false);
+			toast.success("Task created successfully");
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to create task",
+			);
+		},
+	});
+
+	// Update task mutation
+	const updateTaskMutation = useMutation({
+		mutationFn: async (data: { id: string; updates: Partial<Task> }) => {
+			return taskAPI.updateTask(data.id, data.updates);
+		},
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ["board", boardSlug] });
+			setEditingTask(null);
 			toast.success("Task updated successfully");
 		},
 		onError: (error) => {
@@ -57,12 +156,13 @@ export const BoardPage = () => {
 		},
 	});
 
-	const { mutate: deleteTask } = useMutation({
+	// Delete task mutation
+	const deleteTaskMutation = useMutation({
 		mutationFn: async (taskId: string) => {
 			return taskAPI.deleteTask(taskId);
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["boards", boardSlug] });
+			queryClient.invalidateQueries({ queryKey: ["board", boardSlug] });
 			toast.success("Task deleted successfully");
 		},
 		onError: (error) => {
@@ -72,29 +172,23 @@ export const BoardPage = () => {
 		},
 	});
 
-	const { mutate: moveTask } = useMutation({
+	// Move task mutation
+	const moveTaskMutation = useMutation({
 		mutationFn: async ({
 			taskId,
-			newStatusId,
-			newIndex,
+			statusId,
 		}: {
 			taskId: string;
-			newStatusId: number;
-			newIndex?: number;
+			statusId: number;
 		}) => {
-			const task = board?.tasks?.find((t) => t.id === taskId);
-			if (!task) throw new Error("Task not found");
-
 			return taskAPI.moveTask(taskId, {
-				status_id: newStatusId,
-				order: typeof newIndex === "number" ? newIndex : 0,
-				previous_status_id: task.status_id,
-				comment: `Task moved to ${TASK_STATUS[newStatusId]?.name || "new status"}`,
-				type: task.type?.code || "feature",
+				status_id: statusId,
+				order: 0,
+				type: "move",
 			});
 		},
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["boards", boardSlug] });
+			queryClient.invalidateQueries({ queryKey: ["board", boardSlug] });
 		},
 		onError: (error) => {
 			toast.error(
@@ -103,236 +197,175 @@ export const BoardPage = () => {
 		},
 	});
 
-	// Load task statuses
+	// Initialize status map
+	const [statusMap, setStatusMap] = useState<Map<number, TaskStatusUI>>(
+		new Map(),
+	);
+
 	useEffect(() => {
-		async function loadStatuses() {
-			try {
-				const [statuses, priorities, types] = await Promise.all([
-					taskAPI.listStatuses(),
-					taskAPI.listPriorities(),
-					taskAPI.listTaskTypes(),
-				]);
-
-				// Initialize the status map first
-				await initializeTaskStatuses(statuses);
-				updateStatusMap();
-
-				// Only set loaded after everything is initialized
-				setStatusesLoaded(true);
-			} catch (error) {
-				console.error("Failed to load task statuses:", error);
-				toast.error("Failed to load task statuses");
-			}
-		}
-
-		loadStatuses();
-	}, []); // Only run once on mount
-
-	const {
-		data: board,
-		isLoading: isBoardLoading,
-		error,
-	} = useQuery({
-		queryKey: ["boards", boardSlug],
-		queryFn: () => boardAPI.getBoard(boardSlug),
-		retry: 1, // Only retry once to avoid long timeouts
-		enabled: statusesLoaded, // Only fetch board after statuses are loaded
-	});
-
-	// Task handlers
-	const handleTaskEdit = (taskId: string) => {
-		const task = board?.tasks?.find((t) => t.id === taskId);
-		if (task) {
-			setEditingTask(task);
-			setIsTaskFormOpen(true);
-		}
-	};
-
-	const handleTaskDelete = async (taskId: string) => {
-		if (confirm("Are you sure you want to delete this task?")) {
-			await deleteTask(taskId);
-		}
-	};
-
-	const handleTaskMove = async (
-		taskId: string,
-		newStatusId: number,
-		newIndex?: number,
-	) => {
-		if (!isTaskStatusId(newStatusId)) return;
-		setUpdatingTaskId(taskId);
-		try {
-			await moveTask({ taskId, newStatusId, newIndex });
-		} finally {
-			setUpdatingTaskId(undefined);
-		}
-	};
-
-	const handleTaskSubmit = async (task: Partial<Task>) => {
-		if (editingTask) {
-			setUpdatingTaskId(editingTask.id);
-			try {
-				await updateTask({
-					taskId: editingTask.id,
-					updates: task,
+		if (taskStatuses) {
+			console.log("Initializing task statuses with:", taskStatuses);
+			const map = new Map<number, TaskStatusUI>();
+			for (const status of taskStatuses) {
+				map.set(status.id, {
+					id: status.id,
+					code: status.code,
+					name: status.name,
+					color: status.color,
+					display_order: status.display_order,
 				});
-			} finally {
-				setUpdatingTaskId(undefined);
 			}
-		} else {
-			// Handle task creation
-			try {
-				const now = new Date().toISOString();
-				const newTask = await taskAPI.createTask({
-					title: task.title,
-					description: task.description,
-					status_id: task.status_id,
-					priority_id: task.priority_id,
-					type_id: task.type_id,
-					order: task.order || 0,
-					metadata: {
-						created_at: now,
-						updated_at: now,
-						board: board?.id,
-					},
-					relationships: task.relationships || {
-						dependencies: [],
-						labels: [],
-					},
-				});
-				queryClient.invalidateQueries({ queryKey: ["boards", boardSlug] });
-				setIsTaskFormOpen(false);
-				toast.success("Task created successfully");
-				return newTask;
-			} catch (error) {
-				toast.error(
-					error instanceof Error ? error.message : "Failed to create task",
-				);
-			}
+			console.log("Task statuses initialized:", map);
+			setStatusMap(map);
+			console.log("Updating status map");
+			console.log("Status map updated:", map);
 		}
-	};
+	}, [taskStatuses]);
 
-	if (!boardSlug) {
+	if (isLoadingBoard || isLoadingStatuses) {
 		return (
-			<div className="text-center py-12">
-				<p className="text-gray-500">Board not found</p>
-			</div>
-		);
-	}
-
-	if (isBoardLoading || !statusesLoaded) {
-		return (
-			<div
-				className="flex justify-center items-center h-64"
-				data-testid="loading-spinner"
-			>
+			<div className="flex justify-center items-center h-64">
 				<LoadingSpinner />
 			</div>
 		);
 	}
 
-	if (error) {
-		console.error("Failed to load board:", error);
+	if (boardError || statusesError) {
 		return (
 			<div className="text-center py-12">
 				<p className="text-red-500">
-					{error instanceof Error ? error.message : "Failed to load board"}
+					{boardError instanceof Error
+						? boardError.message
+						: "Failed to load board"}
 				</p>
 			</div>
 		);
 	}
 
-	if (!board) {
+	if (!board || !taskStatuses) {
 		return (
 			<div className="text-center py-12">
-				<p className="text-gray-500">Board not found</p>
+				<p className="text-gray-500">No board data available</p>
 			</div>
 		);
 	}
 
-	const canManageBoard = Boolean(
-		user?.id &&
-			board &&
-			// User is the board owner
-			(board.owner_id === user.id ||
-				// User is a board admin
-				board.members?.some(
-					(member) => member.user_id === user.id && member.role === "admin",
-				)),
-	);
+	const handleCreateTask = (data: Partial<Task>) => {
+		createTaskMutation.mutate(data);
+	};
+
+	const handleUpdateTask = (data: Partial<Task>) => {
+		if (editingTask) {
+			updateTaskMutation.mutate({
+				id: editingTask.id,
+				updates: data,
+			});
+		}
+	};
+
+	const handleDeleteTask = (taskId: string) => {
+		if (
+			window.confirm(
+				"Are you sure you want to delete this task? This cannot be undone.",
+			)
+		) {
+			deleteTaskMutation.mutate(taskId);
+		}
+	};
+
+	const handleMoveTask = (taskId: string, newStatusId: number) => {
+		moveTaskMutation.mutate({ taskId, statusId: newStatusId });
+	};
 
 	return (
-		<AppLayout>
-			<div className="flex flex-col h-full">
-				<div className="flex justify-between items-center mb-4">
-					<Breadcrumbs
-						items={[
-							{ label: "Dashboard", to: "/dashboard" },
-							{ label: "Boards", to: "/boards" },
-							{ label: board.name },
-						]}
-					/>
-					<div className="flex gap-2">
-						<Button
-							data-testid="create-task-button"
-							onClick={() => setIsTaskFormOpen(true)}
-							variant="primary"
-							disabled={!statusesLoaded}
-						>
-							Create Task
-						</Button>
-						{user?.id === board.owner_id && (
-							<Button
-								onClick={() => setIsSettingsOpen(true)}
-								variant="secondary"
-							>
-								Board Settings
-							</Button>
-						)}
-					</div>
+		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+			<div className="flex justify-between items-center mb-6">
+				<div>
+					<h1 className="text-2xl font-bold text-gray-900">{board.name}</h1>
+					{board.description && (
+						<p className="mt-1 text-sm text-gray-500">{board.description}</p>
+					)}
 				</div>
-
-				<div className="grid grid-cols-1 md:grid-cols-4 gap-4 flex-grow">
-					{Object.entries(TASK_STATUS).map(([id, status]) => (
-						<TaskColumn
-							key={id}
-							status={status}
-							tasks={
-								board.tasks?.filter(
-									(task) => task.status_id === Number.parseInt(id, 10),
-								) || []
-							}
-							onDrop={handleTaskMove}
-							onEdit={handleTaskEdit}
-							onDelete={handleTaskDelete}
-							isLoading={false}
-							updatingTaskId={updatingTaskId}
-						/>
-					))}
+				<div className="flex gap-2">
+					<Button
+						onClick={() => setIsSettingsModalOpen(true)}
+						variant="secondary"
+						data-testid="board-settings-button"
+					>
+						Board Settings
+					</Button>
+					<Button
+						onClick={() => setIsCreateModalOpen(true)}
+						data-testid="create-task-button"
+					>
+						Create Task
+					</Button>
 				</div>
-
-				{isTaskFormOpen && statusesLoaded && (
-					<TaskForm
-						isOpen={isTaskFormOpen}
-						onClose={() => {
-							setIsTaskFormOpen(false);
-							setEditingTask(undefined);
-						}}
-						onSubmit={handleTaskSubmit}
-						task={editingTask}
-						isLoading={false}
-					/>
-				)}
-
-				{isSettingsOpen && (
-					<BoardSettingsModal
-						isOpen={isSettingsOpen}
-						board={board}
-						onClose={() => setIsSettingsOpen(false)}
-						onBoardDeleted={() => setIsDeleteConfirmOpen(true)}
-					/>
-				)}
 			</div>
-		</AppLayout>
+
+			<div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+				{taskStatuses.map((status) => {
+					const statusUI: TaskStatusUI = {
+						id: status.id,
+						code: status.code,
+						name: status.name,
+						color: status.color,
+						display_order: status.display_order,
+					};
+					return (
+						<TaskColumn
+							key={status.id}
+							status={statusUI}
+							tasks={
+								board.tasks?.filter((t) => t.status_id === status.id) || []
+							}
+							onDrop={handleMoveTask}
+							onEdit={(taskId) =>
+								setEditingTask(
+									board.tasks?.find((t) => t.id === taskId) || null,
+								)
+							}
+							onDelete={handleDeleteTask}
+							updatingTaskId={
+								moveTaskMutation.isPending
+									? moveTaskMutation.variables?.taskId
+									: undefined
+							}
+						/>
+					);
+				})}
+			</div>
+
+			<TaskModal
+				isOpen={isCreateModalOpen}
+				onClose={() => setIsCreateModalOpen(false)}
+				onSubmit={handleCreateTask}
+				isLoading={createTaskMutation.isPending}
+				statusOptions={taskStatuses}
+				priorityOptions={taskPriorities || []}
+				typeOptions={taskTypes || []}
+			/>
+
+			{editingTask && (
+				<TaskModal
+					isOpen={true}
+					onClose={() => setEditingTask(null)}
+					onSubmit={handleUpdateTask}
+					initialData={editingTask}
+					isLoading={updateTaskMutation.isPending}
+					statusOptions={taskStatuses}
+					priorityOptions={taskPriorities || []}
+					typeOptions={taskTypes || []}
+				/>
+			)}
+
+			{board && (
+				<BoardSettingsModal
+					isOpen={isSettingsModalOpen}
+					onClose={() => setIsSettingsModalOpen(false)}
+					board={board}
+				/>
+			)}
+		</div>
 	);
 };

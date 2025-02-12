@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -320,6 +321,9 @@ func (r *BoardRepository) GetBoardBySlug(ctx context.Context, slug string, userI
 	return &board, nil
 }
 
+// ErrBoardNameExists is returned when attempting to create a board with a name that already exists
+var ErrBoardNameExists = fmt.Errorf("board name already exists")
+
 // CreateBoard creates a new board
 func (r *BoardRepository) CreateBoard(ctx context.Context, input *models.CreateBoardInput, ownerID uuid.UUID) (*models.Board, error) {
 	// Generate initial slug from input or board name
@@ -373,6 +377,9 @@ func (r *BoardRepository) CreateBoard(ctx context.Context, input *models.CreateB
 		&board.UpdatedAt,
 	)
 	if err != nil {
+		if strings.Contains(err.Error(), "SQLSTATE 23505") {
+			return nil, ErrBoardNameExists
+		}
 		return nil, fmt.Errorf("error creating board: %v", err)
 	}
 

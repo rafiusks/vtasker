@@ -333,3 +333,9 @@
   - [ ] Get suggested actions based on the current state
   - [ ] Get suggested actions based on the user's profile
   - [ ] Get suggested actions based on the user's preferences
+- [ ] Error table in the database
+  - [ ] Track errors in the application
+  - [ ] Track errors in the database
+  - [ ] Track errors in the API
+  - [ ] Track errors in the frontend
+  - [ ] Track errors in the backend

@@ -4,7 +4,7 @@
  * between frontend and backend representations.
  */
 
-import type { TaskStatus, TaskPriority, TaskType } from "./task";
+import type { TaskStatus, TaskPriority, TaskType } from "./index";
 
 // ============================================================================
 // Core Type Definitions
@@ -16,9 +16,9 @@ export type TaskPriorityId = number;
 export type TaskTypeId = number;
 
 // API Types
-export interface TaskStatusEntity extends TaskStatus {}
-export interface TaskPriorityEntity extends TaskPriority {}
-export interface TaskTypeEntity extends TaskType {}
+export type TaskStatusEntity = TaskStatus;
+export type TaskPriorityEntity = TaskPriority;
+export type TaskTypeEntity = TaskType;
 
 // UI Types
 export interface TaskStatusUI {

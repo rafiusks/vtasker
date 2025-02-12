@@ -105,7 +105,10 @@ export class BaseAPI {
 
 			// Handle specific error cases
 			if (response.status === 409) {
-				throw new Error("User already exists");
+				const data = await response.json().catch(() => null);
+				throw new Error(
+					data?.message || data?.error || "board name already exists",
+				);
 			}
 
 			throw new Error(

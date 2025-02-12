@@ -93,6 +93,10 @@ func (h *BoardHandler) CreateBoard(c *gin.Context) {
 
 	board, err := h.repo.CreateBoard(c.Request.Context(), &input, userID)
 	if err != nil {
+		if err.Error() == "board name already exists" {
+			c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

@@ -5,6 +5,7 @@ import { boardAPI } from "../../api/client";
 import type { CreateBoardInput, Board } from "../../types/board";
 import { Button } from "../common/Button";
 import { Input } from "../common/Input";
+import { toast } from "sonner";
 
 interface CreateBoardModalProps {
 	isOpen: boolean;
@@ -49,6 +50,7 @@ export const CreateBoardModal = ({
 		},
 		onError: (error) => {
 			console.error("Failed to create board:", error);
+			toast.error(error.message);
 		},
 	});
 
@@ -95,92 +97,105 @@ export const CreateBoardModal = ({
 
 	return (
 		<>
-			<button
-				type="button"
-				className="fixed inset-0 bg-black bg-opacity-50 w-full h-full border-0 z-40"
+			<div
+				className="fixed inset-0 bg-black bg-opacity-50"
 				onClick={handleBackdropInteraction}
+				onKeyDown={(e) => {
+					if (e.key === "Escape") {
+						handleBackdropInteraction();
+					}
+				}}
 				data-testid="modal-backdrop"
-				aria-label="Close modal"
-			/>
-			<div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
-				<div
-					className="bg-white p-6 rounded-lg shadow-lg w-96 pointer-events-auto relative"
-					data-testid="create-board-modal"
-					onClick={(e) => e.stopPropagation()}
-					onKeyDown={(e) => e.stopPropagation()}
+				role="presentation"
+			>
+				<dialog
+					className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-transparent m-0 p-0"
+					data-testid="modal-container"
+					open
 				>
-					<h2 className="text-xl font-bold mb-4">Create New Board</h2>
-					<form onSubmit={handleSubmit}>
-						<div className="mb-4">
-							<Input
-								label="Board Name"
-								name="name"
-								value={formData.name}
-								onChange={handleNameChange}
-								required
-								placeholder="Enter board name"
-								data-testid="board-name-input"
-							/>
-						</div>
-						<div className="mb-4">
-							<Input
-								label="URL Slug"
-								name="slug"
-								value={formData.slug}
-								onChange={handleChange}
-								placeholder="Enter URL slug"
-								data-testid="board-slug-input"
-								helperText="This will be used in the board's URL. Leave empty to auto-generate."
-							/>
-						</div>
-						<div className="mb-4">
-							<Input
-								label="Description"
-								name="description"
-								value={formData.description || ""}
-								onChange={handleChange}
-								placeholder="Enter board description"
-								data-testid="board-description-input"
-							/>
-						</div>
-						<div className="mb-4">
-							<label className="flex items-center">
-								<input
-									type="checkbox"
-									name="is_public"
-									checked={formData.is_public}
-									onChange={(e) =>
-										setFormData({
-											...formData,
-											is_public: e.target.checked,
-										})
-									}
-									className="mr-2"
-									data-testid="board-public-checkbox"
+					<div
+						className="bg-white p-6 rounded-lg shadow-lg w-96 relative"
+						data-testid="create-board-modal"
+						onClick={(e) => e.stopPropagation()}
+						onKeyDown={(e) => e.stopPropagation()}
+						role="document"
+						aria-labelledby="modal-title"
+					>
+						<h2 id="modal-title" className="text-xl font-bold mb-4">
+							Create New Board
+						</h2>
+						<form onSubmit={handleSubmit}>
+							<div className="mb-4">
+								<Input
+									label="Board Name"
+									name="name"
+									value={formData.name}
+									onChange={handleNameChange}
+									required
+									placeholder="Enter board name"
+									data-testid="board-name-input"
 								/>
-								<span>Public Board</span>
-							</label>
-						</div>
-						<div className="flex justify-end gap-2">
-							<Button
-								type="button"
-								variant="secondary"
-								onClick={onClose}
-								data-testid="cancel-create-board-button"
-							>
-								Cancel
-							</Button>
-							<Button
-								type="submit"
-								variant="primary"
-								disabled={isCreating}
-								data-testid="submit-create-board-button"
-							>
-								{isCreating ? "Creating..." : "Create"}
-							</Button>
-						</div>
-					</form>
-				</div>
+							</div>
+							<div className="mb-4">
+								<Input
+									label="URL Slug"
+									name="slug"
+									value={formData.slug}
+									onChange={handleChange}
+									placeholder="Enter URL slug"
+									data-testid="board-slug-input"
+									helperText="This will be used in the board's URL. Leave empty to auto-generate."
+								/>
+							</div>
+							<div className="mb-4">
+								<Input
+									label="Description"
+									name="description"
+									value={formData.description || ""}
+									onChange={handleChange}
+									placeholder="Enter board description"
+									data-testid="board-description-input"
+								/>
+							</div>
+							<div className="mb-4">
+								<label className="flex items-center">
+									<input
+										type="checkbox"
+										name="is_public"
+										checked={formData.is_public}
+										onChange={(e) =>
+											setFormData({
+												...formData,
+												is_public: e.target.checked,
+											})
+										}
+										className="mr-2"
+										data-testid="board-public-checkbox"
+									/>
+									<span>Public Board</span>
+								</label>
+							</div>
+							<div className="flex justify-end gap-2">
+								<Button
+									type="button"
+									variant="secondary"
+									onClick={onClose}
+									data-testid="cancel-create-board-button"
+								>
+									Cancel
+								</Button>
+								<Button
+									type="submit"
+									variant="primary"
+									disabled={isCreating}
+									data-testid="submit-create-board-button"
+								>
+									{isCreating ? "Creating..." : "Create"}
+								</Button>
+							</div>
+						</form>
+					</div>
+				</dialog>
 			</div>
 		</>
 	);

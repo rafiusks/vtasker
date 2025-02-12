@@ -41,8 +41,9 @@ test.describe("User Registration", () => {
 			page.getByTestId("register-button").click(),
 		]);
 
-		// Log response for debugging
-		console.log("Registration response:", await response.json());
+		// Clone response for logging
+		const responseData = await response.json().catch(() => ({}));
+		console.log("Registration response:", responseData);
 
 		// Wait for navigation
 		await page.waitForURL(/\/login$/, { waitUntil: "networkidle" });
@@ -120,8 +121,9 @@ test.describe("User Registration", () => {
 			page.getByTestId("register-button").click(),
 		]);
 
-		// Log response for debugging
-		console.log("First registration response:", await response.json());
+		// Clone response for logging
+		const responseData = await response.json().catch(() => ({}));
+		console.log("First registration response:", responseData);
 
 		// Wait for navigation
 		await page.waitForURL(/\/login$/, { waitUntil: "networkidle" });

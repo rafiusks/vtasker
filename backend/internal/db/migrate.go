@@ -9,11 +9,32 @@ import (
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 )
 
+// Force sets the migration version to a specific number
+func Force(dbURL string, version int) error {
+	// Create a new migrate instance
+	m, err := migrate.New(
+		"file://migrations",
+		dbURL,
+	)
+	if err != nil {
+		return fmt.Errorf("error creating migrate instance: %w", err)
+	}
+	defer m.Close()
+
+	// Force version
+	if err := m.Force(version); err != nil {
+		return fmt.Errorf("error forcing version: %w", err)
+	}
+
+	log.Printf("Successfully forced version to %d", version)
+	return nil
+}
+
 // Migrate runs database migrations in the specified direction
 func Migrate(dbURL string, direction string) error {
 	// Create a new migrate instance
 	m, err := migrate.New(
-		"file://db/migrations",
+		"file://migrations",
 		dbURL,
 	)
 	if err != nil {
@@ -52,7 +73,7 @@ func Migrate(dbURL string, direction string) error {
 		}
 		log.Println("Successfully ran migrations down")
 	} else {
-		return fmt.Errorf("invalid direction: %s. Must be 'up' or 'down'", direction)
+		return fmt.Errorf("invalid direction: %s", direction)
 	}
 
 	return nil
