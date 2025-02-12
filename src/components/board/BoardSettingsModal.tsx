@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { updateBoard, deleteBoard } from "../../api/board";
+import { useNavigate } from "@tanstack/react-router";
+import { boardAPI } from "../../api/client";
 import type {
 	Board,
 	BoardMemberInput,
@@ -9,20 +10,20 @@ import type {
 import { Button } from "../common/Button";
 import { Input } from "../common/Input";
 import { MemberList } from "./MemberList";
+import { toast } from "sonner";
 
 interface BoardSettingsModalProps {
 	isOpen: boolean;
 	onClose: () => void;
 	board: Board;
-	onBoardDeleted?: () => void;
 }
 
 export const BoardSettingsModal = ({
 	isOpen,
 	onClose,
 	board,
-	onBoardDeleted,
 }: BoardSettingsModalProps) => {
+	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [formData, setFormData] = useState<UpdateBoardInput>({
 		name: board.name,
@@ -36,18 +37,49 @@ export const BoardSettingsModal = ({
 	const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
 	const { mutate: update, isPending: isUpdating } = useMutation({
-		mutationFn: () => updateBoard(board.id, formData),
+		mutationFn: async () => {
+			// Ensure is_public is a boolean
+			const updateData = {
+				...formData,
+				is_public: formData.is_public ?? false,
+			};
+			return boardAPI.updateBoard(board.id, updateData);
+		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["boards", board.id] });
 			onClose();
+			toast.success("Board updated successfully");
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to update board",
+			);
 		},
 	});
 
 	const { mutate: deleteBoardMutation, isPending: isDeleting } = useMutation({
-		mutationFn: () => deleteBoard(board.id),
+		mutationFn: () => boardAPI.deleteBoard(board.id),
 		onSuccess: () => {
+			// First close the modals
+			setIsDeleteConfirmOpen(false);
+			onClose();
+
+			// Show success message
+			toast.success("Board deleted successfully");
+
+			// Invalidate queries
 			queryClient.invalidateQueries({ queryKey: ["boards"] });
-			onBoardDeleted?.();
+
+			// Navigate after a short delay to ensure state updates are processed
+			setTimeout(() => {
+				navigate({ to: "/boards", replace: true });
+			}, 100);
+		},
+		onError: (error) => {
+			toast.error(
+				error instanceof Error ? error.message : "Failed to delete board",
+			);
+			setIsDeleteConfirmOpen(false);
 		},
 	});
 
@@ -74,7 +106,7 @@ export const BoardSettingsModal = ({
 	if (!isOpen) return null;
 
 	return (
-		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+		<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
 			<div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6">
 				<h2 className="text-xl font-semibold text-gray-900 mb-4">
 					Board Settings
@@ -157,7 +189,7 @@ export const BoardSettingsModal = ({
 
 				{/* Delete Confirmation Dialog */}
 				{isDeleteConfirmOpen && (
-					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+					<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
 						<div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
 							<h3 className="text-lg font-medium text-gray-900 mb-2">
 								Delete Board
@@ -171,6 +203,7 @@ export const BoardSettingsModal = ({
 									type="button"
 									variant="outline"
 									onClick={() => setIsDeleteConfirmOpen(false)}
+									disabled={isDeleting}
 								>
 									Cancel
 								</Button>

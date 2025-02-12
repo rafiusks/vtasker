@@ -60,6 +60,10 @@ func (h *BoardHandler) GetBoard(c *gin.Context) {
 
 	board, err := h.repo.GetBoard(c.Request.Context(), c.Param("id"), userID)
 	if err != nil {
+		if err.Error() == "board not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "board not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -144,6 +148,14 @@ func (h *BoardHandler) DeleteBoard(c *gin.Context) {
 	isSuperAdmin := user.IsSuperAdmin()
 
 	if err := h.repo.DeleteBoard(c.Request.Context(), c.Param("id"), userID, isSuperAdmin); err != nil {
+		if err.Error() == "board not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "board not found"})
+			return
+		}
+		if err.Error() == "unauthorized" {
+			c.JSON(http.StatusForbidden, gin.H{"error": "unauthorized to delete this board"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -167,6 +179,10 @@ func (h *BoardHandler) GetBoardBySlug(c *gin.Context) {
 
 	board, err := h.repo.GetBoardBySlug(c.Request.Context(), c.Param("slug"), userID)
 	if err != nil {
+		if err.Error() == "board not found" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "board not found"})
+			return
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

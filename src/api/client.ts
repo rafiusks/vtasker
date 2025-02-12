@@ -64,6 +64,11 @@ export interface TaskUpdateRequest {
 	column?: string;
 }
 
+interface APIError {
+	status?: number;
+	message?: string;
+}
+
 export class BaseAPI {
 	protected async request<T>(
 		endpoint: string,
@@ -199,12 +204,16 @@ export class BoardAPI extends BaseAPI {
 	}
 
 	async getBoard(idOrSlug: string): Promise<Board> {
-		// Try slug-based route first
 		try {
+			// Try slug-based route first
 			return await this.request<Board>(`/api/b/${idOrSlug}`);
-		} catch (error) {
-			// If not found by slug, try ID-based route
-			return await this.request<Board>(`/api/boards/${idOrSlug}`);
+		} catch (error: unknown) {
+			const apiError = error as APIError;
+			if (apiError?.status === 404) {
+				// If not found by slug, try ID-based route
+				return await this.request<Board>(`/api/boards/${idOrSlug}`);
+			}
+			throw error;
 		}
 	}
 
@@ -216,9 +225,18 @@ export class BoardAPI extends BaseAPI {
 	}
 
 	async deleteBoard(id: string): Promise<void> {
-		return this.request<void>(`/api/boards/${id}`, {
-			method: "DELETE",
-		});
+		try {
+			await this.request<void>(`/api/boards/${id}`, {
+				method: "DELETE",
+			});
+		} catch (error: unknown) {
+			const apiError = error as APIError;
+			if (apiError?.status === 404) {
+				// Board already deleted or doesn't exist
+				return;
+			}
+			throw error;
+		}
 	}
 
 	async listAllBoards(): Promise<Board[]> {
@@ -230,7 +248,7 @@ export class BoardAPI extends BaseAPI {
 		updates: { is_public: boolean; is_active?: boolean },
 	): Promise<Board> {
 		return this.request<Board>(`/api/boards/${id}`, {
-			method: "PATCH",
+			method: "PUT",
 			body: JSON.stringify(updates),
 		});
 	}

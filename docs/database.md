@@ -321,3 +321,59 @@ None currently defined.
 - Soft deletion is implemented using the `is_active` flag
 - Role-based access control is implemented using the `role_code` field
 - Slugs are automatically generated from board names and must be unique
+
+## Default Data
+
+### Task Statuses
+1. Backlog (display_order: 0)
+   - For tasks that are planned but not yet ready to be worked on
+   - Color: #E2E8F0, Icon: inbox
+2. To Do (display_order: 1)
+   - For tasks that are ready to be worked on
+   - Color: #F3F4F6, Icon: list
+3. In Progress (display_order: 2)
+   - For tasks that are currently being worked on
+   - Color: #DBEAFE, Icon: clock
+4. In Review (display_order: 3)
+   - For tasks that are being reviewed
+   - Color: #FEF3C7, Icon: eye
+5. Done (display_order: 4)
+   - For tasks that have been completed
+   - Color: #DCFCE7, Icon: check-circle
+6. Blocked (display_order: 5)
+   - For tasks that are blocked by dependencies or other issues
+   - Color: #FEE2E2, Icon: x-circle
+
+### Task Priorities
+1. Low (display_order: 0)
+   - For tasks that are not urgent and can be done when time permits
+   - Color: #E2E8F0, Icon: arrow-down
+2. Medium (display_order: 1)
+   - For tasks that should be done soon but are not urgent
+   - Color: #FEF3C7, Icon: minus
+3. High (display_order: 2)
+   - For tasks that are urgent and should be done as soon as possible
+   - Color: #FEE2E2, Icon: arrow-up
+4. Critical (display_order: 3)
+   - For tasks that are extremely urgent and must be done immediately
+   - Color: #DC2626, Icon: exclamation-circle
+
+### Task Types
+1. Feature (display_order: 0)
+   - For new functionality or enhancement
+   - Color: #DBEAFE, Icon: sparkles
+2. Bug (display_order: 1)
+   - For something that needs to be fixed
+   - Color: #FEE2E2, Icon: bug
+3. Chore (display_order: 2)
+   - For maintenance tasks or updates
+   - Color: #E2E8F0, Icon: wrench
+4. Task (display_order: 3)
+   - For general task or work item
+   - Color: #F3F4F6, Icon: clipboard
+5. Epic (display_order: 4)
+   - For large initiative containing multiple tasks
+   - Color: #F3E8FF, Icon: collection
+6. Story (display_order: 5)
+   - For user story or feature from user perspective
+   - Color: #DCFCE7, Icon: user

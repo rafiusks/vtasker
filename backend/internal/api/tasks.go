@@ -228,6 +228,7 @@ func (h *TaskHandler) Register(router *gin.RouterGroup) {
 		tasks.DELETE("/:id", h.DeleteTask)
 	}
 
+	// Register task status routes
 	router.GET("/task-statuses", h.ListTaskStatuses)
 	router.GET("/task-priorities", h.ListTaskPriorities)
 	router.GET("/task-types", h.ListTaskTypes)

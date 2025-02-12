@@ -32,8 +32,8 @@ export interface BoardMemberInput {
 export interface CreateBoardInput {
 	name: string;
 	description?: string;
-	is_public?: boolean;
-	members?: BoardMemberInput[];
+	is_public: boolean;
+	slug?: string;
 }
 
 export interface UpdateBoardInput {
