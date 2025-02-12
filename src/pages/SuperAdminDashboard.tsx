@@ -125,6 +125,7 @@ export const SuperAdminDashboard = () => {
 		onSuccess: () => {
 			toast.success("User deleted successfully");
 			queryClient.invalidateQueries({ queryKey: ["users"] });
+			setUserToDelete(null);
 		},
 		onError: (error) => {
 			toast.error(
@@ -356,7 +357,7 @@ export const SuperAdminDashboard = () => {
 				return (
 					<div data-testid="boards-tab-content">
 						<h2 className="text-xl font-semibold mb-4">Board Management</h2>
-						{isLoadingBoards ? (
+						{isLoadingBoards || isLoadingUsers ? (
 							<div className="flex justify-center">
 								<LoadingSpinner />
 							</div>
@@ -367,44 +368,171 @@ export const SuperAdminDashboard = () => {
 									: "Failed to load boards"}
 							</div>
 						) : (
-							<div className="space-y-4">
-								{boards?.map((board) => (
-									<div
-										key={board.id}
-										className="bg-white p-4 rounded-lg shadow"
-										data-testid="board-item"
-									>
-										<div className="flex items-center justify-between">
-											<div>
-												<h3 className="font-medium">{board.name}</h3>
-												<p className="text-sm text-gray-500">
-													{board.description}
-												</p>
-												<p className="text-sm text-gray-500">
-													Visibility: {board.is_public ? "Public" : "Private"}
-												</p>
-											</div>
-											<div className="space-x-2">
-												<Button
-													variant="secondary"
-													onClick={() => setSelectedBoard(board)}
-													type="button"
-													data-testid="edit-board-button"
-												>
-													Edit
-												</Button>
-												<Button
-													variant="danger"
-													onClick={() => setBoardToDelete(board)}
-													type="button"
-													data-testid="delete-board-button"
-												>
-													Delete
-												</Button>
-											</div>
-										</div>
+							<div className="space-y-6">
+								{/* Debug info */}
+								<div className="text-sm text-gray-500">
+									{boards
+										? `Total boards: ${boards.length}`
+										: "No boards loaded"}{" "}
+									|{" "}
+									{boards && users
+										? `Boards with owners: ${
+												boards.filter((b) =>
+													users.some(
+														(u) =>
+															u.id === b.owner_id &&
+															u.role_code !== "super_admin",
+													),
+												).length
+											}`
+										: "0"}{" "}
+									|{" "}
+									{boards && users
+										? `Orphaned boards: ${
+												boards.filter(
+													(b) =>
+														!users.some(
+															(u) =>
+																u.id === b.owner_id &&
+																u.role_code !== "super_admin",
+														),
+												).length
+											}`
+										: "0"}
+								</div>
+
+								{/* Boards with owners */}
+								<div className="bg-white p-6 rounded-lg shadow">
+									<div className="flex justify-between items-center mb-4">
+										<h3 className="text-lg font-medium">Boards with Owners</h3>
+										<Button
+											variant="danger"
+											onClick={() => {
+												if (
+													window.confirm(
+														"Are you sure you want to delete all boards with owners? This action cannot be undone.",
+													)
+												) {
+													// TODO: Implement bulk delete for boards with owners
+												}
+											}}
+											disabled={true}
+											title="This operation is currently disabled"
+											className="ml-4"
+										>
+											Delete All (Disabled)
+										</Button>
 									</div>
-								))}
+									<div className="space-y-4">
+										{boards
+											?.filter((board) =>
+												users?.some(
+													(u) =>
+														u.id === board.owner_id &&
+														u.role_code !== "super_admin",
+												),
+											)
+											.map((board) => (
+												<div
+													key={board.id}
+													className="flex items-center justify-between p-4 border rounded-lg"
+												>
+													<div>
+														<h4 className="font-medium">{board.name}</h4>
+														<p className="text-sm text-gray-500">
+															{board.description}
+														</p>
+														<p className="text-sm text-gray-500">
+															Owner:{" "}
+															{
+																users?.find((u) => u.id === board.owner_id)
+																	?.full_name
+															}
+														</p>
+													</div>
+													<div className="space-x-2">
+														<Button
+															variant="secondary"
+															onClick={() => setSelectedBoard(board)}
+														>
+															Edit
+														</Button>
+														<Button
+															variant="danger"
+															onClick={() => setBoardToDelete(board)}
+														>
+															Delete
+														</Button>
+													</div>
+												</div>
+											))}
+									</div>
+								</div>
+
+								{/* Orphaned boards */}
+								<div className="bg-white p-6 rounded-lg shadow">
+									<div className="flex justify-between items-center mb-4">
+										<h3 className="text-lg font-medium">Orphaned Boards</h3>
+										<Button
+											variant="danger"
+											onClick={() => {
+												if (
+													window.confirm(
+														"Are you sure you want to delete all orphaned boards? This action cannot be undone.",
+													)
+												) {
+													// TODO: Implement bulk delete for orphaned boards
+												}
+											}}
+											disabled={true}
+											title="This operation is currently disabled"
+											className="ml-4"
+										>
+											Delete All (Disabled)
+										</Button>
+									</div>
+									<div className="space-y-4">
+										{boards
+											?.filter(
+												(board) =>
+													!users?.some(
+														(u) =>
+															u.id === board.owner_id &&
+															u.role_code !== "super_admin",
+													),
+											)
+											.map((board) => (
+												<div
+													key={board.id}
+													className="flex items-center justify-between p-4 border rounded-lg bg-red-50"
+												>
+													<div>
+														<h4 className="font-medium">{board.name}</h4>
+														<p className="text-sm text-gray-500">
+															{board.description}
+														</p>
+														<p className="text-sm text-red-500">
+															Owner not found or is super admin
+														</p>
+													</div>
+													<div className="space-x-2">
+														<Button
+															variant="secondary"
+															onClick={() => setSelectedBoard(board)}
+														>
+															Edit
+														</Button>
+														<Button
+															variant="danger"
+															onClick={() => setBoardToDelete(board)}
+														>
+															Delete
+														</Button>
+													</div>
+												</div>
+											))}
+									</div>
+								</div>
 							</div>
 						)}
 					</div>
