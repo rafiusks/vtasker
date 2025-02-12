@@ -1,6 +1,8 @@
 package api
 
 import (
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rafaelzasas/vtasker/backend/internal/services"
@@ -18,6 +20,7 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 	taskHandler := NewTaskHandler(pool)
 	authHandler := NewAuthHandler(authService)
 	boardHandler := NewBoardHandler(pool)
+	userHandler := NewUserHandler(pool)
 
 	// Legacy routes (for compatibility)
 	legacy := router.Group("/api")
@@ -36,6 +39,9 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 
 			// Board routes
 			boardHandler.Register(protected)
+
+			// User routes
+			userHandler.Register(protected)
 		}
 	}
 
@@ -59,6 +65,17 @@ func SetupRoutes(router *gin.Engine, pool *pgxpool.Pool) {
 
 			// Board routes
 			boardHandler.Register(protected)
+
+			// User routes
+			userHandler.Register(protected)
 		}
 	}
+
+	// Add health check endpoint
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"status": "ok",
+			"time":   time.Now().UTC(),
+		})
+	})
 }

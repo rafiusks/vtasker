@@ -107,6 +107,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 					...storedData,
 					token: response.token,
 					expiresAt: newExpiresAt,
+					user: response.user || storedData.user,
 				};
 
 				// Update storage
@@ -117,6 +118,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 				// Update state and API client
 				await setTokenSafely(response.token);
+				if (response.user) {
+					setUser(response.user);
+				}
 
 				// Schedule next refresh
 				scheduleTokenRefresh(newStoredData);

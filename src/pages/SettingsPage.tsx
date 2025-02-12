@@ -7,7 +7,7 @@ export const SettingsPage = () => {
 	const { user, updateUser } = useAuth();
 	const [isEditing, setIsEditing] = useState(false);
 	const [isLoading, setIsLoading] = useState(false);
-	const [name, setName] = useState(user?.name || "");
+	const [fullName, setFullName] = useState(user?.full_name || "");
 	const [email, setEmail] = useState(user?.email || "");
 
 	const handleSubmit = async (e: React.FormEvent) => {
@@ -18,7 +18,7 @@ export const SettingsPage = () => {
 		try {
 			await updateUser({
 				...user,
-				name,
+				full_name: fullName,
 				email,
 			});
 			setIsEditing(false);
@@ -44,16 +44,16 @@ export const SettingsPage = () => {
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<div>
 						<label
-							htmlFor="name"
+							htmlFor="full_name"
 							className="block text-sm font-medium text-gray-700"
 						>
-							Name
+							Full Name
 						</label>
 						<input
 							type="text"
-							id="name"
-							value={name}
-							onChange={(e) => setName(e.target.value)}
+							id="full_name"
+							value={fullName}
+							onChange={(e) => setFullName(e.target.value)}
 							disabled={!isEditing}
 							className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 disabled:bg-gray-50"
 						/>

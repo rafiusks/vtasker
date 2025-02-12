@@ -31,7 +31,7 @@ export const Navbar = () => {
 								</Link>
 								<Menu as="div" className="relative ml-3">
 									<Menu.Button className="flex items-center gap-x-1 text-gray-700 hover:text-gray-900">
-										{user?.full_name}
+										{user.full_name || "Profile"}
 										<ChevronDownIcon className="h-5 w-5" aria-hidden="true" />
 									</Menu.Button>
 									<Transition
@@ -56,7 +56,7 @@ export const Navbar = () => {
 													</Link>
 												)}
 											</Menu.Item>
-											{user?.role === "super_admin" && (
+											{user?.role_code === "super_admin" && (
 												<Menu.Item>
 													{({ active }) => (
 														<Link

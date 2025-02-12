@@ -38,25 +38,26 @@ The application uses PostgreSQL as its database system. This document outlines t
 - `updated_at` (TIMESTAMP WITH TIME ZONE): When the role was last updated
 
 ### Users
-- `id` (UUID, Primary Key): Unique identifier for the user
-- `email` (VARCHAR(255), Unique): User's email address
-- `password_hash` (VARCHAR(255)): Hashed password
-- `full_name` (VARCHAR(255)): User's full name
-- `avatar_url` (VARCHAR(255)): URL to user's avatar image
-- `role_id` (INTEGER, Foreign Key): Reference to user_roles.id
-- `created_at` (TIMESTAMP WITH TIME ZONE): When the user was created
-- `updated_at` (TIMESTAMP WITH TIME ZONE): When the user was last updated
-- `last_login_at` (TIMESTAMP WITH TIME ZONE): When the user last logged in
+- `id` UUID PRIMARY KEY
+- `email` VARCHAR(255) UNIQUE NOT NULL
+- `full_name` VARCHAR(255)
+- `password_hash` VARCHAR(255) NOT NULL
+- `role_code` VARCHAR(50) NOT NULL DEFAULT 'user'
+- `avatar_url` VARCHAR(255)
+- `is_active` BOOLEAN DEFAULT true
+- `created_at` TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+- `updated_at` TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 
 ### Boards
-- `id` (UUID, Primary Key): Unique identifier for the board
-- `name` (VARCHAR(255)): Board name
-- `slug` (VARCHAR(255), Unique): URL-friendly identifier
-- `description` (TEXT): Board description
-- `owner_id` (UUID, Foreign Key): Reference to users.id
-- `is_public` (BOOLEAN): Whether the board is publicly accessible
-- `created_at` (TIMESTAMP WITH TIME ZONE): When the board was created
-- `updated_at` (TIMESTAMP WITH TIME ZONE): When the board was last updated
+- `id` UUID PRIMARY KEY
+- `name` VARCHAR(255) NOT NULL
+- `slug` VARCHAR(255) UNIQUE NOT NULL
+- `description` TEXT
+- `is_public` BOOLEAN DEFAULT false
+- `is_active` BOOLEAN DEFAULT true
+- `owner_id` UUID REFERENCES users(id)
+- `created_at` TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+- `updated_at` TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 
 ### Board Members
 - `board_id` (UUID, Foreign Key): Reference to boards.id
@@ -254,13 +255,10 @@ Manages task collaborators and their roles.
 - Polymorphic relationship with various entities
 
 ## Indexes
-- `users_email_idx` on users(email)
-- `users_role_id_idx` on users(role_id)
-- `boards_slug_idx` on boards(slug)
-- `boards_owner_id_idx` on boards(owner_id)
-- `board_members_board_user_idx` on board_members(board_id, user_id)
-- `tasks_board_id_idx` on tasks(board_id)
-- `tasks_owner_id_idx` on tasks(owner_id)
+- `users_email_idx` ON users(email)
+- `users_role_code_idx` ON users(role_code)
+- `boards_slug_idx` ON boards(slug)
+- `boards_owner_id_idx` ON boards(owner_id)
 
 ### Additional Indexes
 - `idx_activity_logs_actor` on activity_logs(actor_id)
@@ -276,8 +274,8 @@ Manages task collaborators and their roles.
 - `idx_error_logs_created_at` on error_logs(created_at)
 
 ## Triggers
-- `update_updated_at`: Updates the updated_at timestamp when a record is modified
-  - Applied to: users, boards, tasks, user_roles
+- `update_updated_at_timestamp` - Updates the `updated_at` field automatically when a record is modified
+  - Applied to: users, boards
 
 ## Constraints
 1. Primary Keys on all tables
@@ -317,3 +315,9 @@ None currently defined.
 - `audit_action`: ENUM ('user_role_change', 'board_delete', 'system_config_change', etc.)
 - `metric_type`: ENUM ('cpu_usage', 'memory_usage', 'db_connections', 'api_latency', etc.)
 - `error_severity`: ENUM ('info', 'warning', 'error', 'fatal')
+
+## Notes
+- All timestamps are stored in UTC
+- Soft deletion is implemented using the `is_active` flag
+- Role-based access control is implemented using the `role_code` field
+- Slugs are automatically generated from board names and must be unique

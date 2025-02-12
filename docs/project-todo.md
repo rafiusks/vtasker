@@ -1,9 +1,17 @@
 # Project Todo List
 
 ## Current Bugs/Issues
-- [ ] user's name not showing in the navbar | high priority
-- [ ] superadmin menu not showing in the navbar | high priority
-- [ ] /super-admin dashboard not working | high priority
+- [x] user's name not showing in the navbar | high priority
+- [x] superadmin menu not showing in the navbar | high priority
+- [x] /super-admin dashboard not working | high priority
+- [ ] Add validation for empty full_name in backend | medium priority
+- [ ] Add frontend validation for empty full_name | medium priority
+- [ ] Add user profile completeness indicator | low priority
+- [ ] when trying to access a protected route, it errors out instead of redirecting to the login page | low priority
+- [ ] Add search functionality to Super Admin Dashboard | medium priority
+- [ ] Add pagination to user and board lists in Super Admin Dashboard | medium priority
+- [ ] Add sorting functionality to Super Admin Dashboard lists | medium priority
+- [ ] Add bulk actions to Super Admin Dashboard | low priority
 
 ## Board Management
 - [x] Create database schema for boards
@@ -72,14 +80,17 @@
 ## User Management
 - [x] User authentication
 - [x] User registration
-- [ ] User profile management
-  - [ ] Profile editing
+- [x] User profile management
+  - [x] Profile editing
   - [ ] Avatar management
   - [ ] Password change
   - [ ] Email verification
-- [ ] User roles and permissions
+  - [x] Full name management
+  - [ ] Profile completeness tracking
+- [x] User roles and permissions
   - [x] Basic role system
   - [x] Super admin role
+  - [x] Role-based access control
   - [ ] Custom permissions
   - [ ] Role inheritance
 - [ ] Team management
@@ -108,16 +119,27 @@
   - [x] Update user roles
   - [x] Delete users
   - [ ] View user activity logs
+  - [ ] Add user search functionality
+  - [ ] Add user filters
+  - [ ] Add user sorting
+  - [ ] Add bulk user actions
 - [x] Add board management features
   - [x] List all boards
   - [x] Update board settings
   - [x] Delete boards
   - [ ] View board activity logs
+  - [ ] Add board search functionality
+  - [ ] Add board filters
+  - [ ] Add board sorting
+  - [ ] Add bulk board actions
 - [ ] Add system monitoring
   - [ ] View system metrics
   - [ ] View error logs
   - [ ] View audit logs
   - [ ] Add monitoring dashboard
+  - [ ] Add real-time monitoring
+  - [ ] Add alert system
+  - [ ] Add custom metrics
 
 ## UI/UX
 - [x] Responsive layout

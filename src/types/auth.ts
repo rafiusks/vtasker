@@ -1,10 +1,21 @@
+export interface UserRole {
+	id: number;
+	code: string;
+	name: string;
+	description: string;
+	created_at: string;
+	updated_at: string;
+}
+
 export interface User {
 	id: string;
 	email: string;
 	full_name: string;
 	avatar_url?: string;
-	role: "super_admin" | "admin" | "user";
+	role_code: string;
 	created_at: string;
+	updated_at: string;
+	last_login_at?: string;
 }
 
 export interface UserCreate {
@@ -31,6 +42,7 @@ export interface LoginResponse {
 export interface RefreshTokenResponse {
 	token: string;
 	expires_in: number;
+	user?: User;
 }
 
 export interface AuthState {

@@ -28,6 +28,7 @@ import type {
 	TaskLoaderData,
 } from "./types/router";
 import { SuperAdminDashboard } from "./pages/SuperAdminDashboard";
+import { redirect } from "@tanstack/react-router";
 
 // Helper function to check auth state
 const isAuthenticated = () => {
@@ -217,23 +218,24 @@ const superAdminRoute = createRoute({
 		</ProtectedComponent>
 	),
 	beforeLoad: async ({ location }) => {
-		const auth = JSON.parse(
-			localStorage.getItem("auth") || sessionStorage.getItem("auth") || "{}",
-		);
-		if (!auth?.user?.role || auth.user.role !== "super_admin") {
-			throw new Response(null, {
-				status: 403,
-				headers: {
-					Location: `/dashboard`,
+		// First check if user is authenticated
+		if (!checkAuthFromStorage()) {
+			throw redirect({
+				to: "/login",
+				search: {
+					redirect: location.pathname,
 				},
 			});
 		}
-		if (!checkAuthFromStorage()) {
-			throw new Response(null, {
-				status: 302,
-				headers: {
-					Location: `/login?redirect=${encodeURIComponent(location.pathname)}`,
-				},
+
+		// Then check if user has super admin role
+		const auth = JSON.parse(
+			localStorage.getItem("auth") || sessionStorage.getItem("auth") || "{}",
+		);
+
+		if (!auth?.user?.role_code || auth.user.role_code !== "super_admin") {
+			throw redirect({
+				to: "/dashboard",
 			});
 		}
 	},

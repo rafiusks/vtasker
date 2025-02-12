@@ -34,7 +34,7 @@ type User struct {
 	FullName     string     `json:"full_name" db:"full_name"`
 	AvatarURL    string     `json:"avatar_url,omitempty" db:"avatar_url"`
 	RoleID       int        `json:"-" db:"role_id"`
-	Role         *UserRole  `json:"-" db:"-"`
+	Role         *UserRole  `json:"role" db:"-"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
 	LastLoginAt  *time.Time `json:"last_login_at,omitempty" db:"last_login_at"`
@@ -45,7 +45,7 @@ func (u *User) MarshalJSON() ([]byte, error) {
 	type Alias User
 	return json.Marshal(&struct {
 		*Alias
-		Role string `json:"role"`
+		Role string `json:"role_code"`
 	}{
 		Alias: (*Alias)(u),
 		Role:  u.GetRole(),

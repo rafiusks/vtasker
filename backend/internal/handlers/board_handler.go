@@ -24,7 +24,6 @@ func (h *BoardHandler) Routes() chi.Router {
 	r := chi.NewRouter()
 
 	r.Get("/", h.ListBoards)
-	r.Get("/all", h.ListAllBoards) // Super admin only
 	r.Post("/", h.CreateBoard)
 	r.Get("/{id}", h.GetBoard)
 	r.Put("/{id}", h.UpdateBoard)
@@ -38,6 +37,23 @@ func (h *BoardHandler) Routes() chi.Router {
 // ListBoards returns a list of boards accessible by the user
 func (h *BoardHandler) ListBoards(w http.ResponseWriter, r *http.Request) {
 	user := r.Context().Value("user").(*models.User)
+	
+	// Check if super admin is requesting all boards
+	if r.URL.Query().Get("list") == "all" {
+		if !user.IsSuperAdmin() {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+		boards, err := h.boardRepo.ListAllBoards(r.Context())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(boards)
+		return
+	}
+
+	// Regular user board listing
 	boards, err := h.boardRepo.ListBoards(r.Context(), user.ID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

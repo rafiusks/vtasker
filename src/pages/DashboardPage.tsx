@@ -38,10 +38,25 @@ export const DashboardPage = () => {
 			{/* Welcome Section */}
 			<div className="mb-8">
 				<h1 className="text-3xl font-bold text-gray-900">
-					Welcome back, {user?.full_name}!
+					{user?.full_name
+						? `Welcome back, ${user.full_name}!`
+						: "Welcome back!"}
 				</h1>
 				<p className="mt-2 text-gray-600">
-					Here's an overview of your tasks and activities.
+					{!user?.full_name && (
+						<>
+							Please{" "}
+							<Link
+								to="/settings"
+								className="text-blue-600 hover:text-blue-800"
+							>
+								update your profile
+							</Link>{" "}
+							to set your name.
+						</>
+					)}
+					{user?.full_name &&
+						"Here's an overview of your tasks and activities."}
 				</p>
 			</div>
 

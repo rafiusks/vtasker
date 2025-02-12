@@ -12,7 +12,7 @@ export const RegisterForm = () => {
 	const [formData, setFormData] = useState<UserCreate>({
 		email: "",
 		password: "",
-		name: "",
+		full_name: "",
 		confirmPassword: "",
 	});
 
@@ -23,7 +23,7 @@ export const RegisterForm = () => {
 	};
 
 	const validateForm = () => {
-		if (!formData.email || !formData.password || !formData.name) {
+		if (!formData.email || !formData.password || !formData.full_name) {
 			return "All fields are required";
 		}
 		if (formData.password.length < 8) {
@@ -94,10 +94,10 @@ export const RegisterForm = () => {
 				)}
 
 				<Input
-					label="Name"
+					label="Full Name"
 					type="text"
-					name="name"
-					value={formData.name}
+					name="full_name"
+					value={formData.full_name}
 					onChange={handleChange}
 					required
 					autoComplete="name"
@@ -145,7 +145,9 @@ export const RegisterForm = () => {
 					type="submit"
 					className="w-full"
 					isLoading={isLoading}
-					disabled={!formData.email || !formData.password || !formData.name}
+					disabled={
+						!formData.email || !formData.password || !formData.full_name
+					}
 				>
 					Create Account
 				</Button>

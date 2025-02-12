@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { userAPI, boardAPI } from "../api/client";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
@@ -6,25 +6,31 @@ import { Button } from "../components/common/Button";
 import { Input } from "../components/common/Input";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
-import type { User } from "../types/user";
+import { useNavigate } from "@tanstack/react-router";
+import type { User } from "../types/auth";
 import type { Board } from "../types/board";
 
 export const SuperAdminDashboard = () => {
 	const { user } = useAuth();
+	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [selectedUser, setSelectedUser] = useState<User | null>(null);
 	const [selectedBoard, setSelectedBoard] = useState<Board | null>(null);
+	const [activeTab, setActiveTab] = useState<
+		"users" | "boards" | "settings" | "logs"
+	>("users");
 
-	// Check if user is super admin
-	if (!user?.role || user.role !== "super_admin") {
-		return (
-			<div className="text-center py-12">
-				<p className="text-red-500">
-					You don't have permission to access this page
-				</p>
-			</div>
-		);
-	}
+	useEffect(() => {
+		if (!user) {
+			navigate({ to: "/login" });
+			return;
+		}
+
+		if (user.role_code !== "super_admin") {
+			navigate({ to: "/dashboard" });
+			return;
+		}
+	}, [user, navigate]);
 
 	// Fetch all users
 	const {
@@ -34,7 +40,7 @@ export const SuperAdminDashboard = () => {
 	} = useQuery({
 		queryKey: ["users"],
 		queryFn: () => userAPI.listUsers(),
-		enabled: user?.role === "super_admin",
+		enabled: user?.role_code === "super_admin",
 	});
 
 	// Fetch all boards
@@ -45,7 +51,7 @@ export const SuperAdminDashboard = () => {
 	} = useQuery({
 		queryKey: ["boards", "all"],
 		queryFn: () => boardAPI.listAllBoards(),
-		enabled: user?.role === "super_admin",
+		enabled: user?.role_code === "super_admin",
 	});
 
 	const updateUserMutation = useMutation({
@@ -94,6 +100,87 @@ export const SuperAdminDashboard = () => {
 		},
 	});
 
+	const renderTabContent = () => {
+		switch (activeTab) {
+			case "users":
+				return (
+					<div className="bg-white shadow rounded-lg p-6">
+						<h2 className="text-xl font-semibold mb-4">Users Management</h2>
+						<div className="space-y-4">
+							{users?.map((u) => (
+								<div
+									key={u.id}
+									className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+								>
+									<div>
+										<p className="font-medium">{u.full_name}</p>
+										<p className="text-sm text-gray-500">{u.email}</p>
+										<p className="text-xs text-gray-400">Role: {u.role_code}</p>
+									</div>
+									<div className="space-x-2">
+										<Button
+											variant="outline"
+											className="text-sm"
+											onClick={() => setSelectedUser(u)}
+										>
+											Edit
+										</Button>
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				);
+			case "boards":
+				return (
+					<div className="bg-white shadow rounded-lg p-6">
+						<h2 className="text-xl font-semibold mb-4">Boards Management</h2>
+						<div className="space-y-4">
+							{boards?.map((b) => (
+								<div
+									key={b.id}
+									className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+								>
+									<div>
+										<p className="font-medium">{b.name}</p>
+										<p className="text-sm text-gray-500">Slug: {b.slug}</p>
+										<p className="text-xs text-gray-400">
+											Public: {b.is_public ? "Yes" : "No"}
+										</p>
+									</div>
+									<div className="space-x-2">
+										<Button
+											variant="outline"
+											className="text-sm"
+											onClick={() => setSelectedBoard(b)}
+										>
+											Edit
+										</Button>
+									</div>
+								</div>
+							))}
+						</div>
+					</div>
+				);
+			case "settings":
+				return (
+					<div className="bg-white shadow rounded-lg p-6">
+						<h2 className="text-xl font-semibold mb-4">System Settings</h2>
+						<p className="text-gray-500">Coming soon...</p>
+					</div>
+				);
+			case "logs":
+				return (
+					<div className="bg-white shadow rounded-lg p-6">
+						<h2 className="text-xl font-semibold mb-4">System Logs</h2>
+						<p className="text-gray-500">Coming soon...</p>
+					</div>
+				);
+			default:
+				return null;
+		}
+	};
+
 	if (isLoadingUsers || isLoadingBoards) {
 		return (
 			<div className="flex justify-center items-center h-64">
@@ -116,69 +203,69 @@ export const SuperAdminDashboard = () => {
 
 	return (
 		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-			<h1 className="text-2xl font-bold text-gray-900 mb-8">
-				Super Admin Dashboard
-			</h1>
-
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-				{/* Users Management */}
-				<div className="bg-white shadow rounded-lg p-6">
-					<h2 className="text-xl font-semibold mb-4">Users Management</h2>
-					<div className="space-y-4">
-						{users?.map((u) => (
-							<div
-								key={u.id}
-								className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-							>
-								<div>
-									<p className="font-medium">{u.full_name}</p>
-									<p className="text-sm text-gray-500">{u.email}</p>
-									<p className="text-xs text-gray-400">Role: {u.role}</p>
-								</div>
-								<div className="space-x-2">
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => setSelectedUser(u)}
-									>
-										Edit
-									</Button>
-								</div>
-							</div>
-						))}
-					</div>
-				</div>
-
-				{/* Boards Management */}
-				<div className="bg-white shadow rounded-lg p-6">
-					<h2 className="text-xl font-semibold mb-4">Boards Management</h2>
-					<div className="space-y-4">
-						{boards?.map((b) => (
-							<div
-								key={b.id}
-								className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-							>
-								<div>
-									<p className="font-medium">{b.name}</p>
-									<p className="text-sm text-gray-500">Slug: {b.slug}</p>
-									<p className="text-xs text-gray-400">
-										Public: {b.is_public ? "Yes" : "No"}
-									</p>
-								</div>
-								<div className="space-x-2">
-									<Button
-										variant="outline"
-										size="sm"
-										onClick={() => setSelectedBoard(b)}
-									>
-										Edit
-									</Button>
-								</div>
-							</div>
-						))}
-					</div>
+			<div className="flex justify-between items-center mb-8">
+				<h1 className="text-2xl font-bold text-gray-900">
+					Super Admin Dashboard
+				</h1>
+				<div className="text-sm text-gray-500">
+					Logged in as {user?.full_name}
 				</div>
 			</div>
+
+			{/* Navigation Menu */}
+			<nav className="mb-8">
+				<div className="border-b border-gray-200">
+					<div className="flex -mb-px space-x-8">
+						<button
+							type="button"
+							onClick={() => setActiveTab("users")}
+							className={`py-4 px-1 border-b-2 font-medium text-sm ${
+								activeTab === "users"
+									? "border-blue-500 text-blue-600"
+									: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+							}`}
+						>
+							Users
+						</button>
+						<button
+							type="button"
+							onClick={() => setActiveTab("boards")}
+							className={`py-4 px-1 border-b-2 font-medium text-sm ${
+								activeTab === "boards"
+									? "border-blue-500 text-blue-600"
+									: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+							}`}
+						>
+							Boards
+						</button>
+						<button
+							type="button"
+							onClick={() => setActiveTab("settings")}
+							className={`py-4 px-1 border-b-2 font-medium text-sm ${
+								activeTab === "settings"
+									? "border-blue-500 text-blue-600"
+									: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+							}`}
+						>
+							Settings
+						</button>
+						<button
+							type="button"
+							onClick={() => setActiveTab("logs")}
+							className={`py-4 px-1 border-b-2 font-medium text-sm ${
+								activeTab === "logs"
+									? "border-blue-500 text-blue-600"
+									: "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+							}`}
+						>
+							System Logs
+						</button>
+					</div>
+				</div>
+			</nav>
+
+			{/* Tab Content */}
+			{renderTabContent()}
 
 			{/* User Edit Modal */}
 			{selectedUser && (
@@ -189,12 +276,16 @@ export const SuperAdminDashboard = () => {
 						</h3>
 						<div className="space-y-4">
 							<div>
-								<label className="block text-sm font-medium text-gray-700">
+								<label
+									htmlFor="role"
+									className="block text-sm font-medium text-gray-700"
+								>
 									Role
 								</label>
 								<select
+									id="role"
 									className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md"
-									value={selectedUser.role}
+									value={selectedUser.role_code}
 									onChange={(e) =>
 										updateUserMutation.mutate({
 											id: selectedUser.id,
@@ -215,7 +306,7 @@ export const SuperAdminDashboard = () => {
 									onClick={() =>
 										updateUserMutation.mutate({
 											id: selectedUser.id,
-											role: selectedUser.role,
+											role: selectedUser.role_code,
 										})
 									}
 									isLoading={updateUserMutation.isPending}
@@ -259,6 +350,7 @@ export const SuperAdminDashboard = () => {
 							<div className="flex justify-end space-x-3">
 								<Button
 									variant="outline"
+									className="text-sm"
 									onClick={() => setSelectedBoard(null)}
 								>
 									Cancel

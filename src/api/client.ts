@@ -17,7 +17,7 @@ import type {
 } from "../types/auth";
 import axios from "axios";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 // Shared headers between all API instances
 const sharedHeaders: Record<string, string | undefined> = {
@@ -25,7 +25,7 @@ const sharedHeaders: Record<string, string | undefined> = {
 };
 
 const api = axios.create({
-	baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080",
+	baseURL: API_BASE,
 	withCredentials: true,
 });
 
@@ -216,7 +216,7 @@ export class BoardAPI extends BaseAPI {
 	}
 
 	async listAllBoards(): Promise<Board[]> {
-		return this.request<Board[]>("/api/boards/all");
+		return this.request<Board[]>("/api/boards?list=all");
 	}
 
 	async updateBoard(
@@ -246,10 +246,16 @@ export class AuthAPI extends BaseAPI {
 	}
 
 	async refreshToken(refreshToken: string): Promise<RefreshTokenResponse> {
-		return this.request<RefreshTokenResponse>("/api/auth/refresh", {
+		const response = await this.request<LoginResponse>("/api/auth/refresh", {
 			method: "POST",
 			body: JSON.stringify({ refreshToken }),
 		});
+
+		return {
+			token: response.token,
+			expires_in: response.expires_in,
+			user: response.user,
+		};
 	}
 
 	async searchUsers(query: string): Promise<User[]> {
@@ -257,23 +263,31 @@ export class AuthAPI extends BaseAPI {
 	}
 }
 
+// Convert userAPI to a class for consistency with other APIs
+export class UserAPI extends BaseAPI {
+	async listUsers(): Promise<User[]> {
+		return this.request<User[]>("/api/users");
+	}
+
+	async updateUser(
+		id: string,
+		updates: { role: "user" | "admin" | "super_admin"; is_active?: boolean },
+	): Promise<User> {
+		return this.request<User>(`/api/users/${id}`, {
+			method: "PATCH",
+			body: JSON.stringify(updates),
+		});
+	}
+
+	async searchUsers(query: string): Promise<User[]> {
+		return this.request<User[]>(
+			`/api/users/search?q=${encodeURIComponent(query)}`,
+		);
+	}
+}
+
 // Create and export API instances
 export const taskAPI = new TaskAPI();
 export const boardAPI = new BoardAPI();
 export const authAPI = new AuthAPI();
-
-// User API
-export const userAPI = {
-	// ... existing methods
-	listUsers: async (): Promise<User[]> => {
-		const response = await api.get("/api/users");
-		return response.data;
-	},
-	updateUser: async (
-		id: string,
-		updates: { role: "user" | "admin" | "super_admin"; is_active?: boolean },
-	): Promise<User> => {
-		const response = await api.patch(`/api/users/${id}`, updates);
-		return response.data;
-	},
-};
+export const userAPI = new UserAPI();
