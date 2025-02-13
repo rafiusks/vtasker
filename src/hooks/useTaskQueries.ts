@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Task } from "../types";
 import { taskAPI } from "../api/client";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/auth/context";
 import type { TaskMoveRequest } from "../api/client";
 
 export function useTaskQueries() {

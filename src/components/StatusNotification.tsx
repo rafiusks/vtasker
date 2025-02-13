@@ -24,7 +24,7 @@ export const StatusNotification: FC<StatusNotificationProps> = ({
 						Task Status Updated
 					</h3>
 					<p className="mt-1 text-sm text-gray-500">
-						{taskTitle} moved to {status?.label || "new status"}
+						{taskTitle} moved to {status?.name || "new status"}
 					</p>
 				</div>
 				<button

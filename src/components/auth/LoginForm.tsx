@@ -3,14 +3,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { Input } from "../common/Input";
 import { Button } from "../common/Button";
 import { login } from "../../api/auth";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/auth/context";
 import type { UserLogin } from "../../types/auth";
 
-interface LoginFormProps {
-	redirectTo?: string;
-}
-
-export const LoginForm = ({ redirectTo }: LoginFormProps) => {
+export const LoginForm = () => {
 	const navigate = useNavigate();
 	const { login: authLogin } = useAuth();
 	const [isLoading, setIsLoading] = useState(false);
@@ -91,7 +87,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 			// Handle redirect after successful login
 			const params = new URLSearchParams(window.location.search);
 			const redirectPath = params.get("redirect");
-			if (redirectPath && redirectPath.startsWith("/")) {
+			if (redirectPath?.startsWith("/")) {
 				try {
 					navigate({ to: redirectPath, replace: true });
 				} catch {
@@ -128,7 +124,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 				<div className="text-center">
 					<h1 className="text-2xl font-bold text-gray-900">Login to VTasker</h1>
 					<p className="mt-2 text-sm text-gray-600">
-						Don't have an account?{" "}
+						Don&apos;t have an account?{" "}
 						<a
 							href="/register"
 							className="font-medium text-blue-600 hover:text-blue-500"
@@ -152,7 +148,7 @@ export const LoginForm = ({ redirectTo }: LoginFormProps) => {
 					label="Email"
 					type="email"
 					name="email"
-					value={formData.email}
+					value={formData?.email ?? ""}
 					onChange={handleChange}
 					onBlur={handleBlur}
 					required

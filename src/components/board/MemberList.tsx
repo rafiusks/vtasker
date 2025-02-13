@@ -85,7 +85,7 @@ export const MemberList = ({ members, onChange, ownerId }: MemberListProps) => {
 										)}
 										<div className="ml-4">
 											<div className="text-sm font-medium text-gray-900">
-												{member.user?.name}
+												{member.user?.full_name}
 											</div>
 											<div className="text-sm text-gray-500">
 												{member.user?.email}
@@ -116,6 +116,7 @@ export const MemberList = ({ members, onChange, ownerId }: MemberListProps) => {
 								<td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
 									{member.user_id !== ownerId && (
 										<button
+											type="button"
 											onClick={() => handleRemoveMember(member.user_id)}
 											className="text-red-600 hover:text-red-900"
 										>

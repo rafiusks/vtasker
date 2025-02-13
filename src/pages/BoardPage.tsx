@@ -1,48 +1,20 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useParams } from "@tanstack/react-router";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { boardAPI, taskAPI } from "../api/client";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
+import { Button } from "../components/common/Button";
 import { TaskColumn } from "../components/task/TaskColumn";
 import { TaskModal } from "../components/task/TaskModal";
 import { BoardSettingsModal } from "../components/board/BoardSettingsModal";
-import { Button } from "../components/common/Button";
-import { toast } from "sonner";
+import type { Task } from "../types";
 import type {
-	Task,
-	TaskContent,
-	TaskMetadata,
-	TaskProgress,
-	TaskRelationships,
-} from "../types";
-import type {
-	TaskStatusUI,
 	TaskStatusEntity,
 	TaskPriorityEntity,
 	TaskTypeEntity,
+	TaskStatusUI,
 } from "../types/typeReference";
-
-interface TaskStatusResponse {
-	id: number;
-	code: string;
-	name: string;
-	description?: string;
-	color: string;
-	display_order: number;
-	created_at: string;
-	updated_at: string;
-}
-
-interface TaskAPIResponse {
-	id: number;
-	code: string;
-	name: string;
-	description?: string;
-	color: string;
-	display_order: number;
-	created_at: string;
-	updated_at: string;
-}
+import { toast } from "sonner";
 
 export const BoardPage = () => {
 	const { boardSlug } = useParams({ from: "/b/$boardSlug" });
@@ -50,7 +22,6 @@ export const BoardPage = () => {
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 	const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 	const [editingTask, setEditingTask] = useState<Task | null>(null);
-	const navigate = useNavigate();
 
 	// Load board data
 	const {
@@ -75,8 +46,6 @@ export const BoardPage = () => {
 	// Load task priorities
 	const {
 		data: taskPriorities,
-		isLoading: isLoadingPriorities,
-		error: prioritiesError,
 	} = useQuery<TaskPriorityEntity[]>({
 		queryKey: ["taskPriorities"],
 		queryFn: () => taskAPI.listPriorities(),
@@ -85,142 +54,69 @@ export const BoardPage = () => {
 	// Load task types
 	const {
 		data: taskTypes,
-		isLoading: isLoadingTypes,
-		error: typesError,
 	} = useQuery<TaskTypeEntity[]>({
 		queryKey: ["taskTypes"],
 		queryFn: () => taskAPI.listTaskTypes(),
 	});
 
-	// Create task mutation
+	// Task mutations
 	const createTaskMutation = useMutation({
-		mutationFn: async (data: Partial<Task>) => {
-			const now = new Date().toISOString();
-			const metadata: TaskMetadata = {
-				created_at: now,
-				updated_at: now,
-				board: board?.id,
-			};
-			const relationships: TaskRelationships = {
-				parent: undefined,
-				dependencies: [],
-				labels: [],
-			};
-			const progress: TaskProgress = {
-				acceptance_criteria: {
-					total: 0,
-					completed: 0,
-				},
-				percentage: 0,
-			};
-			const content: TaskContent = {
-				description: data.description || "",
-				acceptance_criteria: [],
-				attachments: [],
-			};
-
-			return taskAPI.createTask({
-				...data,
-				metadata,
-				relationships,
-				progress,
-				content,
-			});
-		},
+		mutationFn: (data: Partial<Task>) => taskAPI.createTask(data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["board", boardSlug] });
 			setIsCreateModalOpen(false);
 			toast.success("Task created successfully");
 		},
 		onError: (error) => {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to create task",
-			);
+			toast.error(error instanceof Error ? error.message : "Failed to create task");
 		},
 	});
 
-	// Update task mutation
 	const updateTaskMutation = useMutation({
-		mutationFn: async (data: { id: string; updates: Partial<Task> }) => {
-			return taskAPI.updateTask(data.id, data.updates);
-		},
+		mutationFn: ({ taskId, data }: { taskId: string; data: Partial<Task> }) =>
+			taskAPI.updateTask(taskId, data),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["board", boardSlug] });
 			setEditingTask(null);
 			toast.success("Task updated successfully");
 		},
 		onError: (error) => {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to update task",
-			);
+			toast.error(error instanceof Error ? error.message : "Failed to update task");
 		},
 	});
 
-	// Delete task mutation
 	const deleteTaskMutation = useMutation({
-		mutationFn: async (taskId: string) => {
-			return taskAPI.deleteTask(taskId);
-		},
+		mutationFn: (taskId: string) => taskAPI.deleteTask(taskId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["board", boardSlug] });
 			toast.success("Task deleted successfully");
 		},
 		onError: (error) => {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to delete task",
-			);
+			toast.error(error instanceof Error ? error.message : "Failed to delete task");
 		},
 	});
 
-	// Move task mutation
 	const moveTaskMutation = useMutation({
-		mutationFn: async ({
+		mutationFn: ({
 			taskId,
-			statusId,
+			newStatusId,
 		}: {
 			taskId: string;
-			statusId: number;
-		}) => {
-			return taskAPI.moveTask(taskId, {
-				status_id: statusId,
+			newStatusId: number;
+		}) =>
+			taskAPI.moveTask(taskId, {
+				status_id: newStatusId,
 				order: 0,
 				type: "move",
-			});
-		},
+			}),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["board", boardSlug] });
+			toast.success("Task moved successfully");
 		},
 		onError: (error) => {
-			toast.error(
-				error instanceof Error ? error.message : "Failed to move task",
-			);
+			toast.error(error instanceof Error ? error.message : "Failed to move task");
 		},
 	});
-
-	// Initialize status map
-	const [statusMap, setStatusMap] = useState<Map<number, TaskStatusUI>>(
-		new Map(),
-	);
-
-	useEffect(() => {
-		if (taskStatuses) {
-			console.log("Initializing task statuses with:", taskStatuses);
-			const map = new Map<number, TaskStatusUI>();
-			for (const status of taskStatuses) {
-				map.set(status.id, {
-					id: status.id,
-					code: status.code,
-					name: status.name,
-					color: status.color,
-					display_order: status.display_order,
-				});
-			}
-			console.log("Task statuses initialized:", map);
-			setStatusMap(map);
-			console.log("Updating status map");
-			console.log("Status map updated:", map);
-		}
-	}, [taskStatuses]);
 
 	if (isLoadingBoard || isLoadingStatuses) {
 		return (
@@ -251,30 +147,30 @@ export const BoardPage = () => {
 	}
 
 	const handleCreateTask = (data: Partial<Task>) => {
-		createTaskMutation.mutate(data);
+		createTaskMutation.mutate({
+			...data,
+			board_id: board.id,
+			metadata: {
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				board: board.id,
+				...data.metadata,
+			},
+		});
 	};
 
 	const handleUpdateTask = (data: Partial<Task>) => {
 		if (editingTask) {
-			updateTaskMutation.mutate({
-				id: editingTask.id,
-				updates: data,
-			});
+			updateTaskMutation.mutate({ taskId: editingTask.id, data });
 		}
 	};
 
 	const handleDeleteTask = (taskId: string) => {
-		if (
-			window.confirm(
-				"Are you sure you want to delete this task? This cannot be undone.",
-			)
-		) {
-			deleteTaskMutation.mutate(taskId);
-		}
+		deleteTaskMutation.mutate(taskId);
 	};
 
 	const handleMoveTask = (taskId: string, newStatusId: number) => {
-		moveTaskMutation.mutate({ taskId, statusId: newStatusId });
+		moveTaskMutation.mutate({ taskId, newStatusId });
 	};
 
 	return (
@@ -326,11 +222,7 @@ export const BoardPage = () => {
 								)
 							}
 							onDelete={handleDeleteTask}
-							updatingTaskId={
-								moveTaskMutation.isPending
-									? moveTaskMutation.variables?.taskId
-									: undefined
-							}
+							updatingTaskId={moveTaskMutation.isPending ? board.id : undefined}
 						/>
 					);
 				})}

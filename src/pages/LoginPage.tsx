@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { LoginForm } from "../components/auth/LoginForm";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/auth/context";
 
 export const LoginPage = () => {
 	const navigate = useNavigate();

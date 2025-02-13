@@ -1,5 +1,5 @@
-import { Navigate, useLocation } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
+import { useNavigate } from "@tanstack/react-router";
+import { useAuth } from "../../contexts/auth/context";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 
 interface ProtectedRouteProps {
@@ -8,19 +8,20 @@ interface ProtectedRouteProps {
 
 export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
 	const { isAuthenticated, isLoading } = useAuth();
-	const location = useLocation();
+	const navigate = useNavigate();
 
 	if (isLoading) {
 		return (
 			<div className="min-h-screen flex items-center justify-center">
-				<LoadingSpinner size="lg" className="text-blue-600" />
+				<LoadingSpinner />
 			</div>
 		);
 	}
 
 	if (!isAuthenticated) {
 		// Redirect to login page but save the attempted url
-		return <Navigate to="/login" state={{ from: location }} replace />;
+		navigate({ to: "/login", replace: true });
+		return null;
 	}
 
 	return <>{children}</>;

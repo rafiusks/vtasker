@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useAuth } from "../../contexts/AuthContext";
+import { useAuth } from "../../contexts/auth/context";
 import { Menu, Transition } from "@headlessui/react";
 import { Fragment } from "react";
 import { ChevronDownIcon } from "@heroicons/react/20/solid";
@@ -73,7 +73,7 @@ export const Navbar = () => {
 											<Menu.Item>
 												{({ active }) => (
 													<Link
-														to="/settings"
+														to="/dashboard/settings"
 														className={`${
 															active ? "bg-gray-100" : ""
 														} block px-4 py-2 text-sm text-gray-700`}

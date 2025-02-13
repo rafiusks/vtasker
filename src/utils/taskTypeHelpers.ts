@@ -1,6 +1,6 @@
-import type { TaskType } from "../types/task";
+import type { TaskTypeEntity } from "../types/typeReference";
 
-export function formatTaskTypeForApi(type: TaskType | undefined | null): {
+export function formatTaskTypeForApi(type: TaskTypeEntity | undefined | null): {
 	id: number;
 } {
 	if (!type || typeof type !== "object") {
@@ -9,14 +9,14 @@ export function formatTaskTypeForApi(type: TaskType | undefined | null): {
 	return { id: type.id };
 }
 
-export function getTaskTypeId(type: TaskType | undefined | null): number {
+export function getTaskTypeId(type: TaskTypeEntity | undefined | null): number {
 	if (!type || typeof type !== "object") {
 		return 1; // Default to feature type
 	}
 	return type.id;
 }
 
-export function getTaskTypeCode(type: TaskType | undefined | null): string {
+export function getTaskTypeCode(type: TaskTypeEntity | undefined | null): string {
 	if (!type || typeof type !== "object") {
 		return "feature"; // Default to feature type
 	}

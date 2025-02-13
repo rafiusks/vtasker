@@ -6,14 +6,12 @@ afterEach(() => {
 });
 
 // Extend the expect interface with Playwright matchers
-declare global {
-	namespace PlaywrightTest {
-		interface Matchers<R> {
-			toBeVisible(): R;
-			toHaveText(text: string): R;
-			toHaveCount(count: number): R;
-			toHaveAttribute(name: string, value: string): R;
-			toHaveValue(value: string): R;
-		}
+declare module "@playwright/test" {
+	export interface Matchers<R> {
+		toBeVisible(): R;
+		toHaveText(text: string): R;
+		toHaveCount(count: number): R;
+		toHaveAttribute(name: string, value: string): R;
+		toHaveValue(value: string): R;
 	}
 }

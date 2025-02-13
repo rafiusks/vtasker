@@ -9,7 +9,7 @@ import type {
 	TaskStatusEntity,
 	TaskStatusUIType,
 	TaskPriorityEntity,
-	TaskTypeEntity,
+	TaskStatusUI,
 } from "./typeReference";
 
 // Re-export types from typeReference
@@ -20,13 +20,15 @@ export type {
 	TaskStatusEntity,
 	TaskStatusUIType,
 	TaskPriorityEntity,
-	TaskTypeEntity,
+	TaskStatusUI,
 };
 
+// Task related types
 export interface TaskStatus {
 	id: number;
 	code: string;
 	name: string;
+	label: string;
 	description?: string;
 	color: string;
 	display_order: number;
@@ -45,9 +47,11 @@ export interface TaskPriority {
 	updated_at?: string;
 }
 
+export type TaskTypeCode = "feature" | "bug" | "docs" | "chore";
+
 export interface TaskType {
 	id: number;
-	code: string;
+	code: TaskTypeCode;
 	name: string;
 	description?: string;
 	display_order: number;
@@ -55,85 +59,8 @@ export interface TaskType {
 	updated_at: string;
 }
 
-export interface TaskContent {
-	description: string;
-	acceptance_criteria: AcceptanceCriterion[];
-	implementation_details?: string;
-	notes?: string;
-	attachments: string[];
-	due_date?: string;
-	assignee?: string;
-}
-
-export interface TaskRelationships {
-	parent?: string;
-	dependencies: string[];
-	labels: string[];
-}
-
-export interface TaskMetadata {
-	created_at: string;
-	updated_at: string;
-	board?: string;
-	column?: string;
-}
-
-export interface TaskProgress {
-	acceptance_criteria: {
-		total: number;
-		completed: number;
-	};
-	percentage: number;
-}
-
-export interface BaseTask {
-	id: string;
-	title: string;
-	description: string;
-	order: number;
-	content: TaskContent;
-	relationships: TaskRelationships;
-	metadata?: TaskMetadata;
-	progress: TaskProgress;
-}
-
-// Task type used in the application
-export interface Task {
-	id: string;
-	title: string;
-	description: string;
-	status_id: number;
-	status?: {
-		id: number;
-		code: string;
-		name: string;
-		display_order: number;
-	};
-	priority_id: number;
-	priority?: {
-		id: number;
-		name: string;
-		display_order: number;
-	};
-	type_id: number;
-	type?: {
-		id: number;
-		code: string;
-		name: string;
-		description?: string;
-		display_order: number;
-		created_at: string;
-		updated_at: string;
-	};
-	order: number;
-	content?: TaskContent;
-	relationships: TaskRelationships;
-	metadata: TaskMetadata;
-	progress: TaskProgress;
-	status_history?: StatusChange[];
-	created_at: string;
-	updated_at: string;
-}
+// Re-export TaskType as TaskTypeEntity for backward compatibility
+export type TaskTypeEntity = TaskType;
 
 export interface AcceptanceCriterion {
 	id: string;
@@ -148,22 +75,63 @@ export interface AcceptanceCriterion {
 	notes?: string;
 }
 
+export interface TaskMetadata {
+	created_at: string;
+	updated_at: string;
+	board?: string | null;
+	column?: string | null;
+}
+
+export interface TaskProgress {
+	acceptance_criteria: {
+		total: number;
+		completed: number;
+	};
+	percentage: number;
+}
+
+export interface TaskContent {
+	description: string;
+	acceptance_criteria: AcceptanceCriterion[];
+	implementation_details?: string;
+	notes?: string;
+	attachments?: string[];
+	due_date?: string;
+	assignee?: string;
+}
+
+export interface TaskRelationships {
+	parent?: string | null;
+	dependencies: string[];
+	labels: string[];
+}
+
+export interface Task {
+	id: string;
+	title: string;
+	description: string;
+	status_id: number;
+	priority_id: number;
+	type_id: number;
+	order: number;
+	board_id?: string;
+	content: TaskContent;
+	relationships: TaskRelationships;
+	metadata: TaskMetadata;
+	progress?: TaskProgress;
+	status?: TaskStatus;
+	type?: TaskTypeEntity;
+	status_history?: StatusChange[];
+	created_at: string;
+	updated_at: string;
+}
+
 export interface StatusChange {
 	task_id: string;
 	from_status_id: number;
 	to_status_id: number;
-	from_status?: {
-		id: number;
-		code: string;
-		name: string;
-		display_order: number;
-	};
-	to_status?: {
-		id: number;
-		code: string;
-		name: string;
-		display_order: number;
-	};
+	from_status?: TaskStatus;
+	to_status?: TaskStatus;
 	comment?: string;
 	timestamp: string;
 	changed_at: string;
@@ -184,23 +152,9 @@ export interface Board {
 	id: string;
 	name: string;
 	description: string;
-	slug: string;
-	is_public: boolean;
-	owner_id?: string;
 	columns: BoardColumn[];
-	tasks?: Task[];
 	created_at: string;
 	updated_at: string;
-}
-
-// Query types
-export interface TaskQuery {
-	status?: string;
-	priority?: string;
-	type?: string;
-	labels?: string[];
-	board?: string;
-	column?: string;
 }
 
 export interface BoardQuery {
@@ -253,4 +207,14 @@ export interface TaskFormData {
 		board?: string;
 		column?: string;
 	};
+}
+
+// Query types
+export interface TaskQuery {
+	status?: string;
+	priority?: string;
+	type?: string;
+	labels?: string[];
+	board?: string;
+	column?: string;
 }

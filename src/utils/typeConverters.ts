@@ -74,11 +74,9 @@ export function createTaskUpdateRequest(
 	// Get the type ID from either the updates or existing task
 	const typeId = updates.type_id || existingTask.type_id;
 
-	// Remove type from updates to avoid sending it
-	const { type: _, ...updatesWithoutType } = updates;
-
+	// Create update request with all fields
 	return {
-		...updatesWithoutType,
+		...updates,
 		type_id: typeId,
 		status_id: updates.status_id,
 		priority_id: updates.priority_id,

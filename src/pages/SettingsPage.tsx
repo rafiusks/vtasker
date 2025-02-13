@@ -1,4 +1,4 @@
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/auth/context";
 import { Button } from "../components/common/Button";
 import { useState } from "react";
 import { toast } from "sonner";

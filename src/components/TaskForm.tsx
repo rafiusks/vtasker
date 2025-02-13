@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Task, TaskMetadata, TaskRelationships } from "../types/task";
+import type { Task, TaskMetadata, TaskRelationships } from "../types";
 import { Input } from "./common/Input";
 import { TextArea } from "./common/TextArea";
 import { Button } from "./common/Button";
@@ -21,7 +21,6 @@ interface TaskFormProps {
 	onClose: () => void;
 	onSubmit: (task: Partial<Task>) => void;
 	task?: Task;
-	allTasks?: Task[];
 	isLoading?: boolean;
 }
 
@@ -30,7 +29,6 @@ export const TaskForm = ({
 	onClose,
 	onSubmit,
 	task,
-	allTasks = [],
 	isLoading = false,
 }: TaskFormProps) => {
 	const [formData, setFormData] = useState<Partial<Task>>({
@@ -51,12 +49,12 @@ export const TaskForm = ({
 	) => {
 		const { name, value } = e.target;
 		if (name === "status_id" || name === "priority_id" || name === "type_id") {
-			setFormData((prev) => ({
+			setFormData((prev: Partial<Task>) => ({
 				...prev,
 				[name]: Number.parseInt(value, 10),
 			}));
 		} else {
-			setFormData((prev) => ({
+			setFormData((prev: Partial<Task>) => ({
 				...prev,
 				[name]: value,
 			}));

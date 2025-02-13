@@ -5,9 +5,6 @@ import { useBoardQueries } from "../../hooks/useBoardQueries";
 import { Button } from "../common/Button";
 import { LoadingSpinner } from "../common/LoadingSpinner";
 import { CreateBoardModal } from "./CreateBoardModal";
-import { cn } from "../../lib/utils";
-import { Skeleton } from "../ui/skeleton";
-import { useAuth } from "../../contexts/AuthContext";
 
 export const BoardList = () => {
 	const navigate = useNavigate();
@@ -18,7 +15,7 @@ export const BoardList = () => {
 	if (isLoading) {
 		return (
 			<div className="flex justify-center items-center h-64">
-				<LoadingSpinner size="lg" />
+				<LoadingSpinner className="w-12 h-12" />
 			</div>
 		);
 	}

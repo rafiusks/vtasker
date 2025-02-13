@@ -1,5 +1,5 @@
 import type { User } from "./auth";
-import type { Task } from "./task";
+import type { Task } from ".";
 
 export type BoardRole = "viewer" | "editor" | "admin";
 

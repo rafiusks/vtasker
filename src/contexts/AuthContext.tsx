@@ -1,51 +1,17 @@
 import {
-	createContext,
-	useContext,
 	useState,
 	useEffect,
 	useCallback,
 	useRef,
-	type ReactNode,
 } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { setAuthToken, removeAuthToken, refreshToken } from "../api/auth";
 import type { User, StoredAuthData } from "../types/auth";
+import type { AuthProviderProps } from "./auth/types";
+import { REFRESH_THRESHOLD } from "./auth/types";
+import { AuthContext } from "./auth/context";
 
-interface AuthContextType {
-	user: User | null;
-	token: string | null;
-	isAuthenticated: boolean;
-	isLoading: boolean;
-	tokenReady: boolean;
-	login: (
-		token: string,
-		refreshToken: string,
-		user: User,
-		expiresIn: number,
-		refreshExpiresIn: number,
-		rememberMe?: boolean,
-	) => void;
-	logout: () => void;
-	updateUser: (updates: Partial<User>) => Promise<void>;
-}
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const useAuth = () => {
-	const context = useContext(AuthContext);
-	if (context === undefined) {
-		throw new Error("useAuth must be used within an AuthProvider");
-	}
-	return context;
-};
-
-interface AuthProviderProps {
-	children: ReactNode;
-}
-
-const REFRESH_THRESHOLD = 5 * 60; // Refresh token 5 minutes before expiry
-
-export const AuthProvider = ({ children }: AuthProviderProps) => {
+export function AuthProvider({ children }: AuthProviderProps) {
 	const navigate = useNavigate();
 	const [user, setUser] = useState<User | null>(null);
 	const [token, setToken] = useState<string | null>(null);
@@ -89,55 +55,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 		navigate({ to: "/login", replace: true });
 	}, [navigate, setTokenSafely]);
 
-	// Handle token refresh
-	const handleTokenRefresh = useCallback(
-		async (storedData: StoredAuthData) => {
-			try {
-				console.log("Attempting token refresh with data:", {
-					refreshToken: storedData.refresh_token ? "exists" : "missing",
-					expiresAt: new Date(storedData.expiresAt).toISOString(),
-					refreshExpiresAt: new Date(storedData.refreshExpiresAt).toISOString(),
-					now: new Date().toISOString(),
-				});
-
-				const response = await refreshToken(storedData.refresh_token);
-				const newExpiresAt = Date.now() + response.expires_in * 1000;
-
-				// Update stored data
-				const newStoredData: StoredAuthData = {
-					...storedData,
-					token: response.token,
-					expiresAt: newExpiresAt,
-					user: response.user || storedData.user,
-				};
-
-				// Update storage
-				const storage = localStorage.getItem("auth")
-					? localStorage
-					: sessionStorage;
-				storage.setItem("auth", JSON.stringify(newStoredData));
-
-				// Update state and API client
-				await setTokenSafely(response.token);
-				if (response.user) {
-					setUser(response.user);
-				}
-
-				// Schedule next refresh
-				scheduleTokenRefresh(newStoredData);
-				setIsLoading(false);
-			} catch (error) {
-				console.error("Token refresh failed:", error);
-				handleLogout();
-				setIsLoading(false);
-			}
-		},
-		[handleLogout, setTokenSafely],
-	);
-
-	// Schedule token refresh
+	// Schedule token refresh and handle token refresh
 	const scheduleTokenRefresh = useCallback(
-		(authData: StoredAuthData) => {
+		async (authData: StoredAuthData) => {
 			if (refreshTimeoutRef.current) {
 				window.clearTimeout(refreshTimeoutRef.current);
 				localStorage.removeItem("tokenRefreshTimeout");
@@ -159,15 +79,38 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 				refreshToken: authData.refresh_token ? "exists" : "missing",
 			});
 
-			if (timeUntilExpiry <= 0) {
-				console.log("Token is expired, refreshing now");
-				handleTokenRefresh(authData);
-				return;
-			}
+			if (timeUntilExpiry <= 0 || timeUntilExpiry <= REFRESH_THRESHOLD * 1000) {
+				try {
+					console.log("Token expired or expiring soon, refreshing now");
+					const response = await refreshToken(authData.refresh_token);
+					const newExpiresAt = Date.now() + response.expires_in * 1000;
 
-			if (timeUntilExpiry <= REFRESH_THRESHOLD * 1000) {
-				console.log("Token will expire soon, refreshing now");
-				handleTokenRefresh(authData);
+					// Update stored data
+					const newStoredData: StoredAuthData = {
+						...authData,
+						token: response.token,
+						expiresAt: newExpiresAt,
+						user: response.user || authData.user,
+					};
+
+					// Update storage
+					const storage = localStorage.getItem("auth")
+						? localStorage
+						: sessionStorage;
+					storage.setItem("auth", JSON.stringify(newStoredData));
+
+					// Update state and API client
+					await setTokenSafely(response.token);
+					if (response.user) {
+						setUser(response.user);
+					}
+
+					// Schedule next refresh
+					scheduleTokenRefresh(newStoredData);
+				} catch (error) {
+					console.error("Token refresh failed:", error);
+					handleLogout();
+				}
 				return;
 			}
 
@@ -175,7 +118,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 				`Scheduling refresh in ${Math.round(timeUntilRefresh / 1000)} seconds`,
 			);
 			refreshTimeoutRef.current = window.setTimeout(() => {
-				handleTokenRefresh(authData);
+				scheduleTokenRefresh(authData);
 			}, timeUntilRefresh);
 
 			// Store timeout ID in localStorage
@@ -184,12 +127,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 				String(refreshTimeoutRef.current),
 			);
 		},
-		[handleTokenRefresh],
+		[handleLogout, setTokenSafely],
 	);
 
 	// Initialize auth state from storage
 	useEffect(() => {
 		let mounted = true;
+		const currentTokenTimeout = tokenSetTimeoutRef.current;
 
 		const initializeAuth = async () => {
 			try {
@@ -216,7 +160,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 					if (Date.now() >= data.expiresAt) {
 						console.log("Access token expired, refreshing");
-						await handleTokenRefresh(data);
+						await scheduleTokenRefresh(data);
 					} else {
 						console.log(
 							"Access token valid, setting token and scheduling refresh",
@@ -255,7 +199,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 					if (Date.now() >= data.expiresAt) {
 						console.log("Access token expired, refreshing");
-						await handleTokenRefresh(data);
+						await scheduleTokenRefresh(data);
 					} else {
 						console.log(
 							"Access token valid, setting token and scheduling refresh",
@@ -289,14 +233,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
 		return () => {
 			mounted = false;
+			if (currentTokenTimeout) {
+				window.clearTimeout(currentTokenTimeout);
+			}
 			if (refreshTimeoutRef.current) {
 				window.clearTimeout(refreshTimeoutRef.current);
 			}
-			if (tokenSetTimeoutRef.current) {
-				window.clearTimeout(tokenSetTimeoutRef.current);
-			}
 		};
-	}, [handleLogout, handleTokenRefresh, scheduleTokenRefresh, setTokenSafely]);
+	}, [handleLogout, scheduleTokenRefresh, setTokenSafely]);
 
 	// Login function implementation
 	const handleLogin = useCallback(
@@ -379,4 +323,4 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 	};
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
+}

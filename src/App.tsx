@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { TaskForm } from "./components/TaskForm";
 import { TaskColumn } from "./components/TaskColumn";
 import { Select } from "./components/Select";
-import type { Task } from "./types/task";
+import type { Task } from "./types";
 import type { Option } from "./components/Select";
 import {
 	TASK_STATUS,
@@ -21,7 +21,7 @@ import { useTaskQueries } from "./hooks/useTaskQueries";
 import { taskAPI } from "./api/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Header } from "./components/common/Header";
-import { useAuth } from "./contexts/AuthContext";
+import { useAuth } from "./contexts/auth/context";
 import { useNavigate } from "@tanstack/react-router";
 
 // ============================================================================
@@ -121,10 +121,8 @@ export function App() {
 			if (!isAuthenticated || isAuthLoading) return;
 
 			try {
-				const [statuses, priorities, types] = await Promise.all([
+				const [statuses] = await Promise.all([
 					taskAPI.listStatuses(),
-					taskAPI.listPriorities(),
-					taskAPI.listTaskTypes(),
 				]);
 				await initializeTaskStatuses(statuses);
 				updateStatusMap();
@@ -285,7 +283,7 @@ export function App() {
 	const handleTaskSubmit = (task: Partial<Task>) => {
 		if (editingTask) {
 			// Remove status and type fields as they're handled separately
-			const { status, type, ...taskWithoutStatusAndType } = task;
+			const { ...taskWithoutStatusAndType } = task;
 			const taskUpdate: Partial<Task> = {
 				...taskWithoutStatusAndType,
 				status_id: task.status_id,
@@ -387,7 +385,7 @@ export function App() {
 				status_id: newStatusId,
 				order: newOrder,
 				previous_status_id: taskToUpdate.status_id,
-				comment: `Task moved to ${targetStatus.label}`,
+				comment: `Task moved to ${targetStatus.name}`,
 				type: taskToUpdate.type?.code || "feature",
 			};
 
@@ -717,7 +715,7 @@ export function App() {
 
 										return (
 											<TaskColumn
-												key={status.columnId}
+												key={status.code}
 												status={status}
 												tasks={tasksInColumn}
 												onDrop={handleTaskMove}
@@ -741,7 +739,6 @@ export function App() {
 							}}
 							onSubmit={handleTaskSubmit}
 							task={editingTask}
-							allTasks={tasks}
 							isLoading={!statusesLoaded}
 						/>
 						<StatusNotification

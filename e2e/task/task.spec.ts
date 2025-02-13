@@ -4,7 +4,6 @@ import type { TestUser } from "../test-utils";
 
 test.describe("Task Management", () => {
 	let testUser: TestUser;
-	let boardSlug: string;
 
 	test.beforeEach(async ({ page }) => {
 		// Register and login a test user before each test
@@ -15,17 +14,13 @@ test.describe("Task Management", () => {
 		await page.goto("/boards");
 		await page.getByTestId("create-board-button").click();
 		await page.getByTestId("board-name-input").fill("Test Board");
-		const [response] = await Promise.all([
+		await Promise.all([
 			page.waitForResponse(
 				(response) =>
 					response.url().includes("/api/boards") && response.status() === 201,
 			),
 			page.getByTestId("submit-create-board-button").click(),
 		]);
-
-		// Get the board slug from the response
-		const board = await response.json();
-		boardSlug = board.slug;
 
 		// Wait for navigation to the new board
 		await page.waitForURL(/.*\/b\/.*/);

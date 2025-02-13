@@ -3,48 +3,16 @@ import type {
 	TaskContent,
 	TaskRelationships,
 	TaskMetadata,
-	TaskProgress,
 	TaskStatus,
-	TaskTypeEntity,
 	TaskTypeCode,
+	StatusChange,
 } from "../types";
 import { TASK_STATUS, type TaskStatusUIType } from "../types/typeReference";
 import type {
 	ApiTask,
-	ApiAcceptanceCriterion,
 	ApiStatusChange,
 	ApiTaskStatus,
-	ApiTaskType,
-	ApiTaskPriority,
 } from "../api/types";
-
-// API Types
-export interface APITaskPriority {
-	id: number;
-	name: string;
-	display_order: number;
-}
-
-// API Response Types
-export interface APITask {
-	id: string;
-	title: string;
-	description: string;
-	status_id: number;
-	status?: ApiTaskStatus;
-	priority_id: number;
-	priority?: ApiTaskPriority;
-	type_id: number;
-	type?: ApiTaskType;
-	order: number;
-	content: TaskContent;
-	relationships: TaskRelationships;
-	metadata: TaskMetadata;
-	progress: TaskProgress;
-	status_history?: ApiStatusChange[];
-	created_at: string;
-	updated_at: string;
-}
 
 // Constants and Types
 const STATUS_CODES = ["backlog", "in-progress", "done"] as const;
@@ -69,24 +37,50 @@ function getStatusFromId(id: string | number): TaskStatusUIType | undefined {
 	return status;
 }
 
-// Conversion Functions
+// Helper function to convert API status to domain status
+function convertApiStatus(apiStatus: ApiTaskStatus): TaskStatus {
+	return {
+		id: apiStatus.id,
+		code: apiStatus.code,
+		name: apiStatus.name,
+		label: apiStatus.name,
+		description: apiStatus.description,
+		color: apiStatus.color || "#6B7280",
+		display_order: apiStatus.display_order,
+		created_at: apiStatus.created_at,
+		updated_at: apiStatus.updated_at,
+	};
+}
+
+// Helper function to convert API status change to domain status change
+function convertApiStatusChange(apiChange: ApiStatusChange): StatusChange {
+	return {
+		task_id: apiChange.task_id,
+		from_status_id: apiChange.from_status_id,
+		to_status_id: apiChange.to_status_id,
+		from_status: apiChange.from_status ? convertApiStatus(apiChange.from_status) : undefined,
+		to_status: apiChange.to_status ? convertApiStatus(apiChange.to_status) : undefined,
+		comment: apiChange.comment,
+		timestamp: apiChange.timestamp,
+		changed_at: apiChange.changed_at,
+	};
+}
+
 export function convertAPITaskToTask(apiTask: ApiTask): Task {
 	const content: TaskContent = {
 		description: apiTask.content.description,
-		acceptance_criteria: apiTask.content.acceptance_criteria.map(
-			(ac: ApiAcceptanceCriterion) => ({
-				id: ac.id,
-				description: ac.description,
-				completed: ac.completed,
-				completed_at: ac.completed_at ?? undefined,
-				completed_by: ac.completed_by ?? undefined,
-				created_at: ac.created_at,
-				updated_at: ac.updated_at,
-				order: ac.order,
-				category: ac.category ?? undefined,
-				notes: ac.notes ?? undefined,
-			}),
-		),
+		acceptance_criteria: apiTask.content.acceptance_criteria.map((ac) => ({
+			id: ac.id,
+			description: ac.description,
+			completed: ac.completed,
+			completed_at: ac.completed_at ?? undefined,
+			completed_by: ac.completed_by ?? undefined,
+			created_at: ac.created_at,
+			updated_at: ac.updated_at,
+			order: ac.order,
+			category: ac.category ?? undefined,
+			notes: ac.notes ?? undefined,
+		})),
 		implementation_details: apiTask.content.implementation_details,
 		notes: apiTask.content.notes,
 		attachments: apiTask.content.attachments,
@@ -107,32 +101,7 @@ export function convertAPITaskToTask(apiTask: ApiTask): Task {
 		column: apiTask.metadata.column ?? undefined,
 	};
 
-	const status: TaskStatus | undefined = apiTask.status
-		? {
-				id: String(apiTask.status.id),
-				code: apiTask.status.code,
-				name: apiTask.status.name,
-				label: apiTask.status.name, // Use name as label if not provided
-				description: apiTask.status.description ?? undefined,
-				display_order: apiTask.status.display_order,
-				created_at: apiTask.created_at,
-				updated_at: apiTask.updated_at,
-			}
-		: undefined;
-
-	const type: TaskTypeEntity | undefined = apiTask.type
-		? {
-				id: Number(apiTask.type.id),
-				code: apiTask.type.code as TaskTypeCode,
-				name: apiTask.type.name,
-				description: apiTask.type.description,
-				display_order: apiTask.type.display_order,
-				created_at: apiTask.created_at,
-				updated_at: apiTask.updated_at,
-			}
-		: undefined;
-
-	return {
+	const task: Task = {
 		id: apiTask.id,
 		title: apiTask.title,
 		description: apiTask.description,
@@ -144,32 +113,24 @@ export function convertAPITaskToTask(apiTask: ApiTask): Task {
 		relationships,
 		metadata,
 		progress: apiTask.progress,
-		status,
-		type,
+		status: apiTask.status ? convertApiStatus(apiTask.status) : undefined,
+		type: apiTask.type
+			? {
+					id: Number(apiTask.type.id),
+					code: apiTask.type.code as TaskTypeCode,
+					name: apiTask.type.name,
+					description: apiTask.type.description,
+					display_order: apiTask.type.display_order,
+					created_at: apiTask.type.created_at,
+					updated_at: apiTask.type.updated_at,
+			  }
+			: undefined,
+		status_history: apiTask.status_history?.map(convertApiStatusChange),
 		created_at: apiTask.created_at,
 		updated_at: apiTask.updated_at,
-		status_history: apiTask.status_history?.map((change: ApiStatusChange) => ({
-			...change,
-			from_status: change.from_status
-				? {
-						...change.from_status,
-						id: String(change.from_status.id),
-						label: change.from_status.name,
-						created_at: apiTask.created_at,
-						updated_at: apiTask.updated_at,
-					}
-				: undefined,
-			to_status: change.to_status
-				? {
-						...change.to_status,
-						id: String(change.to_status.id),
-						label: change.to_status.name,
-						created_at: apiTask.created_at,
-						updated_at: apiTask.updated_at,
-					}
-				: undefined,
-		})),
 	};
+
+	return task;
 }
 
 export function ensureTaskArray(tasks: unknown): Task[] {

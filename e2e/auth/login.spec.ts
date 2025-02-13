@@ -2,7 +2,6 @@ import { test, expect } from "@playwright/test";
 import {
 	generateTestUser,
 	expectToBeOnPage,
-	waitForToast,
 	registerTestUser,
 } from "../test-utils";
 

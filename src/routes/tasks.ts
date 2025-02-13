@@ -12,7 +12,7 @@ import type {
 import { v4 as uuidv4 } from "uuid";
 
 // Define custom context types
-interface TaskState extends DefaultState {}
+type TaskState = DefaultState;
 
 interface TaskRequestBody {
 	title?: string;
@@ -21,6 +21,7 @@ interface TaskRequestBody {
 	priority_id?: number;
 	type_id?: number;
 	order?: number;
+	board_id?: string;
 	content?: TaskContent;
 	relationships?: TaskRelationships;
 	metadata?: TaskMetadata;
@@ -46,6 +47,7 @@ function ensureTaskFields(task: Partial<Task>): Task {
 		priority_id: task.priority_id ?? 1,
 		type_id: task.type_id ?? 1,
 		order: task.order ?? 0,
+		board_id: task.board_id,
 		content: task.content ?? {
 			description: task.description ?? "",
 			acceptance_criteria: [],
@@ -84,11 +86,13 @@ async function listTasks(): Promise<Task[]> {
 	return [];
 }
 
-async function getTask(_id: string): Promise<Task | null> {
+async function getTask(id: string): Promise<Task | null> {
+	console.log("Getting task:", id);
 	return null;
 }
 
-async function saveTask(_task: Task): Promise<void> {
+async function saveTask(task: Task): Promise<void> {
+	console.log("Saving task:", task.id);
 	// Implementation
 }
 

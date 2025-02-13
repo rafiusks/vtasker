@@ -68,6 +68,7 @@ export const CreateBoardModal = ({
 			...prev,
 			name,
 			// Only auto-generate slug if it's empty or was auto-generated before
+			slug: prev.slug === generateSlug(prev.name) ? generateSlug(name) : prev.slug,
 			description: prev.description,
 			is_public: prev.is_public,
 		}));

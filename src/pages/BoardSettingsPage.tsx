@@ -7,7 +7,7 @@ import { Button } from "../components/common/Button";
 import { Input } from "../components/common/Input";
 import { toast } from "sonner";
 import { Breadcrumbs } from "../components/common/Breadcrumbs";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/auth/context";
 import type { Board } from "../types/board";
 
 export const BoardSettingsPage = () => {
@@ -56,17 +56,19 @@ export const BoardSettingsPage = () => {
 			is_public: boolean;
 		}) => {
 			if (!board) throw new Error("Board not found");
-			// Convert to the expected format with optional fields
+			
+			// Prepare the update input with required fields
 			const input = {
-				name: updates.name !== board.name ? updates.name : undefined,
-				slug: updates.slug !== board.slug ? updates.slug : undefined,
-				description:
-					updates.description !== board.description
-						? updates.description
-						: undefined,
-				is_public:
-					updates.is_public !== board.is_public ? updates.is_public : undefined,
+				is_public: updates.is_public,
+				is_active: true, // Required field with default value
+				// Optional fields as properties
+				...(updates.name !== board.name && { name: updates.name }),
+				...(updates.slug !== board.slug && { slug: updates.slug }),
+				...(updates.description !== board.description && {
+					description: updates.description,
+				}),
 			};
+			
 			return boardAPI.updateBoard(board.id, input);
 		},
 		onSuccess: (data: Board) => {
@@ -146,7 +148,7 @@ export const BoardSettingsPage = () => {
 		return (
 			<div className="text-center py-12">
 				<p className="text-red-500">
-					You don't have permission to manage this board
+					You don&apos;t have permission to manage this board
 				</p>
 			</div>
 		);
@@ -246,8 +248,7 @@ export const BoardSettingsPage = () => {
 							Delete Board
 						</h3>
 						<p className="text-gray-500 mb-4">
-							Are you sure you want to delete "{board.name}"? This action cannot
-							be undone.
+							Are you sure you want to delete &quot;{board.name}&quot;? This action cannot be undone.
 						</p>
 						<div className="flex justify-end space-x-3">
 							<Button

@@ -21,6 +21,7 @@ export interface ApiTask {
 	type_id: string;
 	type?: ApiTaskType;
 	order: number;
+	board_id?: string;
 	content: ApiTaskContent;
 	relationships: ApiTaskRelationships;
 	metadata: ApiTaskMetadata;
@@ -31,10 +32,12 @@ export interface ApiTask {
 }
 
 export interface ApiTaskStatus {
-	id: string;
+	id: number;
 	code: string;
 	name: string;
+	label: string;
 	description?: string;
+	color: string;
 	display_order: number;
 	created_at: string;
 	updated_at: string;
@@ -106,8 +109,8 @@ export interface ApiTaskProgress {
 
 export interface ApiStatusChange {
 	task_id: string;
-	from_status_id: string;
-	to_status_id: string;
+	from_status_id: number;
+	to_status_id: number;
 	from_status?: ApiTaskStatus;
 	to_status?: ApiTaskStatus;
 	comment?: string;
@@ -189,6 +192,7 @@ export function convertAPITaskToTask(apiTask: ApiTask): Task {
 		priority_id: Number(apiTask.priority_id),
 		type_id: Number(apiTask.type_id),
 		order: apiTask.order,
+		board_id: apiTask.board_id,
 		content,
 		relationships,
 		metadata,
@@ -220,6 +224,7 @@ export function convertTaskToApiTask(task: Task): ApiTask {
 		priority_id: String(task.priority_id),
 		type_id: String(task.type_id),
 		order: task.order,
+		board_id: task.board_id,
 		content: {
 			description: task.content.description,
 			acceptance_criteria: task.content.acceptance_criteria.map((ac) => ({
@@ -252,30 +257,61 @@ export function convertTaskToApiTask(task: Task): ApiTask {
 		},
 		status: task.status
 			? {
-					...task.status,
-					id: String(task.status.id),
-				}
+					id: task.status.id,
+					code: task.status.code,
+					name: task.status.name,
+					label: task.status.label,
+					description: task.status.description,
+					color: task.status.color,
+					display_order: task.status.display_order,
+					created_at: task.status.created_at,
+					updated_at: task.status.updated_at,
+			  }
 			: undefined,
 		type: task.type
 			? {
-					...task.type,
 					id: String(task.type.id),
-				}
+					code: task.type.code,
+					name: task.type.name,
+					description: task.type.description,
+					display_order: task.type.display_order,
+					created_at: task.type.created_at,
+					updated_at: task.type.updated_at,
+			  }
 			: undefined,
 		status_history: task.status_history?.map((change) => ({
-			...change,
+			task_id: change.task_id,
+			from_status_id: change.from_status_id,
+			to_status_id: change.to_status_id,
 			from_status: change.from_status
 				? {
-						...change.from_status,
-						id: String(change.from_status.id),
-					}
+						id: change.from_status.id,
+						code: change.from_status.code,
+						name: change.from_status.name,
+						label: change.from_status.label,
+						description: change.from_status.description,
+						color: change.from_status.color,
+						display_order: change.from_status.display_order,
+						created_at: change.from_status.created_at,
+						updated_at: change.from_status.updated_at,
+				  }
 				: undefined,
 			to_status: change.to_status
 				? {
-						...change.to_status,
-						id: String(change.to_status.id),
-					}
+						id: change.to_status.id,
+						code: change.to_status.code,
+						name: change.to_status.name,
+						label: change.to_status.label,
+						description: change.to_status.description,
+						color: change.to_status.color,
+						display_order: change.to_status.display_order,
+						created_at: change.to_status.created_at,
+						updated_at: change.to_status.updated_at,
+				  }
 				: undefined,
+			comment: change.comment,
+			timestamp: change.timestamp,
+			changed_at: change.changed_at,
 		})),
 		created_at: task.created_at,
 		updated_at: task.updated_at,

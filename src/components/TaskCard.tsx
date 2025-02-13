@@ -5,22 +5,7 @@ import { getTaskPriority, getTaskType } from "../types/typeReference";
 import { TrashIcon, PencilIcon } from "@heroicons/react/20/solid";
 
 interface TaskCardProps {
-	task: Task & {
-		priority?: {
-			id: number;
-			name: string;
-			display_order: number;
-		};
-		type?: {
-			id: number;
-			code: string;
-			name: string;
-			description?: string;
-			display_order: number;
-			created_at: string;
-			updated_at: string;
-		};
-	};
+	task: Task;
 	onEdit?: (taskId: string) => void;
 	onDelete?: (taskId: string) => void;
 	isLoading?: boolean;
@@ -49,12 +34,8 @@ export const TaskCard: FC<TaskCardProps> = ({
 	};
 
 	// Get priority and type information
-	const priorityName =
-		task.priority?.name ||
-		getTaskPriority(Number(task.priority_id))?.name ||
-		"Normal";
-	const typeName =
-		task.type?.name || getTaskType(Number(task.type_id))?.name || "Feature";
+	const priorityName = getTaskPriority(Number(task.priority_id))?.name || "Normal";
+	const typeName = getTaskType(Number(task.type_id))?.name || "Feature";
 
 	return (
 		<div

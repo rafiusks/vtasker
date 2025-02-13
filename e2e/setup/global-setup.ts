@@ -11,6 +11,11 @@ async function globalSetup(config: FullConfig) {
 		shell: true,
 	});
 
+	// Ensure cleanup on process exit
+	process.on('exit', () => {
+		frontendServer.kill();
+	});
+
 	// Wait for the server to be ready
 	const browser = await chromium.launch();
 	const page = await browser.newPage();

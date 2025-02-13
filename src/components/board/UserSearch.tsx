@@ -8,13 +8,12 @@ import { Input } from "../common/Input";
 interface UserSearchProps {
 	onSelect: (user: User, role: BoardRole) => void;
 	existingUserIds?: string[];
-	onCancel: () => void;
+	onCancel?: () => void;
 }
 
 export const UserSearch = ({
 	onSelect,
 	existingUserIds = [],
-	onCancel,
 }: UserSearchProps) => {
 	const [searchTerm, setSearchTerm] = useState("");
 	const [selectedRole, setSelectedRole] = useState<BoardRole>("viewer");
@@ -79,7 +78,7 @@ export const UserSearch = ({
 				<div className="text-center py-4" aria-live="polite">
 					<div
 						className="animate-spin h-5 w-5 mx-auto border-2 border-blue-600 rounded-full border-t-transparent"
-						role="status"
+						aria-hidden="true"
 					>
 						<span className="sr-only">Loading...</span>
 					</div>

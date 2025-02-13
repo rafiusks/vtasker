@@ -1,4 +1,4 @@
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/auth/context";
 import { useQuery } from "@tanstack/react-query";
 import { boardAPI } from "../api/client";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
@@ -51,7 +51,7 @@ export const DashboardPage = () => {
 						<>
 							Please{" "}
 							<Link
-								to="/settings"
+								to="/dashboard/settings"
 								className="text-blue-600 hover:text-blue-800"
 							>
 								update your profile

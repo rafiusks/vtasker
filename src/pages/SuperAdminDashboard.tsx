@@ -3,9 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { userAPI, boardAPI } from "../api/client";
 import { LoadingSpinner } from "../components/common/LoadingSpinner";
 import { Button } from "../components/common/Button";
-import { Input } from "../components/common/Input";
 import { toast } from "sonner";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/auth/context";
 import { useNavigate } from "@tanstack/react-router";
 import type { User } from "../types/auth";
 import type { Board } from "../types/board";
@@ -1017,8 +1016,7 @@ export const SuperAdminDashboard = () => {
 					<div className="bg-white p-6 rounded-lg shadow-lg w-96">
 						<h2 className="text-xl font-bold mb-4">Delete Board</h2>
 						<p className="mb-4">
-							Are you sure you want to delete the board "{boardToDelete.name}"?
-							This action cannot be undone.
+							Are you sure you want to delete &quot;{boardToDelete.name}&quot;? This action cannot be undone.
 						</p>
 						<div className="flex justify-end gap-2">
 							<Button
@@ -1051,8 +1049,7 @@ export const SuperAdminDashboard = () => {
 					<div className="bg-white p-6 rounded-lg shadow-lg w-96">
 						<h2 className="text-xl font-bold mb-4">Delete User</h2>
 						<p className="mb-4">
-							Are you sure you want to delete the user "{userToDelete.full_name}
-							"? This action cannot be undone.
+							Are you sure you want to delete the user &quot;{userToDelete.full_name}&quot;? This action cannot be undone.
 						</p>
 						<div className="flex justify-end gap-2">
 							<Button

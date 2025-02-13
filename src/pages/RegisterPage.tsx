@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { RegisterForm } from "../components/auth/RegisterForm";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/auth/context";
 
 export const RegisterPage = () => {
 	const navigate = useNavigate();

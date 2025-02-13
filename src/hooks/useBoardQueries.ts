@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Board } from "../types/board";
 import { boardAPI } from "../api/client";
-import { useAuth } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/auth/context";
 
 export function useBoardQueries() {
 	const queryClient = useQueryClient();
@@ -28,7 +28,10 @@ export function useBoardQueries() {
 		mutationFn: async ({
 			id,
 			updates,
-		}: { id: string; updates: Partial<Board> }) =>
+		}: {
+			id: string;
+			updates: { is_public: boolean; is_active?: boolean };
+		}) =>
 			boardAPI.updateBoard(id, updates),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["boards"] });

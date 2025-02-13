@@ -1,19 +1,19 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { readFileSync, writeFileSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
-import type { Task, TaskStatus, TaskTypeEntity } from "../../../types";
+import type { Task, TaskTypeEntity } from "../../../types";
 
 describe("Task File Storage", () => {
 	const testTaskId = "test-task";
 	const testFilePath = join(".vtask", "tasks", `${testTaskId}.md`);
 
-	const testStatus: TaskStatus = {
-		id: "1",
-		code: "in-progress",
-		name: "In Progress",
-		label: "In Progress",
-		description: "Task is being worked on",
-		display_order: 2,
+	const mockStatus = {
+		id: 1,
+		code: "backlog",
+		name: "Backlog",
+		label: "Backlog",
+		color: "#6B7280",
+		display_order: 1,
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString(),
 	};
@@ -36,7 +36,7 @@ describe("Task File Storage", () => {
 		priority_id: 1,
 		type_id: 1,
 		order: 1,
-		status: testStatus,
+		status: mockStatus,
 		type: testType,
 		content: {
 			description: "Test Description",

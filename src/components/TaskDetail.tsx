@@ -16,21 +16,21 @@ export function TaskDetail({
 	onClose,
 	isOpen,
 }: TaskDetailProps) {
-	if (!task || !isOpen) return null;
-
-	const [description, setDescription] = useState(task.description);
+	const [description, setDescription] = useState(task?.description ?? "");
 	const [implementationDetails, setImplementationDetails] = useState(
-		task.content?.implementation_details || "",
+		task?.content?.implementation_details ?? "",
 	);
-	const [notes, setNotes] = useState(task.content?.notes || "");
+	const [notes, setNotes] = useState(task?.content?.notes ?? "");
 
 	useEffect(() => {
 		if (task) {
 			setDescription(task.description);
-			setImplementationDetails(task.content?.implementation_details || "");
-			setNotes(task.content?.notes || "");
+			setImplementationDetails(task.content?.implementation_details ?? "");
+			setNotes(task.content?.notes ?? "");
 		}
 	}, [task]);
+
+	if (!task || !isOpen) return null;
 
 	const handleSave = () => {
 		onUpdate({

@@ -15,7 +15,6 @@ import type {
 	UserLogin,
 	RefreshTokenResponse,
 } from "../types/auth";
-import axios from "axios";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -23,11 +22,6 @@ const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 const sharedHeaders: Record<string, string | undefined> = {
 	"Content-Type": "application/json",
 };
-
-const api = axios.create({
-	baseURL: API_BASE,
-	withCredentials: true,
-});
 
 export interface TaskMoveRequest {
 	status_id: TaskStatusId;
@@ -64,10 +58,11 @@ export interface TaskUpdateRequest {
 	column?: string;
 }
 
-interface APIError {
+// Type for error responses
+type APIErrorResponse = {
 	status?: number;
 	message?: string;
-}
+};
 
 export class BaseAPI {
 	protected async request<T>(
@@ -105,7 +100,6 @@ export class BaseAPI {
 
 			// Handle specific error cases
 			if (response.status === 409) {
-				const data = await response.json().catch(() => null);
 				throw new Error(
 					data?.message || data?.error || "board name already exists",
 				);
@@ -211,7 +205,7 @@ export class BoardAPI extends BaseAPI {
 			// Try slug-based route first
 			return await this.request<Board>(`/api/b/${idOrSlug}`);
 		} catch (error: unknown) {
-			const apiError = error as APIError;
+			const apiError = error as APIErrorResponse;
 			if (apiError?.status === 404) {
 				// If not found by slug, try ID-based route
 				return await this.request<Board>(`/api/boards/${idOrSlug}`);
@@ -233,7 +227,7 @@ export class BoardAPI extends BaseAPI {
 				method: "DELETE",
 			});
 		} catch (error: unknown) {
-			const apiError = error as APIError;
+			const apiError = error as APIErrorResponse;
 			if (apiError?.status === 404) {
 				// Board already deleted or doesn't exist
 				return;
