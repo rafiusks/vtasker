@@ -217,6 +217,61 @@ func (h *TaskHandler) ListTaskTypes(c *gin.Context) {
 	c.JSON(http.StatusOK, types)
 }
 
+// MoveTask moves a task to a new status
+func (h *TaskHandler) MoveTask(c *gin.Context) {
+	userIDStr := c.GetString("user_id")
+	if userIDStr == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid user ID"})
+		return
+	}
+
+	var input models.TaskMoveInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	task, err := h.repo.GetTask(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if task == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Task not found"})
+		return
+	}
+
+	// Check if user has access to the board
+	if task.BoardID != nil {
+		boardRepo := repository.NewBoardRepository(h.repo.GetPool())
+		_, err := boardRepo.GetBoard(c.Request.Context(), task.BoardID.String(), userID)
+		if err != nil {
+			c.JSON(http.StatusForbidden, gin.H{"error": "You don't have access to this task's board"})
+			return
+		}
+	}
+
+	// Update task status and order
+	updateInput := models.UpdateTaskInput{
+		StatusID: &input.StatusID,
+		Order:    &input.Order,
+	}
+
+	updatedTask, err := h.repo.UpdateTask(c.Request.Context(), c.Param("id"), &updateInput, userID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, updatedTask)
+}
+
 // Register registers all task routes
 func (h *TaskHandler) Register(router *gin.RouterGroup) {
 	tasks := router.Group("/tasks")
@@ -225,6 +280,7 @@ func (h *TaskHandler) Register(router *gin.RouterGroup) {
 		tasks.POST("", h.CreateTask)
 		tasks.GET("/:id", h.GetTask)
 		tasks.PUT("/:id", h.UpdateTask)
+		tasks.PUT("/:id/move", h.MoveTask)
 		tasks.DELETE("/:id", h.DeleteTask)
 	}
 

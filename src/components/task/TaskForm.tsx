@@ -84,10 +84,6 @@ export const TaskForm = ({
 		(e: React.FormEvent) => {
 			e.preventDefault();
 
-			// Prevent browser's default validation
-			const form = e.target as HTMLFormElement;
-			form.setAttribute("novalidate", "true");
-
 			// Run validation first
 			const newErrors: Record<string, string> = {};
 			if (!formData.title.trim()) {
@@ -123,9 +119,11 @@ export const TaskForm = ({
 			>,
 		) => {
 			const { name, value } = e.target;
+			const newValue = name.endsWith("_id") ? Number(value) : value;
+
 			setFormData((prev) => ({
 				...prev,
-				[name]: name.endsWith("_id") ? Number(value) : value,
+				[name]: newValue,
 			}));
 
 			// Clear error when user starts typing
@@ -153,7 +151,7 @@ export const TaskForm = ({
 	}
 
 	return (
-		<form onSubmit={handleSubmit} data-testid="task-form">
+		<form onSubmit={handleSubmit} data-testid="task-form" noValidate>
 			<div className="space-y-4">
 				<Input
 					label="Title"
@@ -256,7 +254,9 @@ export const TaskForm = ({
 					type="submit"
 					variant="primary"
 					disabled={isLoading || !isReady}
-					data-testid="submit-create-task-button"
+					data-testid={
+						initialData ? "submit-task-button" : "submit-create-task-button"
+					}
 				>
 					{isLoading ? <LoadingSpinner /> : initialData ? "Update" : "Create"}
 				</Button>

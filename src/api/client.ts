@@ -24,11 +24,10 @@ const sharedHeaders: Record<string, string | undefined> = {
 };
 
 export interface TaskMoveRequest {
-	status_id: TaskStatusId;
+	status_id: number;
 	order: number;
 	comment?: string;
-	previous_status_id?: TaskStatusId;
-	type: string;
+	type?: string;
 }
 
 export interface TaskUpdateRequest {
@@ -168,9 +167,12 @@ export class TaskAPI extends BaseAPI {
 	}
 
 	async moveTask(taskId: string, request: TaskMoveRequest): Promise<Task> {
-		return this.request<Task>(`/api/tasks/${taskId}/move`, {
+		return this.request<Task>(`/api/tasks/${taskId}`, {
 			method: "PUT",
-			body: JSON.stringify(request),
+			body: JSON.stringify({
+				status_id: request.status_id,
+				order: request.order,
+			}),
 		});
 	}
 

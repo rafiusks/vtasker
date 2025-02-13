@@ -13,8 +13,8 @@ export interface TestUser {
 export function generateTestUser(prefix = "") {
 	const timestamp = Date.now();
 	return {
-		fullName: `Test User ${prefix}${timestamp}`,
-		email: `test${prefix}${timestamp}@example.com`,
+		fullName: `Test User ${prefix}${timestamp + Math.random().toString(36).substring(7)}`,
+		email: `test${prefix}${timestamp + Math.random().toString(36).substring(7)}@example.com`,
 		password: "Test@123",
 	};
 }
@@ -88,9 +88,13 @@ export async function createTestBoardViaApi(token: string) {
 	});
 
 	try {
+		const timestamp = Date.now();
+		const randomSuffix = Math.random().toString(36).substring(7);
+		const boardName = `Test Board ${timestamp}-${randomSuffix}`;
+
 		const response = await context.post("/api/boards", {
 			data: {
-				name: `Test Board ${Date.now()}`,
+				name: boardName,
 				description: "Test board for e2e tests",
 			},
 		});

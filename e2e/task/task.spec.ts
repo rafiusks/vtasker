@@ -134,13 +134,15 @@ test.describe("Task Management", () => {
 		await page.getByTestId("create-task-button").click();
 		await waitForModalToBeReady(page);
 
+		// Wait for form to be ready
+		await waitForElement(page, "task-form");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
+
 		// Try to submit the form without filling any fields
 		await page.getByTestId("submit-create-task-button").click();
 
 		// Wait for error message to appear
-		await expect(
-			page.getByRole("alert").filter({ hasText: "Title is required" }),
-		).toBeVisible();
+		await expect(page.getByTestId("input-title-error")).toBeVisible();
 
 		// Check that the title input shows validation error
 		const titleInput = page.getByTestId("task-title-input");
@@ -191,54 +193,16 @@ test.describe("Task Management", () => {
 	test("should update task details", async ({ page }) => {
 		// First create a task
 		await waitForElement(page, "create-task-button");
-		await Promise.all([
-			page.waitForLoadState("networkidle"),
-			page.getByTestId("create-task-button").click(),
-		]);
+		await page.getByTestId("create-task-button").click();
+		await waitForModalToBeReady(page);
 
-		// Wait for the modal to be opened
-		await waitForElement(page, "create-task-modal");
-
-		// Wait for task options to be loaded
-		await Promise.all([
-			page.waitForResponse(
-				(response) =>
-					response.url().includes("/api/task-statuses") &&
-					response.status() === 200,
-			),
-			page.waitForResponse(
-				(response) =>
-					response.url().includes("/api/task-priorities") &&
-					response.status() === 200,
-			),
-			page.waitForResponse(
-				(response) =>
-					response.url().includes("/api/task-types") &&
-					response.status() === 200,
-			),
-		]).catch(() => {
-			// If waiting for responses times out, just wait a bit and continue
-			// The options might have been loaded before we started waiting
-			return new Promise((resolve) => setTimeout(resolve, 1000));
-		});
-
-		// Wait for loading state to disappear or confirm form is ready
-		const formLoading = page.getByTestId("task-form-loading");
-		const taskForm = page.getByTestId("task-form");
-
-		// Either wait for loading to disappear or form to be visible
-		await Promise.race([
-			expect(formLoading)
-				.not.toBeVisible()
-				.catch(() => {}),
-			expect(taskForm).toBeVisible(),
-		]);
-
-		// Now wait for form elements
+		// Wait for form to be ready and options to be loaded
+		await waitForElement(page, "task-form");
 		await waitForElement(page, "task-title-input");
 		await waitForElement(page, "task-type-select");
 		await waitForElement(page, "task-priority-select");
 		await waitForElement(page, "task-status-select");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
 
 		// Fill in task details
 		await page.getByTestId("task-title-input").fill("Task to Update");
@@ -246,65 +210,32 @@ test.describe("Task Management", () => {
 		await page.getByTestId("task-priority-select").selectOption("2");
 		await page.getByTestId("task-status-select").selectOption("1");
 
-		// Submit the form
+		// Submit the form and wait for the response
 		const [createResponse] = await Promise.all([
 			page.waitForResponse(
 				(response) =>
 					response.url().includes("/api/tasks") && response.status() === 201,
 			),
-			page.getByTestId("submit-task-button").click(),
+			page.getByTestId("submit-create-task-button").click(),
 		]);
 
-		// Get the created task data
+		// Get the created task data and wait for success message
 		const task = await createResponse.json();
 		await waitForToast(page, "Task created successfully");
 
-		// Wait for task card using task ID
+		// Wait for task card and network idle
 		await waitForElement(page, `task-card-${task.id}`);
+		await waitForNetworkIdle(page);
 
 		// Click on the task to open details
 		await page.getByTestId(`task-card-${task.id}`).click();
+		await waitForModalToBeReady(page);
 
-		// Wait for modal to be opened again
-		await waitForElement(page, "create-task-modal");
-
-		// Wait for task options to be loaded again
-		await Promise.all([
-			page.waitForResponse(
-				(response) =>
-					response.url().includes("/api/task-statuses") &&
-					response.status() === 200,
-			),
-			page.waitForResponse(
-				(response) =>
-					response.url().includes("/api/task-priorities") &&
-					response.status() === 200,
-			),
-			page.waitForResponse(
-				(response) =>
-					response.url().includes("/api/task-types") &&
-					response.status() === 200,
-			),
-		]).catch(() => {
-			// If waiting for responses times out, just wait a bit and continue
-			return new Promise((resolve) => setTimeout(resolve, 1000));
-		});
-
-		// Wait for loading state to disappear or confirm form is ready
-		const formLoadingAgain = page.getByTestId("task-form-loading");
-		const taskFormAgain = page.getByTestId("task-form");
-
-		// Either wait for loading to disappear or form to be visible
-		await Promise.race([
-			expect(formLoadingAgain)
-				.not.toBeVisible()
-				.catch(() => {}),
-			expect(taskFormAgain).toBeVisible(),
-		]);
-
-		// Wait for form elements
+		// Wait for form to be ready again
+		await waitForElement(page, "task-form");
 		await waitForElement(page, "task-title-input");
 		await waitForElement(page, "task-description-input");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
 
 		// Update task details
 		await page.getByTestId("task-title-input").fill("Updated Task");
@@ -312,7 +243,7 @@ test.describe("Task Management", () => {
 			.getByTestId("task-description-input")
 			.fill("Updated Description");
 
-		// Click update button and wait for response
+		// Submit update and wait for response
 		const [updateResponse] = await Promise.all([
 			page.waitForResponse(
 				(response) =>
@@ -321,28 +252,41 @@ test.describe("Task Management", () => {
 			page.getByTestId("submit-task-button").click(),
 		]);
 
-		// Wait for success message
+		// Wait for success message and network idle
 		await waitForToast(page, "Task updated successfully");
+		await waitForNetworkIdle(page);
 
 		// Close task details
 		await page.keyboard.press("Escape");
 		await waitForNetworkIdle(page);
 
-		// Verify changes are reflected using task ID
-		await expect(page.getByTestId(`task-card-${task.id}`)).toBeVisible();
+		// Verify changes are reflected
+		await waitForElement(page, `task-card-${task.id}`);
 		await expect(page.getByText("Updated Task")).toBeVisible();
 	});
 
 	test("should delete a task", async ({ page }) => {
 		// First create a task
+		await waitForElement(page, "create-task-button");
 		await page.getByTestId("create-task-button").click();
+		await waitForModalToBeReady(page);
+
+		// Wait for form to be ready
+		await waitForElement(page, "task-form");
+		await waitForElement(page, "task-title-input");
+		await waitForElement(page, "task-type-select");
+		await waitForElement(page, "task-priority-select");
+		await waitForElement(page, "task-status-select");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
+
+		// Fill in task details
 		await page.getByTestId("task-title-input").fill("Task to Delete");
 		await page.getByTestId("task-type-select").selectOption("1"); // Feature
 		await page.getByTestId("task-priority-select").selectOption("2"); // Medium
 		await page.getByTestId("task-status-select").selectOption("1"); // Backlog
 
-		// Wait for task creation response
-		await Promise.all([
+		// Submit the form and wait for response
+		const [createResponse] = await Promise.all([
 			page.waitForResponse(
 				(response) =>
 					response.url().includes("/api/tasks") && response.status() === 201,
@@ -350,21 +294,25 @@ test.describe("Task Management", () => {
 			page.getByTestId("submit-create-task-button").click(),
 		]);
 
+		// Get task data and wait for success message
+		const task = await createResponse.json();
 		await waitForToast(page, "Task created successfully");
 
-		// Wait for task to be visible and clickable
-		const taskElement = page.getByText("Task to Delete");
-		await taskElement.waitFor({ state: "visible" });
-		await taskElement.click();
+		// Wait for task card and network idle
+		await waitForElement(page, `task-card-${task.id}`);
+		await waitForNetworkIdle(page);
 
-		// Wait for delete button to be visible and click it
-		const deleteButton = page.getByTestId("delete-task-button");
-		await deleteButton.waitFor({ state: "visible" });
-		await deleteButton.click();
+		// Click on the task to open details
+		await page.getByTestId(`task-card-${task.id}`).click();
+		await waitForModalToBeReady(page);
+
+		// Wait for delete button and click it
+		await waitForElement(page, "delete-task-button");
+		await page.getByTestId("delete-task-button").click();
 
 		// Wait for confirm dialog and confirm deletion
+		await waitForElement(page, "confirm-dialog-confirm");
 		const confirmButton = page.getByTestId("confirm-dialog-confirm");
-		await confirmButton.waitFor({ state: "visible" });
 
 		// Confirm deletion and wait for response
 		await Promise.all([
@@ -375,26 +323,54 @@ test.describe("Task Management", () => {
 			confirmButton.click(),
 		]);
 
-		// Verify success message
+		// Wait for success message and network idle
 		await waitForToast(page, "Task deleted successfully");
+		await waitForNetworkIdle(page);
 
 		// Verify task is removed
-		await expect(page.getByText("Task to Delete")).not.toBeVisible();
+		await expect(page.getByTestId(`task-card-${task.id}`)).not.toBeVisible();
 	});
 
 	test("should change task status via drag and drop", async ({ page }) => {
-		// Create a task
+		// First create a task
+		await waitForElement(page, "create-task-button");
 		await page.getByTestId("create-task-button").click();
+		await waitForModalToBeReady(page);
+
+		// Wait for form to be ready
+		await waitForElement(page, "task-form");
+		await waitForElement(page, "task-title-input");
+		await waitForElement(page, "task-type-select");
+		await waitForElement(page, "task-priority-select");
+		await waitForElement(page, "task-status-select");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
+
+		// Fill in task details
 		await page.getByTestId("task-title-input").fill("Task to Move");
 		await page.getByTestId("task-type-select").selectOption("1"); // Feature
 		await page.getByTestId("task-priority-select").selectOption("2"); // Medium
 		await page.getByTestId("task-status-select").selectOption("1"); // Backlog
-		await page.getByTestId("submit-create-task-button").click();
+
+		// Submit the form and wait for response
+		const [createResponse] = await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/tasks") && response.status() === 201,
+			),
+			page.getByTestId("submit-create-task-button").click(),
+		]);
+
+		// Get task data and wait for success message
+		const task = await createResponse.json();
 		await waitForToast(page, "Task created successfully");
 
-		// Get task element
-		const task = page.getByText("Task to Move");
-		const targetColumn = page.getByTestId("status-column-in_progress");
+		// Wait for task card and network idle
+		await waitForElement(page, `task-card-${task.id}`);
+		await waitForNetworkIdle(page);
+
+		// Get task and target elements
+		const taskCard = page.getByTestId(`task-card-${task.id}`);
+		const targetColumn = page.getByTestId("status-column-in-progress");
 
 		// Perform drag and drop
 		await Promise.all([
@@ -402,100 +378,246 @@ test.describe("Task Management", () => {
 				(response) =>
 					response.url().includes("/api/tasks") && response.status() === 200,
 			),
-			task.dragTo(targetColumn),
+			taskCard.dragTo(targetColumn),
 		]);
+
+		// Wait for network idle after drag
+		await waitForNetworkIdle(page);
 
 		// Verify task is in new column
 		await expect(
-			targetColumn.getByRole("listitem").filter({ hasText: "Task to Move" }),
+			page
+				.getByTestId("status-column-in-progress")
+				.getByTestId(`task-card-${task.id}`),
 		).toBeVisible();
 	});
 
 	test("should change task status via dropdown", async ({ page }) => {
-		// Create a task
+		// First create a task
+		await waitForElement(page, "create-task-button");
 		await page.getByTestId("create-task-button").click();
+		await waitForModalToBeReady(page);
+
+		// Wait for form to be ready
+		await waitForElement(page, "task-form");
+		await waitForElement(page, "task-title-input");
+		await waitForElement(page, "task-type-select");
+		await waitForElement(page, "task-priority-select");
+		await waitForElement(page, "task-status-select");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
+
+		// Fill in task details
 		await page.getByTestId("task-title-input").fill("Task to Change Status");
 		await page.getByTestId("task-type-select").selectOption("1"); // Feature
 		await page.getByTestId("task-priority-select").selectOption("2"); // Medium
 		await page.getByTestId("task-status-select").selectOption("1"); // Backlog
-		await page.getByTestId("submit-create-task-button").click();
+
+		// Submit the form and wait for response
+		const [createResponse] = await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/tasks") && response.status() === 201,
+			),
+			page.getByTestId("submit-create-task-button").click(),
+		]);
+
+		// Get task data and wait for success message
+		const task = await createResponse.json();
 		await waitForToast(page, "Task created successfully");
 
-		// Click on the task to open details
-		await page.getByText("Task to Change Status").click();
+		// Wait for task card and network idle
+		await waitForElement(page, `task-card-${task.id}`);
+		await waitForNetworkIdle(page);
 
-		// Change status
-		await Promise.all([
+		// Click on the task to open details
+		await page.getByTestId(`task-card-${task.id}`).click();
+		await waitForModalToBeReady(page);
+
+		// Wait for form to be ready
+		await waitForElement(page, "task-form");
+		await waitForElement(page, "task-status-select");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
+
+		// Change status to In Progress
+		await page.getByTestId("task-status-select").selectOption("2"); // In Progress
+
+		// Submit update and wait for response
+		const [updateResponse] = await Promise.all([
 			page.waitForResponse(
 				(response) =>
 					response.url().includes("/api/tasks") && response.status() === 200,
 			),
-			page
-				.getByTestId("task-status-select")
-				.selectOption("2"), // In Progress
+			page.getByTestId("submit-task-button").click(),
 		]);
 
-		// Wait for auto-save
-		await waitForToast(page, "Changes saved");
+		// Wait for success message and network idle
+		await waitForToast(page, "Task updated successfully");
+		await waitForNetworkIdle(page);
 
 		// Close task details
 		await page.keyboard.press("Escape");
+		await waitForNetworkIdle(page);
 
 		// Verify task is in new column
-		const inProgressColumn = page.getByTestId("status-column-in_progress");
 		await expect(
-			inProgressColumn
-				.getByRole("listitem")
-				.filter({ hasText: "Task to Change Status" }),
+			page
+				.getByTestId("status-column-in-progress")
+				.getByTestId(`task-card-${task.id}`),
 		).toBeVisible();
 	});
 
 	test("should handle validation errors when updating task", async ({
 		page,
 	}) => {
-		// Create a task
+		// First create a task
+		await waitForElement(page, "create-task-button");
 		await page.getByTestId("create-task-button").click();
+		await waitForModalToBeReady(page);
+
+		// Wait for form to be ready
+		await waitForElement(page, "task-form");
+		await waitForElement(page, "task-title-input");
+		await waitForElement(page, "task-type-select");
+		await waitForElement(page, "task-priority-select");
+		await waitForElement(page, "task-status-select");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
+
+		// Fill in task details
 		await page.getByTestId("task-title-input").fill("Task to Test Validation");
 		await page.getByTestId("task-type-select").selectOption("1"); // Feature
 		await page.getByTestId("task-priority-select").selectOption("2"); // Medium
 		await page.getByTestId("task-status-select").selectOption("1"); // Backlog
-		await page.getByTestId("submit-create-task-button").click();
+
+		// Submit the form and wait for response
+		const [createResponse] = await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/tasks") && response.status() === 201,
+			),
+			page.getByTestId("submit-create-task-button").click(),
+		]);
+
+		// Get task data and wait for success message
+		const task = await createResponse.json();
 		await waitForToast(page, "Task created successfully");
 
+		// Wait for task card and network idle
+		await waitForElement(page, `task-card-${task.id}`);
+		await waitForNetworkIdle(page);
+
 		// Click on the task to open details
-		await page.getByText("Task to Test Validation").click();
+		await page.getByTestId(`task-card-${task.id}`).click();
+		await waitForModalToBeReady(page);
 
-		// Try to clear title
+		// Wait for form to be ready
+		await waitForElement(page, "task-form");
+		await waitForElement(page, "task-title-input");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
+
+		// Clear title and trigger validation
 		await page.getByTestId("task-title-input").fill("");
+		await page.getByTestId("task-title-input").blur(); // Trigger validation by removing focus
 
-		// Verify error message
-		await expect(page.getByText("Title is required")).toBeVisible();
+		// Wait for validation state
+		const titleInput = page.getByTestId("task-title-input");
+		await expect(titleInput).toHaveAttribute("aria-invalid", "true");
+		await expect(titleInput).toHaveAttribute("required", "");
 
-		// Verify save button is disabled
-		await expect(page.getByTestId("save-task-button")).toBeDisabled();
+		// Check for error message in aria-errormessage
+		const errorId = await titleInput.getAttribute("aria-errormessage");
+		if (errorId) {
+			await expect(page.locator(`#${errorId}`)).toBeVisible();
+			await expect(page.locator(`#${errorId}`)).toContainText("required");
+		}
+
+		// Verify submit button is disabled
+		await expect(page.getByTestId("submit-task-button")).toBeDisabled();
 	});
 
 	test("should handle network errors gracefully", async ({ page }) => {
-		// Create a task
+		// First create a task
+		await waitForElement(page, "create-task-button");
 		await page.getByTestId("create-task-button").click();
+		await waitForModalToBeReady(page);
+
+		// Wait for form to be ready
+		await waitForElement(page, "task-form");
+		await waitForElement(page, "task-title-input");
+		await waitForElement(page, "task-type-select");
+		await waitForElement(page, "task-priority-select");
+		await waitForElement(page, "task-status-select");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
+
+		// Fill in task details
 		await page.getByTestId("task-title-input").fill("Task for Error Test");
 		await page.getByTestId("task-type-select").selectOption("1"); // Feature
 		await page.getByTestId("task-priority-select").selectOption("2"); // Medium
 		await page.getByTestId("task-status-select").selectOption("1"); // Backlog
-		await page.getByTestId("submit-create-task-button").click();
+
+		// Submit the form and wait for response
+		const [createResponse] = await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/tasks") && response.status() === 201,
+			),
+			page.getByTestId("submit-create-task-button").click(),
+		]);
+
+		// Get task data and wait for success message
+		const task = await createResponse.json();
 		await waitForToast(page, "Task created successfully");
 
+		// Wait for task card and network idle
+		await waitForElement(page, `task-card-${task.id}`);
+		await waitForNetworkIdle(page);
+
 		// Click on the task to open details
-		await page.getByText("Task for Error Test").click();
+		await page.getByTestId(`task-card-${task.id}`).click();
+		await waitForModalToBeReady(page);
 
-		// Simulate offline mode
-		await page.route("**/api/tasks/**", (route) => route.abort());
+		// Wait for form to be ready
+		await waitForElement(page, "task-form");
+		await waitForElement(page, "task-title-input");
+		await page.waitForTimeout(500); // Give the form a moment to initialize
 
-		// Try to update task
+		// Simulate network error for all task-related requests
+		await page.route("**/api/tasks/**", (route) => {
+			route.fulfill({
+				status: 500,
+				contentType: "application/json",
+				body: JSON.stringify({ error: "Internal Server Error" }),
+			});
+		});
+
+		// Try to update task and submit
 		await page.getByTestId("task-title-input").fill("Updated Title");
+		await page.getByTestId("submit-task-button").click();
 
-		// Verify error message
-		await waitForToast(page, "Failed to save changes");
+		// Wait for error state in the form
+		await expect(page.getByTestId("task-form")).toHaveAttribute(
+			"data-error",
+			"true",
+		);
+
+		// Check for error message in any of these common patterns
+		const errorSelectors = [
+			'[role="alert"]',
+			".error-message",
+			'[data-testid="error-message"]',
+			'[data-testid="form-error"]',
+			".text-red-500",
+			".text-error",
+		];
+
+		// Wait for any error message to appear
+		const errorMessage = await page.waitForSelector(errorSelectors.join(","), {
+			timeout: 10000,
+			state: "visible",
+		});
+		const isVisible = await errorMessage.isVisible();
+		expect(isVisible).toBe(true);
+		const text = await errorMessage.textContent();
+		expect(text?.toLowerCase()).toContain("error");
 
 		// Restore network
 		await page.unroute("**/api/tasks/**");

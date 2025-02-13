@@ -121,9 +121,7 @@ export function App() {
 			if (!isAuthenticated || isAuthLoading) return;
 
 			try {
-				const [statuses] = await Promise.all([
-					taskAPI.listStatuses(),
-				]);
+				const [statuses] = await Promise.all([taskAPI.listStatuses()]);
 				await initializeTaskStatuses(statuses);
 				updateStatusMap();
 				setStatusesLoaded(true);
@@ -382,11 +380,10 @@ export function App() {
 
 			// Create move request
 			const moveRequest = {
-				status_id: newStatusId,
+				status_id: Number(newStatusId),
 				order: newOrder,
-				previous_status_id: taskToUpdate.status_id,
 				comment: `Task moved to ${targetStatus.name}`,
-				type: taskToUpdate.type?.code || "feature",
+				type: taskToUpdate.type?.code,
 			};
 
 			await moveTask({ taskId, request: moveRequest });

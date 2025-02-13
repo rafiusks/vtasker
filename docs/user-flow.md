@@ -18,7 +18,7 @@ test: `pnpm test e2e/board/board.spec.ts`
 - Board Creation: `pnpm test e2e/board/board.spec.ts --grep "should handle board creation with validation"`
 - Board Updates: `pnpm test e2e/board/board.spec.ts --grep "should update board details"`
 - Board Deletion: `pnpm test e2e/board/board.spec.ts --grep "should delete a board"`
-- Board Visibility: `pnpm test e2e/board/board.spec.ts --grep "should handle board visibility"`
+
 
 ## Task Management
 file: docs/user-flow/task-management.md

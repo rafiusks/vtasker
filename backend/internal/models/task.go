@@ -36,13 +36,22 @@ type CreateTaskInput struct {
 
 // UpdateTaskInput represents the input for updating a task
 type UpdateTaskInput struct {
-	Title       *string                `json:"title,omitempty"`
-	Description *string                `json:"description,omitempty"`
-	StatusID    *int32                 `json:"status_id,omitempty"`
-	PriorityID  *int32                 `json:"priority_id,omitempty"`
-	TypeID      *int32                 `json:"type_id,omitempty"`
-	BoardID     *uuid.UUID             `json:"board_id,omitempty"`
+	Title       *string                 `json:"title,omitempty"`
+	Description *string                 `json:"description,omitempty"`
+	StatusID    *int                    `json:"status_id,omitempty"`
+	PriorityID  *int                    `json:"priority_id,omitempty"`
+	TypeID      *int                    `json:"type_id,omitempty"`
+	BoardID     *uuid.UUID              `json:"board_id,omitempty"`
+	Order       *int                    `json:"order,omitempty"`
 	Content     *UpdateTaskContentInput `json:"content,omitempty"`
+}
+
+// TaskMoveInput represents the input for moving a task
+type TaskMoveInput struct {
+	StatusID int    `json:"status_id" binding:"required"`
+	Order    int    `json:"order" binding:"required"`
+	Comment  string `json:"comment,omitempty"`
+	Type     string `json:"type,omitempty"`
 }
 
 // NewTask creates a new task from input
