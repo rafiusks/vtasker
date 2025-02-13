@@ -189,8 +189,16 @@ test.describe("Board Management", () => {
 		await page.getByTestId("create-board-button").click();
 		await expect(page.getByTestId("create-board-modal")).toBeVisible();
 
-		// Test clicking outside (on the backdrop)
-		await page.getByTestId("modal-backdrop").click();
+		// Wait for modal to be fully rendered and stable
+		await page.waitForTimeout(500);
+
+		// Get the backdrop element and click in the top-left corner
+		const backdrop = page.getByTestId("modal-backdrop");
+		const box = await backdrop.boundingBox();
+		if (box) {
+			// Click in the top-left corner of the backdrop
+			await page.mouse.click(box.x + 10, box.y + 10);
+		}
 
 		// Wait for modal to be hidden and verify
 		await expect(page.getByTestId("create-board-modal")).not.toBeVisible();
