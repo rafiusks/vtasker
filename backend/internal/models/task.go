@@ -38,9 +38,9 @@ type CreateTaskInput struct {
 type UpdateTaskInput struct {
 	Title       *string                 `json:"title,omitempty"`
 	Description *string                 `json:"description,omitempty"`
-	StatusID    *int                    `json:"status_id,omitempty"`
-	PriorityID  *int                    `json:"priority_id,omitempty"`
-	TypeID      *int                    `json:"type_id,omitempty"`
+	StatusID    *int32                  `json:"status_id,omitempty"`
+	PriorityID  *int32                  `json:"priority_id,omitempty"`
+	TypeID      *int32                  `json:"type_id,omitempty"`
 	BoardID     *uuid.UUID              `json:"board_id,omitempty"`
 	Order       *int                    `json:"order,omitempty"`
 	Content     *UpdateTaskContentInput `json:"content,omitempty"`
@@ -48,8 +48,8 @@ type UpdateTaskInput struct {
 
 // TaskMoveInput represents the input for moving a task
 type TaskMoveInput struct {
-	StatusID int    `json:"status_id" binding:"required"`
-	Order    int    `json:"order" binding:"required"`
+	StatusID int32  `json:"status_id" binding:"required"`
+	Order    int32  `json:"order" binding:"required"`
 	Comment  string `json:"comment,omitempty"`
 	Type     string `json:"type,omitempty"`
 }

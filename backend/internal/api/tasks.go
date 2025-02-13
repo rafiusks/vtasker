@@ -260,7 +260,7 @@ func (h *TaskHandler) MoveTask(c *gin.Context) {
 	// Update task status and order
 	updateInput := models.UpdateTaskInput{
 		StatusID: &input.StatusID,
-		Order:    &input.Order,
+		Order:    Int32PtrToIntPtr(&input.Order),
 	}
 
 	updatedTask, err := h.repo.UpdateTask(c.Request.Context(), c.Param("id"), &updateInput, userID)
@@ -309,4 +309,12 @@ func (h *TaskHandler) logTaskAudit(ctx context.Context, event string, taskID str
 			log.Printf("Failed to write audit log: %v", err)
 		}
 	}()
+}
+
+func Int32PtrToIntPtr(i *int32) *int {
+	if i == nil {
+		return nil
+	}
+	v := int(*i)
+	return &v
 }
