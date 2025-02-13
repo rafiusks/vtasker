@@ -12,6 +12,7 @@
 - [ ] Add pagination to user and board lists in Super Admin Dashboard | medium priority
 - [ ] Add sorting functionality to Super Admin Dashboard lists | medium priority
 - [ ] Add bulk actions to Super Admin Dashboard | low priority
+- [ ] Fix duplicate cleanup of test users | low priority
 
 ## Board Management
 - [x] Create database schema for boards
@@ -340,3 +341,4 @@
   - [ ] Track errors in the API
   - [ ] Track errors in the frontend
   - [ ] Track errors in the backend
+- [ ] Test dashboard to keep track of the bugs and issues

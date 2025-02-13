@@ -1,24 +1,35 @@
-# User Flow
+# User Flow Documentation
+
+This document serves as an index to the detailed user flow documentation for each major feature.
 
 ## User Registration
 file: docs/user-flow/user-registration.md
-test: e2e/auth/registration.spec.ts
-command: pnpm test e2e/auth/registration.spec.ts
+test: `pnpm test e2e/auth/registration.spec.ts`
 
 ## User Login
 file: docs/user-flow/user-login.md
-test: e2e/auth/login.spec.ts
-command: pnpm test e2e/auth/login.spec.ts
+test: `pnpm test e2e/auth/login.spec.ts`
 
 ## Board Management
 file: docs/user-flow/board-management.md
-test: e2e/board/board.spec.ts
-command: pnpm test e2e/board/board.spec.ts
+test: `pnpm test e2e/board/board.spec.ts`
+
+### Available Tests
+- Board Creation: `pnpm test e2e/board/board.spec.ts --grep "should handle board creation with validation"`
+- Board Updates: `pnpm test e2e/board/board.spec.ts --grep "should update board details"`
+- Board Deletion: `pnpm test e2e/board/board.spec.ts --grep "should delete a board"`
+- Board Visibility: `pnpm test e2e/board/board.spec.ts --grep "should handle board visibility"`
 
 ## Task Management
 file: docs/user-flow/task-management.md
-test: e2e/task/task.spec.ts
-command: pnpm test e2e/task/task.spec.ts
+test: `pnpm test e2e/task/task.spec.ts`
+
+### Available Tests
+- Task Creation: `pnpm test e2e/task/task.spec.ts --grep "should handle task creation with validation"`
+- Task Updates: `pnpm test e2e/task/task.spec.ts --grep "should update task details"`
+- Task Deletion: `pnpm test e2e/task/task.spec.ts --grep "should delete a task"`
+- Status Changes: `pnpm test e2e/task/task.spec.ts --grep "should change task status"`
+- Error Handling: `pnpm test e2e/task/task.spec.ts --grep "should handle"`
 
 ## Additional Board Features
 

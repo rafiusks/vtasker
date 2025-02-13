@@ -11,6 +11,7 @@ const Input = forwardRef<
 	InputProps
 >(({ label, error, helperText, id, className = "", ...props }, ref) => {
 	const inputId = id || `input-${label.toLowerCase().replace(/\s+/g, "-")}`;
+	const errorId = `${inputId}-error`;
 
 	return (
 		<div className="w-full">
@@ -23,6 +24,8 @@ const Input = forwardRef<
 			<input
 				ref={ref}
 				id={inputId}
+				aria-invalid={!!error}
+				aria-describedby={error ? errorId : undefined}
 				className={`
             w-full px-3 py-2 border rounded-md shadow-sm
             focus:outline-none focus:ring-2 focus:ring-blue-500
@@ -35,7 +38,16 @@ const Input = forwardRef<
 			{helperText && !error && (
 				<p className="mt-1 text-sm text-gray-500">{helperText}</p>
 			)}
-			{error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+			{error && (
+				<p
+					id={errorId}
+					role="alert"
+					className="mt-1 text-sm text-red-600"
+					data-testid={errorId}
+				>
+					{error}
+				</p>
+			)}
 		</div>
 	);
 });

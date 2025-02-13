@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { Task } from "../../types";
 import type {
 	TaskStatusEntity,
@@ -27,47 +28,57 @@ export const TaskModal = ({
 	priorityOptions,
 	typeOptions,
 }: TaskModalProps) => {
-	if (!isOpen) return null;
+	const modalRef = useRef<HTMLDialogElement>(null);
 
-	const handleBackdropInteraction = () => {
-		onClose();
+	useEffect(() => {
+		if (isOpen) {
+			modalRef.current?.showModal();
+		} else {
+			modalRef.current?.close();
+		}
+	}, [isOpen]);
+
+	const handleBackdropClick = (e: React.MouseEvent) => {
+		const dialogDimensions = modalRef.current?.getBoundingClientRect();
+		if (!dialogDimensions) return;
+
+		if (
+			e.clientX < dialogDimensions.left ||
+			e.clientX > dialogDimensions.right ||
+			e.clientY < dialogDimensions.top ||
+			e.clientY > dialogDimensions.bottom
+		) {
+			onClose();
+		}
 	};
 
+	if (!isOpen) return null;
+
 	return (
-		<>
+		<dialog
+			ref={modalRef}
+			className="fixed inset-0 bg-black/50 w-full h-full m-0 p-0"
+			onClick={handleBackdropClick}
+			onClose={onClose}
+			data-testid="task-modal"
+		>
 			<div
-				className="fixed inset-0 bg-black bg-opacity-50 z-40"
-				onClick={handleBackdropInteraction}
-				onKeyDown={(e) => {
-					if (e.key === "Escape") {
-						handleBackdropInteraction();
-					}
-				}}
-				role="button"
-				tabIndex={0}
-				data-testid="modal-backdrop"
-			/>
-			<div className="fixed inset-0 flex items-center justify-center z-50">
-				<div
-					className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg"
-					data-testid="create-task-modal"
-					onClick={(e) => e.stopPropagation()}
-					onKeyDown={(e) => e.stopPropagation()}
-				>
-					<h2 className="text-xl font-semibold mb-4">
-						{initialData ? "Edit" : "Create"} Task
-					</h2>
-					<TaskForm
-						onSubmit={onSubmit}
-						onCancel={onClose}
-						initialData={initialData}
-						isLoading={isLoading}
-						statusOptions={statusOptions}
-						priorityOptions={priorityOptions}
-						typeOptions={typeOptions}
-					/>
-				</div>
+				className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-lg shadow-xl p-6 w-full max-w-lg"
+				data-testid="create-task-modal"
+			>
+				<h2 className="text-xl font-semibold mb-4">
+					{initialData ? "Edit" : "Create"} Task
+				</h2>
+				<TaskForm
+					onSubmit={onSubmit}
+					onCancel={onClose}
+					initialData={initialData}
+					isLoading={isLoading}
+					statusOptions={statusOptions}
+					priorityOptions={priorityOptions}
+					typeOptions={typeOptions}
+				/>
 			</div>
-		</>
+		</dialog>
 	);
 };

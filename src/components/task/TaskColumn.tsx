@@ -34,14 +34,18 @@ export const TaskColumn = ({
 	});
 
 	return (
-		<div
+		<section
 			ref={drop}
 			className={`bg-white rounded-lg shadow p-4 ${
 				isOver ? "ring-2 ring-blue-500" : ""
 			}`}
-			data-testid={`task-column-${status.code}`}
+			data-testid={`status-column-${status.code}`}
+			aria-labelledby={`status-heading-${status.code}`}
 		>
-			<h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+			<h3
+				id={`status-heading-${status.code}`}
+				className="text-lg font-semibold mb-4 flex items-center gap-2"
+			>
 				<span
 					className={`w-3 h-3 rounded-full ${status.color}`}
 					aria-hidden="true"
@@ -52,15 +56,15 @@ export const TaskColumn = ({
 				</span>
 			</h3>
 
-			<div className="space-y-3">
-				{isLoading ? (
-					<div className="flex justify-center py-4">
-						<LoadingSpinner />
-					</div>
-				) : tasks.length === 0 ? (
-					<p className="text-center text-gray-500 py-4">No tasks</p>
-				) : (
-					tasks.map((task) => (
+			{isLoading ? (
+				<div className="flex justify-center py-4">
+					<LoadingSpinner />
+				</div>
+			) : tasks.length === 0 ? (
+				<p className="text-center text-gray-500 py-4">No tasks</p>
+			) : (
+				<ul className="space-y-3">
+					{tasks.map((task) => (
 						<TaskCard
 							key={task.id}
 							task={task}
@@ -68,9 +72,9 @@ export const TaskColumn = ({
 							onDelete={() => onDelete(task.id)}
 							isUpdating={updatingTaskId === task.id}
 						/>
-					))
-				)}
-			</div>
-		</div>
+					))}
+				</ul>
+			)}
+		</section>
 	);
 };

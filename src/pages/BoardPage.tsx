@@ -118,35 +118,8 @@ export const BoardPage = () => {
 		},
 	});
 
-	if (isLoadingBoard || isLoadingStatuses) {
-		return (
-			<div className="flex justify-center items-center h-64">
-				<LoadingSpinner />
-			</div>
-		);
-	}
-
-	if (boardError || statusesError) {
-		return (
-			<div className="text-center py-12">
-				<p className="text-red-500">
-					{boardError instanceof Error
-						? boardError.message
-						: "Failed to load board"}
-				</p>
-			</div>
-		);
-	}
-
-	if (!board || !taskStatuses) {
-		return (
-			<div className="text-center py-12">
-				<p className="text-gray-500">No board data available</p>
-			</div>
-		);
-	}
-
 	const handleCreateTask = (data: Partial<Task>) => {
+		if (!board) return;
 		createTaskMutation.mutate({
 			...data,
 			board_id: board.id,
@@ -173,90 +146,113 @@ export const BoardPage = () => {
 		moveTaskMutation.mutate({ taskId, newStatusId });
 	};
 
+	// Always render the container, but show loading state when needed
 	return (
-		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-			<div className="flex justify-between items-center mb-6">
-				<div>
-					<h1 className="text-2xl font-bold text-gray-900">{board.name}</h1>
-					{board.description && (
-						<p className="mt-1 text-sm text-gray-500">{board.description}</p>
-					)}
+		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-testid="board-container">
+			{isLoadingBoard || isLoadingStatuses ? (
+				<div className="flex justify-center items-center h-64">
+					<LoadingSpinner />
 				</div>
-				<div className="flex gap-2">
-					<Button
-						onClick={() => setIsSettingsModalOpen(true)}
-						variant="secondary"
-						data-testid="board-settings-button"
-					>
-						Board Settings
-					</Button>
-					<Button
-						onClick={() => setIsCreateModalOpen(true)}
-						data-testid="create-task-button"
-					>
-						Create Task
-					</Button>
+			) : boardError || statusesError ? (
+				<div className="text-center py-12">
+					<p className="text-red-500">
+						{boardError instanceof Error
+							? boardError.message
+							: statusesError instanceof Error
+							? statusesError.message
+							: "Failed to load board"}
+					</p>
 				</div>
-			</div>
+			) : !board || !taskStatuses ? (
+				<div className="text-center py-12">
+					<p className="text-gray-500">No board data available</p>
+				</div>
+			) : (
+				<>
+					<div className="flex justify-between items-center mb-6">
+						<div>
+							<h1 className="text-2xl font-bold text-gray-900">{board.name}</h1>
+							{board.description && (
+								<p className="mt-1 text-sm text-gray-500">{board.description}</p>
+							)}
+						</div>
+						<div className="flex gap-2">
+							<Button
+								onClick={() => setIsSettingsModalOpen(true)}
+								variant="secondary"
+								data-testid="board-settings-button"
+							>
+								Board Settings
+							</Button>
+							<Button
+								onClick={() => setIsCreateModalOpen(true)}
+								data-testid="create-task-button"
+							>
+								Create Task
+							</Button>
+						</div>
+					</div>
 
-			<div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-				{taskStatuses.map((status) => {
-					const statusUI: TaskStatusUI = {
-						id: status.id,
-						code: status.code,
-						name: status.name,
-						color: status.color,
-						display_order: status.display_order,
-					};
-					return (
-						<TaskColumn
-							key={status.id}
-							status={statusUI}
-							tasks={
-								board.tasks?.filter((t) => t.status_id === status.id) || []
-							}
-							onDrop={handleMoveTask}
-							onEdit={(taskId) =>
-								setEditingTask(
-									board.tasks?.find((t) => t.id === taskId) || null,
-								)
-							}
-							onDelete={handleDeleteTask}
-							updatingTaskId={moveTaskMutation.isPending ? board.id : undefined}
+					<div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+						{taskStatuses.map((status) => {
+							const statusUI: TaskStatusUI = {
+								id: status.id,
+								code: status.code,
+								name: status.name,
+								color: status.color,
+								display_order: status.display_order,
+							};
+							return (
+								<TaskColumn
+									key={status.id}
+									status={statusUI}
+									tasks={
+										board.tasks?.filter((t) => t.status_id === status.id) || []
+									}
+									onDrop={handleMoveTask}
+									onEdit={(taskId) =>
+										setEditingTask(
+											board.tasks?.find((t) => t.id === taskId) || null,
+										)
+									}
+									onDelete={handleDeleteTask}
+									updatingTaskId={moveTaskMutation.isPending ? board.id : undefined}
+								/>
+							);
+						})}
+					</div>
+
+					<TaskModal
+						isOpen={isCreateModalOpen}
+						onClose={() => setIsCreateModalOpen(false)}
+						onSubmit={handleCreateTask}
+						isLoading={createTaskMutation.isPending}
+						statusOptions={taskStatuses}
+						priorityOptions={taskPriorities || []}
+						typeOptions={taskTypes || []}
+					/>
+
+					{editingTask && (
+						<TaskModal
+							isOpen={true}
+							onClose={() => setEditingTask(null)}
+							onSubmit={handleUpdateTask}
+							initialData={editingTask}
+							isLoading={updateTaskMutation.isPending}
+							statusOptions={taskStatuses}
+							priorityOptions={taskPriorities || []}
+							typeOptions={taskTypes || []}
 						/>
-					);
-				})}
-			</div>
+					)}
 
-			<TaskModal
-				isOpen={isCreateModalOpen}
-				onClose={() => setIsCreateModalOpen(false)}
-				onSubmit={handleCreateTask}
-				isLoading={createTaskMutation.isPending}
-				statusOptions={taskStatuses}
-				priorityOptions={taskPriorities || []}
-				typeOptions={taskTypes || []}
-			/>
-
-			{editingTask && (
-				<TaskModal
-					isOpen={true}
-					onClose={() => setEditingTask(null)}
-					onSubmit={handleUpdateTask}
-					initialData={editingTask}
-					isLoading={updateTaskMutation.isPending}
-					statusOptions={taskStatuses}
-					priorityOptions={taskPriorities || []}
-					typeOptions={taskTypes || []}
-				/>
-			)}
-
-			{board && (
-				<BoardSettingsModal
-					isOpen={isSettingsModalOpen}
-					onClose={() => setIsSettingsModalOpen(false)}
-					board={board}
-				/>
+					{board && (
+						<BoardSettingsModal
+							isOpen={isSettingsModalOpen}
+							onClose={() => setIsSettingsModalOpen(false)}
+							board={board}
+						/>
+					)}
+				</>
 			)}
 		</div>
 	);

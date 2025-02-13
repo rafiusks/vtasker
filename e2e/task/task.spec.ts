@@ -1,108 +1,204 @@
 import { test, expect } from "@playwright/test";
-import { loginTestUser, registerTestUser, waitForToast } from "../test-utils";
+import {
+	setupTestUserViaApi,
+	createTestBoardViaApi,
+	cleanupTestData,
+	waitForToast,
+	waitForElement,
+	waitForModalToBeReady,
+	waitForNetworkIdle,
+} from "../test-utils";
 import type { TestUser } from "../test-utils";
 
 test.describe("Task Management", () => {
 	let testUser: TestUser;
+	let boardSlug: string;
 
 	test.beforeEach(async ({ page }) => {
-		// Register and login a test user before each test
-		testUser = await registerTestUser(page);
-		await loginTestUser(page, testUser);
+		try {
+			// Clean up any existing test data first
+			console.log("Running initial cleanup...");
+			await cleanupTestData();
+			console.log("Initial cleanup completed");
 
-		// Create a test board
-		await page.goto("/boards");
-		await page.getByTestId("create-board-button").click();
-		await page.getByTestId("board-name-input").fill("Test Board");
-		await Promise.all([
-			page.waitForResponse(
-				(response) =>
-					response.url().includes("/api/boards") && response.status() === 201,
-			),
-			page.getByTestId("submit-create-board-button").click(),
-		]);
+			// Setup test user via API
+			console.log("Setting up test user...");
+			testUser = await setupTestUserViaApi();
+			console.log("Test user created:", testUser.email);
+			
+			if (!testUser.token) {
+				throw new Error("Failed to get authentication token");
+			}
 
-		// Wait for navigation to the new board
-		await page.waitForURL(/.*\/b\/.*/);
-		await page.waitForLoadState("networkidle");
+			// Create test board via API
+			console.log("Creating test board...");
+			const board = await createTestBoardViaApi(testUser.token);
+			boardSlug = board.slug;
+			console.log("Test board created:", boardSlug);
 
-		// Listen to console logs
-		page.on("console", (msg) => {
-			console.log(`Browser console: ${msg.type()}: ${msg.text()}`);
-		});
+			// Set up authentication in the browser
+			console.log("Setting up browser authentication...");
+			await page.goto("/");
+			await page.evaluate(({ token, user }) => {
+				const authData = {
+					token,
+					refresh_token: token, // Using same token as refresh token for test purposes
+					user,
+					expiresAt: Date.now() + 3600 * 1000, // 1 hour from now
+					refreshExpiresAt: Date.now() + 7200 * 1000, // 2 hours from now
+				};
+				localStorage.setItem("auth", JSON.stringify(authData));
+			}, { token: testUser.token, user: { id: "test-user", email: testUser.email, full_name: testUser.fullName } });
+
+			// Navigate to board and wait for load
+			console.log("Navigating to board:", boardSlug);
+			await page.goto(`/b/${boardSlug}`);
+			
+			// Wait for critical resources
+			console.log("Waiting for page load...");
+			await page.waitForLoadState("domcontentloaded");
+			await page.waitForLoadState("networkidle");
+
+			// Check if we're on the right page
+			console.log("Checking page URL...");
+			await expect(page).toHaveURL(new RegExp(`/b/${boardSlug}$`));
+
+			// Wait for board container
+			console.log("Waiting for board container...");
+			await expect(page.getByTestId("board-container")).toBeVisible({ timeout: 30000 });
+
+			// Check for error states
+			const errorText = await page.getByText(/error/i).first().textContent().catch(() => null);
+			if (errorText) {
+				console.error("Found error on page:", errorText);
+				throw new Error(`Page error: ${errorText}`);
+			}
+
+			// Wait for create task button with increased timeout
+			console.log("Waiting for create task button...");
+			await expect(page.getByTestId("create-task-button")).toBeVisible({ timeout: 30000 });
+			
+			console.log("Test setup completed successfully");
+		} catch (error) {
+			// Log the error and cleanup
+			console.error("Test setup failed:", error);
+			if (testUser?.token) {
+				await cleanupTestData(testUser.token).catch(cleanupError => {
+					console.error("Cleanup after setup failure also failed:", cleanupError);
+				});
+			}
+			throw error;
+		}
 	});
 
-	test("should create a task with valid data", async ({ page }) => {
-		// Click create task button
+	test.afterEach(async () => {
+		try {
+			if (testUser?.token) {
+				await cleanupTestData(testUser.token);
+			}
+		} catch (error) {
+			console.warn("Failed to clean up test data:", error);
+		}
+	});
+
+	test("should handle task creation with validation", async ({ page }) => {
+		// Wait for board to load and open create task modal
+		await waitForElement(page, "create-task-button");
 		await page.getByTestId("create-task-button").click();
+		await waitForModalToBeReady(page);
 
-		// Verify modal is open
-		await expect(page.getByTestId("create-task-modal")).toBeVisible();
+		// Try to submit the form without filling any fields
+		await page.getByTestId("submit-create-task-button").click();
 
-		// Fill in task details
-		await page.getByTestId("task-title-input").fill("Test Task");
+		// Wait for error message to appear
+		await expect(page.getByRole("alert").filter({ hasText: "Title is required" })).toBeVisible();
+
+		// Check that the title input shows validation error
+		const titleInput = page.getByTestId("task-title-input");
+		await expect(titleInput).toHaveAttribute("required", "");
+		await expect(titleInput).toHaveAttribute("aria-invalid", "true");
+
+		// Check that the form is still open (not submitted)
+		await expect(page.getByTestId("task-modal")).toBeVisible();
+
+		// Fill in all task details
+		await titleInput.fill("Test Task");
 		await page.getByTestId("task-description-input").fill("Test Description");
+		
+		// Wait for form options to be loaded
+		await waitForElement(page, "task-type-select");
+		await waitForElement(page, "task-priority-select");
+		await waitForElement(page, "task-status-select");
+		
+		// Select task options
 		await page.getByTestId("task-type-select").selectOption("1"); // Feature
 		await page.getByTestId("task-priority-select").selectOption("2"); // Medium
 		await page.getByTestId("task-status-select").selectOption("1"); // Backlog
+		
+		// Submit the form and wait for the response
+		const [createResponse] = await Promise.all([
+			page.waitForResponse(
+				response => 
+					response.url().includes("/api/tasks") && 
+					response.status() === 201,
+				{ timeout: 30000 }
+			),
+			page.getByTestId("submit-create-task-button").click()
+		]);
 
-		// Create task and wait for response
-		const [response] = await Promise.all([
+		// Verify task was created with correct data
+		const task = await createResponse.json();
+		expect(task.title).toBe("Test Task");
+		expect(task.description).toBe("Test Description");
+
+		// Wait for success message and verify task appears on board
+		await waitForToast(page, "Task created successfully");
+		await waitForElement(page, `task-card-${task.id}`);
+		await expect(page.getByText("Test Task")).toBeVisible();
+
+		// Modal should be closed after successful submission
+		await expect(page.getByTestId("task-modal")).not.toBeVisible();
+	});
+
+	test("should update task details", async ({ page }) => {
+		// First create a task
+		await waitForElement(page, "create-task-button");
+		await page.getByTestId("create-task-button").click();
+		await waitForModalToBeReady(page);
+
+		await page.getByTestId("task-title-input").fill("Task to Update");
+		await page.getByTestId("task-type-select").selectOption("1");
+		await page.getByTestId("task-priority-select").selectOption("2");
+		await page.getByTestId("task-status-select").selectOption("1");
+		
+		await Promise.all([
 			page.waitForResponse(
 				(response) =>
 					response.url().includes("/api/tasks") && response.status() === 201,
 			),
 			page.getByTestId("submit-create-task-button").click(),
 		]);
-
-		// Verify task was created
-		const task = await response.json();
-		expect(task.title).toBe("Test Task");
-
-		// Verify success message
+		
 		await waitForToast(page, "Task created successfully");
-
-		// Verify task appears in the board
-		await expect(page.getByText("Test Task")).toBeVisible();
-	});
-
-	test("should show validation errors for empty fields", async ({ page }) => {
-		// Click create task button
-		await page.getByTestId("create-task-button").click();
-
-		// Try to submit without filling required fields
-		await page.getByTestId("submit-create-task-button").click();
-
-		// Verify validation messages
-		await expect(page.getByText("Title is required")).toBeVisible();
-	});
-
-	test("should update task details", async ({ page }) => {
-		// First create a task
-		await page.getByTestId("create-task-button").click();
-		await page.getByTestId("task-title-input").fill("Task to Update");
-		await page.getByTestId("task-type-select").selectOption("1"); // Feature
-		await page.getByTestId("task-priority-select").selectOption("2"); // Medium
-		await page.getByTestId("task-status-select").selectOption("1"); // Backlog
-		await page.getByTestId("submit-create-task-button").click();
-		await waitForToast(page, "Task created successfully");
+		await waitForElement(page, "task-card-Task to Update");
 
 		// Click on the task to open details
 		await page.getByText("Task to Update").click();
+		await waitForModalToBeReady(page);
 
 		// Update task details
 		await page.getByTestId("task-title-input").fill("Updated Task");
-		await page
-			.getByTestId("task-description-input")
-			.fill("Updated Description");
+		await page.getByTestId("task-description-input").fill("Updated Description");
 
 		// Wait for auto-save
 		await waitForToast(page, "Changes saved");
 
 		// Close task details
 		await page.keyboard.press("Escape");
+		await waitForNetworkIdle(page);
 
 		// Verify changes are reflected
+		await waitForElement(page, "task-card-Updated Task");
 		await expect(page.getByText("Updated Task")).toBeVisible();
 	});
 

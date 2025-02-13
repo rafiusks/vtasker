@@ -30,6 +30,7 @@ func (h *UserHandler) Register(router *gin.RouterGroup) {
 		users.PATCH("/:id", h.UpdateUser)
 		users.DELETE("/:id", h.DeleteUser)
 		users.GET("/search", h.SearchUsers)
+		users.DELETE("/cleanup-test", h.CleanupTestUsers)
 	}
 }
 
@@ -298,4 +299,17 @@ func (h *UserHandler) SearchUsers(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, users)
-} 
+}
+
+// CleanupTestUsers deletes all test users (used for testing)
+func (h *UserHandler) CleanupTestUsers(c *gin.Context) {
+	// Delete all users with email matching test*@example.com
+	query := `DELETE FROM users WHERE email LIKE 'test%@example.com'`
+	_, err := h.repo.GetPool().Exec(c.Request.Context(), query)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.Status(http.StatusNoContent)
+}

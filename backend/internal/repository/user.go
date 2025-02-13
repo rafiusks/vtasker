@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rafaelzasas/vtasker/backend/internal/models/user"
 )
 
@@ -32,6 +33,9 @@ type UserRepository interface {
 
 	// List retrieves all users with optional filtering
 	List(ctx context.Context, filter UserFilter) ([]*user.User, error)
+
+	// GetPool returns the database connection pool
+	GetPool() *pgxpool.Pool
 }
 
 // UserFilter defines the filter options for listing users
@@ -42,4 +46,4 @@ type UserFilter struct {
 	Offset   int
 	OrderBy  string
 	OrderDir string
-} 
+}

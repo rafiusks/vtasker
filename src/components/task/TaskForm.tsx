@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Input } from "../common/Input";
 import { Button } from "../common/Button";
 import type { Task } from "../../types";
@@ -7,6 +7,7 @@ import type {
 	TaskPriorityEntity,
 	TaskTypeEntity,
 } from "../../types/typeReference";
+import { LoadingSpinner } from "../common/LoadingSpinner";
 
 interface TaskFormProps {
 	onSubmit: (data: Partial<Task>) => void;
@@ -36,65 +37,78 @@ export const TaskForm = ({
 	typeOptions,
 }: TaskFormProps) => {
 	const [formData, setFormData] = useState<FormData>(() => {
-		const defaultStatus = statusOptions[0];
-		const defaultPriority = priorityOptions[0];
-		const defaultType = typeOptions[0];
+		const defaultStatusId = statusOptions[0]?.id;
+		const defaultPriorityId = priorityOptions[0]?.id;
+		const defaultTypeId = typeOptions[0]?.id;
 
 		return {
 			title: initialData?.title || "",
 			description: initialData?.description || "",
-			status_id: initialData?.status_id || defaultStatus?.id || 1,
-			priority_id: initialData?.priority_id || defaultPriority?.id || 1,
-			type_id: initialData?.type_id || defaultType?.id || 1,
+			status_id: initialData?.status_id || defaultStatusId || 1,
+			priority_id: initialData?.priority_id || defaultPriorityId || 1,
+			type_id: initialData?.type_id || defaultTypeId || 1,
 		};
 	});
 
 	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [isReady, setIsReady] = useState(false);
 
+	// Update form data when initialData or options change
 	useEffect(() => {
-		console.log("TaskForm render state:", {
-			isLoading,
-			statusOptions,
-			priorityOptions,
-			typeOptions,
-			formData,
-		});
-		console.log("Task form options:", {
-			statusOptions,
-			priorityOptions,
-			typeOptions,
-		});
-	}, [formData, isLoading, statusOptions, priorityOptions, typeOptions]);
+		if (initialData || statusOptions.length > 0) {
+			setFormData(prev => ({
+				title: initialData?.title || prev.title,
+				description: initialData?.description || prev.description,
+				status_id: initialData?.status_id || statusOptions[0]?.id || prev.status_id,
+				priority_id: initialData?.priority_id || priorityOptions[0]?.id || prev.priority_id,
+				type_id: initialData?.type_id || typeOptions[0]?.id || prev.type_id,
+			}));
+		}
+	}, [initialData, statusOptions, priorityOptions, typeOptions]);
 
-	const validate = () => {
+	// Check if form is ready
+	useEffect(() => {
+		const hasRequiredOptions = 
+			statusOptions.length > 0 && 
+			priorityOptions.length > 0 && 
+			typeOptions.length > 0;
+		
+		setIsReady(hasRequiredOptions);
+	}, [statusOptions, priorityOptions, typeOptions]);
+
+	const handleSubmit = useCallback((e: React.FormEvent) => {
+		e.preventDefault();
+		
+		// Prevent browser's default validation
+		const form = e.target as HTMLFormElement;
+		form.setAttribute('novalidate', 'true');
+		
+		// Run validation first
 		const newErrors: Record<string, string> = {};
-		if (!formData.title) {
+		if (!formData.title.trim()) {
 			newErrors.title = "Title is required";
 		}
 		setErrors(newErrors);
-		return Object.keys(newErrors).length === 0;
-	};
 
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		if (validate()) {
+		// Only submit if there are no errors
+		if (Object.keys(newErrors).length === 0) {
 			onSubmit({
 				...initialData,
-				title: formData.title,
-				description: formData.description,
+				title: formData.title.trim(),
+				description: formData.description.trim(),
 				status_id: formData.status_id,
 				priority_id: formData.priority_id,
 				type_id: formData.type_id,
 				content: {
-					description: formData.description,
+					description: formData.description.trim(),
 					acceptance_criteria: [],
 					attachments: [],
 				},
 			});
 		}
-	};
+	}, [formData, initialData, onSubmit]);
 
-	const handleChange = (
+	const handleChange = useCallback((
 		e: React.ChangeEvent<
 			HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 		>,
@@ -104,13 +118,33 @@ export const TaskForm = ({
 			...prev,
 			[name]: name.endsWith("_id") ? Number(value) : value,
 		}));
+		
+		// Clear error when user starts typing
 		if (errors[name]) {
-			setErrors((prev) => ({ ...prev, [name]: "" }));
+			setErrors((prev) => {
+				const newErrors = { ...prev };
+				delete newErrors[name];
+				return newErrors;
+			});
 		}
-	};
+	}, [errors]);
+
+	if (!isReady) {
+		return (
+			<div className="flex justify-center items-center p-4" data-testid="task-form-loading">
+				<LoadingSpinner />
+				<span className="ml-2">Loading form options...</span>
+			</div>
+		);
+	}
 
 	return (
-		<form onSubmit={handleSubmit} className="space-y-4" data-testid="task-form">
+		<form 
+			onSubmit={handleSubmit} 
+			className="space-y-4" 
+			data-testid="task-form"
+			noValidate
+		>
 			<Input
 				label="Title"
 				name="title"
@@ -119,6 +153,7 @@ export const TaskForm = ({
 				error={errors.title}
 				required
 				data-testid="task-title-input"
+				autoFocus
 			/>
 
 			<div className="space-y-1">
@@ -224,7 +259,7 @@ export const TaskForm = ({
 				<Button
 					type="submit"
 					isLoading={isLoading}
-					disabled={isLoading}
+					disabled={isLoading || !isReady}
 					data-testid="submit-create-task-button"
 				>
 					{initialData ? "Update" : "Create"} Task

@@ -23,6 +23,11 @@ func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 	return &UserRepository{db: db}
 }
 
+// GetPool returns the database connection pool
+func (r *UserRepository) GetPool() *pgxpool.Pool {
+	return r.db
+}
+
 // Create creates a new user
 func (r *UserRepository) Create(ctx context.Context, u *user.User) error {
 	// Get default role ID for users
@@ -377,4 +382,4 @@ func (r *UserRepository) ValidateAndEnsureSuperAdmin(ctx context.Context, u *use
 		}
 	}
 	return nil
-} 
+}
