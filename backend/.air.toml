@@ -1,0 +1,24 @@
+# Air configuration for hot reload
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/main ./cmd/main.go"
+bin = "tmp/main"
+include_ext = ["go", "env"]
+exclude_dir = ["frontend", "node_modules", "e2e", "src", "tmp"]
+include_dir = ["backend"]
+exclude_file = []
+log = "debug"
+delay = 1000 # ms
+stop_on_error = true
+send_interrupt = true
+
+[log]
+time = false
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green" 

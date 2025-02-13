@@ -13,7 +13,8 @@
     "test:unit": "playwright test --project=unit",
     "test:e2e": "playwright test --project=e2e",
     "start:dev": "node scripts/start.cjs",
-    "start": "npm run start:dev"
+    "start": "npm run start:dev",
+    "dev:backend": "cd backend && air"
   },
   "dependencies": {
     "@headlessui/react": "^1.7.19",

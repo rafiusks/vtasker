@@ -54,6 +54,7 @@ VTasker is a modern task management system built with Go and React, designed to 
 - Node.js 20+
 - PostgreSQL 15+
 - pnpm (for package management)
+- Air (for Go hot-reload)
 
 ### Installation
 
@@ -63,7 +64,12 @@ git clone https://github.com/yourusername/vtasker.git
 cd vtasker
 ```
 
-2. Set up the database:
+2. Install Air for Go hot-reload:
+```bash
+go install github.com/air-verse/air@latest
+```
+
+3. Set up the database:
 ```bash
 # Create PostgreSQL database
 createdb vtasker
@@ -73,7 +79,7 @@ cd backend
 go run cmd/migrate/main.go up
 ```
 
-3. Configure environment variables:
+4. Configure environment variables:
 ```bash
 # Backend (.env)
 cp backend/.env.example backend/.env
@@ -84,7 +90,7 @@ cp .env.example .env
 # Edit .env with your configuration
 ```
 
-4. Install dependencies and start the services:
+5. Install dependencies and start the services:
 ```bash
 # Backend
 cd backend
@@ -105,6 +111,7 @@ vtasker/
 │   ├── cmd/                # Application entrypoints
 │   │   ├── main.go        # Main server
 │   │   └── migrate/       # Database migrations
+│   ├── .air.toml          # Air configuration for hot-reload
 │   └── internal/          # Internal packages
 │       ├── api/           # API handlers
 │       ├── auth/          # Authentication
@@ -191,3 +198,12 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [PostgreSQL](https://www.postgresql.org/)
 - [Vite](https://vitejs.dev/)
 - [Playwright](https://playwright.dev/)
+
+## Development Commands
+
+- Start backend with hot-reload: `cd backend && air` or `air` (if already in backend directory)
+- Start frontend development server: `pnpm run dev`
+- Start both frontend and backend: `pnpm run dev`
+- Run backend tests: `go test ./...`
+- Run frontend tests: `pnpm test`
+- Run e2e tests: `pnpm test:e2e`

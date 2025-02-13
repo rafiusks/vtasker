@@ -114,3 +114,6 @@ yarn-error.log*
 *.tmp
 *.temp
 .cache
+
+# Air artifacts
+tmp/

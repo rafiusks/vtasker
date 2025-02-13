@@ -243,7 +243,8 @@
   - [ ] Best practices
   - [ ] Troubleshooting
 - [ ] Developer guide
-  - [ ] Setup guide
+  - [x] Setup guide
+  - [x] Hot-reload configuration
   - [ ] Architecture overview
   - [ ] Contributing guide
   - [ ] Code style guide
