@@ -203,7 +203,6 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - Start backend with hot-reload: `cd backend && air` or `air` (if already in backend directory)
 - Start frontend development server: `pnpm run dev`
-- Start both frontend and backend: `pnpm run dev`
 - Run backend tests: `go test ./...`
 - Run frontend tests: `pnpm test`
 - Run e2e tests: `pnpm test:e2e`
