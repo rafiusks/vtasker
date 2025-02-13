@@ -256,7 +256,7 @@ export const TaskForm = ({
 					type="submit"
 					variant="primary"
 					disabled={isLoading || !isReady}
-					data-testid="submit-task-button"
+					data-testid="submit-create-task-button"
 				>
 					{isLoading ? <LoadingSpinner /> : initialData ? "Update" : "Create"}
 				</Button>

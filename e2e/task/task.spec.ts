@@ -340,22 +340,39 @@ test.describe("Task Management", () => {
 		await page.getByTestId("task-type-select").selectOption("1"); // Feature
 		await page.getByTestId("task-priority-select").selectOption("2"); // Medium
 		await page.getByTestId("task-status-select").selectOption("1"); // Backlog
-		await page.getByTestId("submit-create-task-button").click();
+
+		// Wait for task creation response
+		await Promise.all([
+			page.waitForResponse(
+				(response) =>
+					response.url().includes("/api/tasks") && response.status() === 201,
+			),
+			page.getByTestId("submit-create-task-button").click(),
+		]);
+
 		await waitForToast(page, "Task created successfully");
 
-		// Click on the task to open details
-		await page.getByText("Task to Delete").click();
+		// Wait for task to be visible and clickable
+		const taskElement = page.getByText("Task to Delete");
+		await taskElement.waitFor({ state: "visible" });
+		await taskElement.click();
 
-		// Click delete button
-		await page.getByTestId("delete-task-button").click();
+		// Wait for delete button to be visible and click it
+		const deleteButton = page.getByTestId("delete-task-button");
+		await deleteButton.waitFor({ state: "visible" });
+		await deleteButton.click();
 
-		// Confirm deletion
+		// Wait for confirm dialog and confirm deletion
+		const confirmButton = page.getByTestId("confirm-dialog-confirm");
+		await confirmButton.waitFor({ state: "visible" });
+
+		// Confirm deletion and wait for response
 		await Promise.all([
 			page.waitForResponse(
 				(response) =>
 					response.url().includes("/api/tasks") && response.status() === 204,
 			),
-			page.getByTestId("confirm-delete-task-button").click(),
+			confirmButton.click(),
 		]);
 
 		// Verify success message
