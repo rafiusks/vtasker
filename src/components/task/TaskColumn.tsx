@@ -8,8 +8,7 @@ interface TaskColumnProps {
 	status: TaskStatusUI;
 	tasks: Task[];
 	onDrop: (taskId: string, newStatusId: number, newIndex?: number) => void;
-	onEdit: (taskId: string) => void;
-	onDelete: (taskId: string) => void;
+	onTaskClick: (taskId: string) => void;
 	isLoading?: boolean;
 	updatingTaskId?: string;
 }
@@ -18,8 +17,7 @@ export const TaskColumn = ({
 	status,
 	tasks,
 	onDrop,
-	onEdit,
-	onDelete,
+	onTaskClick,
 	isLoading = false,
 	updatingTaskId,
 }: TaskColumnProps) => {
@@ -65,13 +63,13 @@ export const TaskColumn = ({
 			) : (
 				<ul className="space-y-3">
 					{tasks.map((task) => (
-						<TaskCard
-							key={task.id}
-							task={task}
-							onEdit={() => onEdit(task.id)}
-							onDelete={() => onDelete(task.id)}
-							isUpdating={updatingTaskId === task.id}
-						/>
+						<li key={task.id}>
+							<TaskCard
+								task={task}
+								onClick={() => onTaskClick(task.id)}
+								isUpdating={updatingTaskId === task.id}
+							/>
+						</li>
 					))}
 				</ul>
 			)}

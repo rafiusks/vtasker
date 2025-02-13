@@ -44,17 +44,13 @@ export const BoardPage = () => {
 	});
 
 	// Load task priorities
-	const {
-		data: taskPriorities,
-	} = useQuery<TaskPriorityEntity[]>({
+	const { data: taskPriorities } = useQuery<TaskPriorityEntity[]>({
 		queryKey: ["taskPriorities"],
 		queryFn: () => taskAPI.listPriorities(),
 	});
 
 	// Load task types
-	const {
-		data: taskTypes,
-	} = useQuery<TaskTypeEntity[]>({
+	const { data: taskTypes } = useQuery<TaskTypeEntity[]>({
 		queryKey: ["taskTypes"],
 		queryFn: () => taskAPI.listTaskTypes(),
 	});
@@ -68,7 +64,9 @@ export const BoardPage = () => {
 			toast.success("Task created successfully");
 		},
 		onError: (error) => {
-			toast.error(error instanceof Error ? error.message : "Failed to create task");
+			toast.error(
+				error instanceof Error ? error.message : "Failed to create task",
+			);
 		},
 	});
 
@@ -81,7 +79,9 @@ export const BoardPage = () => {
 			toast.success("Task updated successfully");
 		},
 		onError: (error) => {
-			toast.error(error instanceof Error ? error.message : "Failed to update task");
+			toast.error(
+				error instanceof Error ? error.message : "Failed to update task",
+			);
 		},
 	});
 
@@ -92,7 +92,9 @@ export const BoardPage = () => {
 			toast.success("Task deleted successfully");
 		},
 		onError: (error) => {
-			toast.error(error instanceof Error ? error.message : "Failed to delete task");
+			toast.error(
+				error instanceof Error ? error.message : "Failed to delete task",
+			);
 		},
 	});
 
@@ -114,7 +116,9 @@ export const BoardPage = () => {
 			toast.success("Task moved successfully");
 		},
 		onError: (error) => {
-			toast.error(error instanceof Error ? error.message : "Failed to move task");
+			toast.error(
+				error instanceof Error ? error.message : "Failed to move task",
+			);
 		},
 	});
 
@@ -148,7 +152,10 @@ export const BoardPage = () => {
 
 	// Always render the container, but show loading state when needed
 	return (
-		<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" data-testid="board-container">
+		<div
+			className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"
+			data-testid="board-container"
+		>
 			{isLoadingBoard || isLoadingStatuses ? (
 				<div className="flex justify-center items-center h-64">
 					<LoadingSpinner />
@@ -159,8 +166,8 @@ export const BoardPage = () => {
 						{boardError instanceof Error
 							? boardError.message
 							: statusesError instanceof Error
-							? statusesError.message
-							: "Failed to load board"}
+								? statusesError.message
+								: "Failed to load board"}
 					</p>
 				</div>
 			) : !board || !taskStatuses ? (
@@ -173,7 +180,9 @@ export const BoardPage = () => {
 						<div>
 							<h1 className="text-2xl font-bold text-gray-900">{board.name}</h1>
 							{board.description && (
-								<p className="mt-1 text-sm text-gray-500">{board.description}</p>
+								<p className="mt-1 text-sm text-gray-500">
+									{board.description}
+								</p>
 							)}
 						</div>
 						<div className="flex gap-2">
@@ -210,13 +219,14 @@ export const BoardPage = () => {
 										board.tasks?.filter((t) => t.status_id === status.id) || []
 									}
 									onDrop={handleMoveTask}
-									onEdit={(taskId) =>
+									onTaskClick={(taskId) =>
 										setEditingTask(
 											board.tasks?.find((t) => t.id === taskId) || null,
 										)
 									}
-									onDelete={handleDeleteTask}
-									updatingTaskId={moveTaskMutation.isPending ? board.id : undefined}
+									updatingTaskId={
+										moveTaskMutation.isPending ? board.id : undefined
+									}
 								/>
 							);
 						})}
@@ -237,6 +247,10 @@ export const BoardPage = () => {
 							isOpen={true}
 							onClose={() => setEditingTask(null)}
 							onSubmit={handleUpdateTask}
+							onDelete={() => {
+								handleDeleteTask(editingTask.id);
+								setEditingTask(null);
+							}}
 							initialData={editingTask}
 							isLoading={updateTaskMutation.isPending}
 							statusOptions={taskStatuses}

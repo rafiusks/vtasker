@@ -22,15 +22,15 @@ export function generateTestUser(prefix = "") {
 // API-based Setup Functions
 export async function setupTestUserViaApi(): Promise<TestUser> {
 	const baseUser = generateTestUser();
-	
+
 	// Clean up any existing test data first
-	await cleanupTestData().catch(error => {
+	await cleanupTestData().catch((error) => {
 		console.warn("Failed to cleanup test data:", error);
 	});
 
 	const context = await request.newContext({
 		baseURL: "http://localhost:8000",
-		extraHTTPHeaders: { 'Content-Type': 'application/json' },
+		extraHTTPHeaders: { "Content-Type": "application/json" },
 	});
 
 	try {
@@ -40,32 +40,36 @@ export async function setupTestUserViaApi(): Promise<TestUser> {
 				full_name: baseUser.fullName,
 				email: baseUser.email,
 				password: baseUser.password,
-				confirm_password: baseUser.password
-			}
+				confirm_password: baseUser.password,
+			},
 		});
 
 		if (!registerResponse.ok()) {
-			throw new Error(`Failed to register test user: ${await registerResponse.text()}`);
+			throw new Error(
+				`Failed to register test user: ${await registerResponse.text()}`,
+			);
 		}
 
 		// Login to get token
 		const loginResponse = await context.post("/api/auth/login", {
 			data: {
 				email: baseUser.email,
-				password: baseUser.password
-			}
+				password: baseUser.password,
+			},
 		});
 
 		if (!loginResponse.ok()) {
-			throw new Error(`Failed to login test user: ${await loginResponse.text()}`);
+			throw new Error(
+				`Failed to login test user: ${await loginResponse.text()}`,
+			);
 		}
 
 		const { token } = await loginResponse.json();
-		
+
 		// Create a new user object with the token
 		const user: TestUser = {
 			...baseUser,
-			token
+			token,
 		};
 
 		return user;
@@ -78,8 +82,8 @@ export async function createTestBoardViaApi(token: string) {
 	const context = await request.newContext({
 		baseURL: "http://localhost:8000",
 		extraHTTPHeaders: {
-			'Content-Type': 'application/json',
-			'Authorization': `Bearer ${token}`
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${token}`,
 		},
 	});
 
@@ -87,8 +91,8 @@ export async function createTestBoardViaApi(token: string) {
 		const response = await context.post("/api/boards", {
 			data: {
 				name: `Test Board ${Date.now()}`,
-				description: "Test board for e2e tests"
-			}
+				description: "Test board for e2e tests",
+			},
 		});
 
 		if (!response.ok()) {
@@ -101,12 +105,15 @@ export async function createTestBoardViaApi(token: string) {
 	}
 }
 
-export async function cleanupTestData(token?: string, retries = 3): Promise<void> {
+export async function cleanupTestData(
+	token?: string,
+	retries = 3,
+): Promise<void> {
 	const context = await request.newContext({
 		baseURL: "http://localhost:8000",
 		extraHTTPHeaders: {
-			'Content-Type': 'application/json',
-			...(token ? { 'Authorization': `Bearer ${token}` } : {})
+			"Content-Type": "application/json",
+			...(token ? { Authorization: `Bearer ${token}` } : {}),
 		},
 	});
 
@@ -131,22 +138,28 @@ export async function cleanupTestData(token?: string, retries = 3): Promise<void
 				console.log("Users cleanup completed");
 
 				// Wait a bit to ensure cleanup is complete
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				await new Promise((resolve) => setTimeout(resolve, 1000));
 
 				// Verify cleanup by checking if any test users exist
-				const checkResponse = await context.get("/api/users/search?q=test@example.com");
-				const { users = [] } = await checkResponse.json().catch(() => ({ users: [] }));
-				
+				const checkResponse = await context.get(
+					"/api/users/search?q=test@example.com",
+				);
+				const { users = [] } = await checkResponse
+					.json()
+					.catch(() => ({ users: [] }));
+
 				if (users.length === 0) {
 					console.log("Cleanup verification successful");
 					success = true;
 				} else {
-					console.warn(`Cleanup verification failed, found ${users.length} test users`);
-					await new Promise(resolve => setTimeout(resolve, 1000));
+					console.warn(
+						`Cleanup verification failed, found ${users.length} test users`,
+					);
+					await new Promise((resolve) => setTimeout(resolve, 1000));
 				}
 			} catch (error) {
 				console.warn(`Cleanup attempt ${attempt + 1} failed:`, error);
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				await new Promise((resolve) => setTimeout(resolve, 1000));
 			}
 			attempt++;
 		}
@@ -154,6 +167,52 @@ export async function cleanupTestData(token?: string, retries = 3): Promise<void
 		if (!success) {
 			throw new Error(`Failed to cleanup test data after ${retries} attempts`);
 		}
+	} finally {
+		await context.dispose();
+	}
+}
+
+export async function seedTaskOptionsViaApi(token: string) {
+	const context = await request.newContext({
+		baseURL: "http://localhost:8000",
+		extraHTTPHeaders: {
+			"Content-Type": "application/json",
+			Authorization: `Bearer ${token}`,
+		},
+	});
+
+	try {
+		// Check task statuses
+		const statusesResponse = await context.get("/api/task-statuses");
+		if (!statusesResponse.ok()) {
+			throw new Error("Failed to get task statuses");
+		}
+		const statuses = await statusesResponse.json();
+		if (!statuses || statuses.length === 0) {
+			throw new Error("No task statuses found");
+		}
+
+		// Check task priorities
+		const prioritiesResponse = await context.get("/api/task-priorities");
+		if (!prioritiesResponse.ok()) {
+			throw new Error("Failed to get task priorities");
+		}
+		const priorities = await prioritiesResponse.json();
+		if (!priorities || priorities.length === 0) {
+			throw new Error("No task priorities found");
+		}
+
+		// Check task types
+		const typesResponse = await context.get("/api/task-types");
+		if (!typesResponse.ok()) {
+			throw new Error("Failed to get task types");
+		}
+		const types = await typesResponse.json();
+		if (!types || types.length === 0) {
+			throw new Error("No task types found");
+		}
+
+		console.log("Task options verified successfully");
 	} finally {
 		await context.dispose();
 	}
@@ -199,7 +258,7 @@ export async function waitForModalToBeReady(page: Page) {
 			waitForElement(page, "task-description-input"),
 			waitForElement(page, "task-type-select"),
 			waitForElement(page, "task-priority-select"),
-			waitForElement(page, "task-status-select")
+			waitForElement(page, "task-status-select"),
 		]);
 	} catch (error) {
 		console.error("Modal not ready within timeout");
@@ -217,33 +276,39 @@ export async function waitForNetworkIdle(page: Page) {
 }
 
 // UI-based Setup Functions (for auth/registration tests)
-export async function registerTestUserViaUi(page: Page, user = generateTestUser()) {
+export async function registerTestUserViaUi(
+	page: Page,
+	user = generateTestUser(),
+) {
 	// Navigate to register page and wait for it to load
 	await page.goto("/register");
 	await page.waitForLoadState("domcontentloaded");
 	await page.waitForLoadState("networkidle");
 	await expect(page.getByTestId("register-form")).toBeVisible();
-	
+
 	// Fill in registration form
 	await page.getByTestId("fullname-input").fill(user.fullName);
 	await page.getByTestId("email-input").fill(user.email);
 	await page.getByTestId("password-input").fill(user.password);
 	await page.getByTestId("confirm-password-input").fill(user.password);
-	
+
 	// Submit form and wait for response
 	try {
 		await Promise.all([
 			page.waitForResponse(
-				response => 
-					response.url().includes('/api/auth/register') && 
+				(response) =>
+					response.url().includes("/api/auth/register") &&
 					response.status() === 201,
-				{ timeout: 15000 }
+				{ timeout: 15000 },
 			),
 			page.getByTestId("register-button").click(),
 		]);
 
 		// Wait for navigation and success message
-		await page.waitForURL(/\/login$/, { waitUntil: "networkidle", timeout: 15000 });
+		await page.waitForURL(/\/login$/, {
+			waitUntil: "networkidle",
+			timeout: 15000,
+		});
 		await waitForToast(page, "Account created successfully");
 	} catch (error) {
 		console.error("Registration failed:", error);
@@ -259,23 +324,23 @@ export async function loginTestUserViaUi(page: Page, user: TestUser) {
 	await page.waitForLoadState("domcontentloaded");
 	await page.waitForLoadState("networkidle");
 	await expect(page.getByTestId("login-form")).toBeVisible();
-	
+
 	// Fill in login form
 	await page.getByTestId("email-input").fill(user.email);
 	await page.getByTestId("password-input").fill(user.password);
-	
+
 	// Submit form and wait for response
 	try {
 		await Promise.all([
 			page.waitForResponse(
-				response => 
-					response.url().includes('/api/auth/login') && 
+				(response) =>
+					response.url().includes("/api/auth/login") &&
 					response.status() === 200,
-				{ timeout: 15000 }
+				{ timeout: 15000 },
 			),
-			page.getByTestId("login-button").click()
+			page.getByTestId("login-button").click(),
 		]);
-		
+
 		// Wait for navigation and redirect
 		await waitForNetworkIdle(page);
 		await expectToBeOnPage(page, "/dashboard");

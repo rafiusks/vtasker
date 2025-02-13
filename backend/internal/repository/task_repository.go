@@ -343,9 +343,12 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *model
 	if input.TypeID != nil {
 		task.TypeID = *input.TypeID
 	}
+	// Only update board_id if explicitly provided in input
 	if input.BoardID != nil {
 		task.BoardID = input.BoardID
 	}
+	// Keep existing board_id if not provided in input
+	// This ensures we don't accidentally set it to null
 
 	// Start transaction
 	tx, err := r.db.Begin(ctx)
@@ -363,7 +366,7 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *model
 			status_id = $3,
 			priority_id = $4,
 			type_id = $5,
-			board_id = $6,
+			board_id = COALESCE($6, board_id),  -- Use COALESCE to keep existing board_id if not provided
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id = $7`
 
@@ -373,7 +376,7 @@ func (r *TaskRepository) UpdateTask(ctx context.Context, id string, input *model
 		task.StatusID,
 		task.PriorityID,
 		task.TypeID,
-		task.BoardID,
+		task.BoardID,  // This will be null if not provided in input
 		task.ID,
 	)
 
