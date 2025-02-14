@@ -23,6 +23,9 @@ export function useTaskQueries() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tasks"] });
 		},
+		onError: (error) => {
+			throw error;
+		},
 	});
 
 	const { mutate: updateTask, isPending: isUpdating } = useMutation({
@@ -34,12 +37,18 @@ export function useTaskQueries() {
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tasks"] });
 		},
+		onError: (error) => {
+			throw error;
+		},
 	});
 
 	const { mutate: deleteTask, isPending: isDeleting } = useMutation({
 		mutationFn: taskAPI.deleteTask,
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+		},
+		onError: (error) => {
+			throw error;
 		},
 	});
 
@@ -53,6 +62,9 @@ export function useTaskQueries() {
 		}) => taskAPI.moveTask(taskId, request),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["tasks"] });
+		},
+		onError: (error) => {
+			throw error;
 		},
 	});
 

@@ -1,11 +1,38 @@
 import { test, expect } from "@playwright/test";
-import { loginTestUser, registerTestUser, waitForToast } from "../test-utils";
+import {
+	setupTestUserViaApi,
+	waitForToast,
+	waitForElement,
+	expectToBeOnPage,
+} from "../test-utils";
 
 test.describe("Board Management", () => {
 	test.beforeEach(async ({ page }) => {
-		// Register and login a test user before each test
-		const testUser = await registerTestUser(page);
-		await loginTestUser(page, testUser);
+		// Register and login a test user via API
+		const testUser = await setupTestUserViaApi();
+
+		// Set up authentication in the browser
+		await page.goto("/");
+		await page.evaluate(
+			({ token, user }) => {
+				const authData = {
+					token,
+					refresh_token: token, // Using same token as refresh token for test purposes
+					user,
+					expiresAt: Date.now() + 3600 * 1000, // 1 hour from now
+					refreshExpiresAt: Date.now() + 7200 * 1000, // 2 hours from now
+				};
+				localStorage.setItem("auth", JSON.stringify(authData));
+			},
+			{
+				token: testUser.token,
+				user: {
+					id: "test-user",
+					email: testUser.email,
+					full_name: testUser.fullName,
+				},
+			},
+		);
 
 		// Listen to console logs
 		page.on("console", (msg) => {

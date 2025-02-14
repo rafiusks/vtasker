@@ -16,7 +16,7 @@ export default defineConfig({
 		trace: "retain-on-failure",
 		// Collect traces for failed tests
 		video: "retain-on-failure",
-		screenshot: "only-on-failure",
+		screenshot: "on",
 		actionTimeout: 30000,
 		navigationTimeout: 30000,
 		// Add viewport size

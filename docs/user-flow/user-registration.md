@@ -1,72 +1,69 @@
-## User Registration
+# User Registration Flow
 
-### Happy Path
-1. Navigate to homepage (/)
-2. Click on register link
-3. Fill in registration form:
-   - Full Name (required)
-   - Email (required, must be unique)
-   - Password (required, minimum 8 characters)
-   - Confirm Password (must match password)
-4. Click on "Create Account" button
-5. System validates all fields
-6. If validation passes:
-   - Backend creates new user account
-   - User receives success message
-   - Redirected to /login page
-   - Success message displayed: "Account created successfully"
+## Overview
+The user registration process allows new users to create an account in the system. The registration form includes validation to ensure data quality and prevent duplicate accounts.
 
-### Validation Scenarios
-1. Empty Fields:
-   - All fields are required
-   - Error messages shown on blur:
-     - "Full name is required"
-     - "Email is required"
-     - "Password is required"
-     - "Please confirm your password"
+## Flow Steps
 
-2. Email Validation:
-   - Must be in valid format (example@domain.com)
-   - Error message: "Invalid email format"
-   - Must be unique (not already registered)
-   - Error message if exists: "User already exists"
+1. **Access Registration Page**
+   - User clicks the "Register" link from the homepage
+   - System navigates to `/register` page
 
-3. Password Validation:
-   - Minimum 8 characters
-   - Error message: "Password must be at least 8 characters"
-   - Confirmation must match
-   - Error message: "Passwords do not match"
+2. **Fill Registration Form**
+   - Required fields:
+     - Full Name
+     - Email
+     - Password
+     - Confirm Password
 
-### Form Behavior
-- Submit button is disabled until required fields are filled
-- Validation occurs on field blur
-- Error messages are cleared when user starts typing
-- Loading state shown during submission
-- Form maintains state during validation errors
-- Form fields have appropriate autocomplete attributes
-- Each field has a descriptive placeholder text
+3. **Form Validation**
+   - Real-time validation as user types:
+     - All fields are required
+     - Email must be in valid format
+     - Passwords must match
+     - Password requirements (TBD)
+   - Validation errors are shown immediately below each field
+   - Submit button remains enabled to allow resubmission
 
-### Error Handling
-- Backend errors are displayed in error message box
-- User stays on registration page after errors
-- Form data is preserved after validation errors
-- Network errors show generic "Failed to register" message
-- Error messages are displayed in red with appropriate styling
-- Error state is cleared when user starts typing in the field
+4. **Form Submission**
+   - User clicks "Register" button
+   - System validates all fields
+   - System checks for existing email
 
-### Test Coverage
-- ✅ Successful registration with valid data
-- ✅ Validation errors for empty fields
-- ✅ Validation error for invalid email format
-- ✅ Validation error for mismatched passwords
-- ✅ Error message for existing email
-- ✅ Form interaction (blur events, typing)
-- ✅ Navigation and redirects
-- ✅ Success message display
+5. **Success Flow**
+   - Account is created
+   - User receives "Account created successfully" toast message
+   - User is redirected to `/login` page
+   - User can proceed to log in with their credentials
 
-### Accessibility
-- Form fields have associated labels
-- Error messages are properly associated with inputs
-- Submit button state clearly indicates when form can be submitted
-- Loading state is properly indicated to screen readers
-- Form can be navigated via keyboard
+6. **Error Flows**
+
+   a. **Validation Errors**
+   - Empty fields: Shows "X is required" message
+   - Invalid email: Shows "Invalid email format" message
+   - Mismatched passwords: Shows "Passwords do not match" message
+   - User remains on registration page
+   - Form retains valid field values
+
+   b. **Duplicate Email**
+   - Shows "User already exists" error message
+   - User remains on registration page
+   - Form retains non-email field values
+
+## Test Coverage
+
+The registration flow is covered by end-to-end tests in `e2e/auth/registration.spec.ts`:
+
+1. ✓ Successful registration with valid data
+2. ✓ Validation errors for empty fields
+3. ✓ Validation error for invalid email format
+4. ✓ Validation error for mismatched passwords
+5. ✓ Error handling for duplicate email registration
+
+## Implementation Notes
+
+- Form validation is handled both client-side and server-side
+- Passwords are never sent in plain text
+- Success/error messages use the toast notification system
+- Form state is preserved after validation errors
+- Navigation uses client-side routing for smooth transitions

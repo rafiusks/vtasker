@@ -5,14 +5,26 @@ This document serves as an index to the detailed user flow documentation for eac
 ## User Registration
 file: docs/user-flow/user-registration.md
 test: `pnpm test e2e/auth/registration.spec.ts`
+instructions:
+- registration via UI
 
 ## User Login
 file: docs/user-flow/user-login.md
 test: `pnpm test e2e/auth/login.spec.ts`
+instructions:
+- registration via API
+- login via UI
+
 
 ## Board Management
 file: docs/user-flow/board-management.md
 test: `pnpm test e2e/board/board.spec.ts`
+instructions:
+- registration via API
+- login via API
+- board creation via UI
+- board updates via UI
+- board deletion via UI
 
 ### Available Tests
 - Board Creation: `pnpm test e2e/board/board.spec.ts --grep "should handle board creation with validation"`
@@ -23,6 +35,13 @@ test: `pnpm test e2e/board/board.spec.ts`
 ## Task Management
 file: docs/user-flow/task-management.md
 test: `pnpm test e2e/task/task.spec.ts`
+instructions:
+- registration via API
+- login via API
+- board creation via API
+- task creation via UI
+- task updates via UI
+- task deletion via UI
 
 ### Available Tests
 - Task Creation: `pnpm test e2e/task/task.spec.ts --grep "should handle task creation with validation"`

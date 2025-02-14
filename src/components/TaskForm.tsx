@@ -5,6 +5,10 @@ import { TextArea } from "./common/TextArea";
 import { Button } from "./common/Button";
 import { SELECT_OPTIONS } from "../types/typeReference";
 import { LoadingSpinner } from "./common/LoadingSpinner";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { taskSchema } from "../validations/task";
+import { Controller } from "react-hook-form";
 
 const defaultMetadata: TaskMetadata = {
 	created_at: new Date().toISOString(),
@@ -31,15 +35,15 @@ export const TaskForm = ({
 	task,
 	isLoading = false,
 }: TaskFormProps) => {
-	const [formData, setFormData] = useState<Partial<Task>>({
-		title: task?.title || "",
-		description: task?.description || "",
-		status_id: task?.status_id || 1,
-		priority_id: task?.priority_id || 1,
-		type_id: task?.type_id || 1,
-		order: task?.order || 0,
-		metadata: task?.metadata || defaultMetadata,
-		relationships: task?.relationships || defaultRelationships,
+	const { control, handleSubmit, formState } = useForm<Task>({
+		resolver: zodResolver(taskSchema),
+		defaultValues: task || {
+			title: "",
+			description: "",
+			status_id: 1,
+			priority_id: 1,
+			type_id: 1
+		}
 	});
 
 	const handleChange = (
@@ -61,9 +65,8 @@ export const TaskForm = ({
 		}
 	};
 
-	const handleSubmit = (e: React.FormEvent) => {
-		e.preventDefault();
-		onSubmit(formData);
+	const onSubmitForm = (data: Partial<Task>) => {
+		onSubmit({ ...data });
 	};
 
 	if (!isOpen) return null;
@@ -77,7 +80,6 @@ export const TaskForm = ({
 		statusOptions,
 		priorityOptions,
 		typeOptions,
-		formData,
 	});
 
 	if (
@@ -114,20 +116,36 @@ export const TaskForm = ({
 					{task ? "Edit Task" : "Create Task"}
 				</h2>
 
-				<form onSubmit={handleSubmit} className="space-y-4">
-					<Input
-						label="Title"
+				<form onSubmit={handleSubmit(onSubmitForm)} className="space-y-4">
+					<Controller
 						name="title"
-						value={formData.title || ""}
-						onChange={handleChange}
-						required
-						data-testid="task-title-input"
+						control={control}
+						render={({ field }) => (
+							<Input
+								{...field}
+								label="Title"
+								data-testid="task-title-input"
+								aria-invalid={!!formState.errors.title}
+								aria-errormessage={formState.errors.title ? "title-error" : undefined}
+							/>
+						)}
 					/>
+
+					{formState.errors.title && (
+						<p 
+							id="title-error" 
+							className="text-red-500 text-sm mt-1" 
+							role="alert"
+							data-testid="title-error"
+						>
+							{formState.errors.title.message}
+						</p>
+					)}
 
 					<TextArea
 						label="Description"
 						name="description"
-						value={formData.description || ""}
+						value={task?.description || ""}
 						onChange={handleChange}
 						rows={3}
 						data-testid="task-description-input"
@@ -144,7 +162,7 @@ export const TaskForm = ({
 							<select
 								id="status_id"
 								name="status_id"
-								value={formData.status_id || 1}
+								value={task?.status_id || 1}
 								onChange={handleChange}
 								className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
 								required
@@ -168,7 +186,7 @@ export const TaskForm = ({
 							<select
 								id="priority_id"
 								name="priority_id"
-								value={formData.priority_id || 1}
+								value={task?.priority_id || 1}
 								onChange={handleChange}
 								className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
 								required
@@ -193,7 +211,7 @@ export const TaskForm = ({
 						<select
 							id="type_id"
 							name="type_id"
-							value={formData.type_id || 1}
+							value={task?.type_id || 1}
 							onChange={handleChange}
 							className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
 							required
@@ -216,7 +234,11 @@ export const TaskForm = ({
 						>
 							Cancel
 						</Button>
-						<Button type="submit" data-testid="submit-task-button">
+						<Button 
+							type="submit" 
+							data-testid="submit-task-button"
+							disabled={formState.isSubmitting}
+						>
 							{task ? "Save Changes" : "Create Task"}
 						</Button>
 					</div>

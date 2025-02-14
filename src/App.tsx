@@ -278,7 +278,7 @@ export function App() {
 	// Task Operations
 	// ============================================================================
 
-	const handleTaskSubmit = (task: Partial<Task>) => {
+	const handleTaskSubmit = async (task: Partial<Task>) => {
 		if (editingTask) {
 			// Remove status and type fields as they're handled separately
 			const { ...taskWithoutStatusAndType } = task;
@@ -288,9 +288,9 @@ export function App() {
 				priority_id: task.priority_id,
 				type_id: task.type_id,
 			};
-			handleTaskUpdate(editingTask.id, taskUpdate);
+			await handleTaskUpdate(editingTask.id, taskUpdate);
 		} else {
-			handleCreateTask(task);
+			await handleCreateTask(task);
 		}
 	};
 

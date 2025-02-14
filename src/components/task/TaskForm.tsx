@@ -14,6 +14,7 @@ interface TaskFormProps {
 	onCancel?: () => void;
 	initialData?: Partial<Task>;
 	isLoading?: boolean;
+	error?: string;
 	statusOptions: TaskStatusUI[];
 	priorityOptions: TaskPriorityEntity[];
 	typeOptions: TaskTypeEntity[];
@@ -32,6 +33,7 @@ export const TaskForm = ({
 	onCancel,
 	initialData,
 	isLoading = false,
+	error,
 	statusOptions,
 	priorityOptions,
 	typeOptions,
@@ -161,6 +163,7 @@ export const TaskForm = ({
 					error={errors.title}
 					required
 					data-testid="task-title-input"
+					aria-invalid={!!errors.title}
 				/>
 				<Input
 					label="Description"
@@ -253,7 +256,7 @@ export const TaskForm = ({
 				<Button
 					type="submit"
 					variant="primary"
-					disabled={isLoading || !isReady}
+					disabled={isLoading}
 					data-testid={
 						initialData ? "submit-task-button" : "submit-create-task-button"
 					}

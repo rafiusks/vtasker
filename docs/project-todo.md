@@ -220,6 +220,16 @@
   - [ ] Board management flow
   - [ ] Task management flow
   - [ ] User management flow
+  - [ ] Fix network error handling test
+    - [ ] Review error propagation between API and UI
+    - [ ] Ensure consistent error handling in React Query mutations
+    - [ ] Implement proper error display in TaskModal
+    - [ ] Re-enable skipped test
+  - [ ] Fix flaky drag-and-drop test in task management
+    - [ ] Review drag-and-drop event handling
+    - [ ] Add proper wait conditions for animations
+    - [ ] Consider viewport/positioning issues
+    - [ ] Add retry mechanism for drag operations
 - [ ] Performance testing
   - [ ] Load testing
   - [ ] Stress testing

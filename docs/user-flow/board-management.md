@@ -1,91 +1,102 @@
-## Board Management
+# Board Management Flow
 
-### Create a Board
+## Overview
+The board management system allows users to create, view, update, and delete boards. Each board serves as a container for tasks and includes settings for collaboration and organization.
 
-#### Happy Path
-1. Navigate to /boards
-2. Click on "Create Board" button
-3. Fill in board details in modal:
-   - Board Name (required)
-   - Description (optional)
-   - Visibility (Public/Private)
-4. Click "Create" button
-5. System validates input
-6. If validation passes:
-   - Backend creates new board
-   - User is redirected to /b/{board-slug}
-   - Success message displayed
-   - Board is immediately available for use
+## Flow Steps
 
-#### Validation Scenarios
-1. Empty Fields:
-   - Board name is required
-   - Error message: "Board name is required"
-   - Description is optional
+1. **Access Boards Page**
+   - User navigates to `/boards` page
+   - System displays list of existing boards
+   - "Create Board" button is visible
 
-2. Name Validation:
-   - Must be unique per user
-   - Error message if exists: "Board name already exists"
-   - Maximum length enforced
-   - Error message: "Board name too long"
+2. **Board Creation**
+   - User clicks "Create Board" button
+   - System displays create board modal
+   - Required fields:
+     - Board Name
+   - Optional fields:
+     - Board Description
+   - Validation:
+     - Board name cannot be empty
+     - Board name must be unique
+   - On successful creation:
+     - Board is created
+     - User is redirected to new board page
+     - Success message is displayed
+   - On validation error:
+     - Error message is displayed
+     - Form retains entered values
+     - Modal remains open
 
-#### Form Behavior
-- Submit button is disabled until required fields are filled
-- Validation occurs on field blur
-- Error messages are cleared when user starts typing
-- Loading state shown during submission
-- Modal can be closed with escape key or clicking outside
-- Form maintains state during validation errors
+3. **Board Settings**
+   - User clicks "Board Settings" button on board page
+   - System displays settings modal
+   - Available actions:
+     - Update board details
+     - Delete board
+     - Manage board members (TBD)
+     - Configure board settings (TBD)
 
-#### Error Handling
-- Backend errors are displayed in error message box
-- User stays in modal after errors
-- Form data is preserved after validation errors
-- Network errors show generic "Failed to create board" message
-- Error messages are displayed in red with appropriate styling
+4. **Board Deletion**
+   - User clicks "Delete Board" in settings modal
+   - System displays confirmation dialog
+   - Confirmation message explains action is irreversible
+   - On confirmation:
+     - Board is deleted
+     - User is redirected to boards page
+     - Success message is displayed
+   - On cancellation:
+     - Dialog closes
+     - No changes are made
 
-### Delete a Board
+5. **Error Flows**
 
-#### Happy Path
-1. Navigate to board settings
-2. Click "Delete Board" button
-3. Confirmation modal appears
-4. Enter board name to confirm
-5. Click "Delete" button
-6. System processes deletion
-7. If successful:
-   - Board is permanently deleted
-   - User is redirected to /boards
-   - Success message displayed
+   a. **Validation Errors**
+   - Empty board name: Shows validation message
+   - Duplicate board name: Shows "board name already exists" error
+   - User remains on form
+   - Form retains valid values
 
-#### Safety Features
-- Requires explicit confirmation
-- Board name must be typed correctly
-- Warning about permanent deletion
-- Cannot delete if board has active tasks (optional)
+   b. **Network Errors**
+   - Shows appropriate error message
+   - User remains on current page
+   - Data is preserved
 
-#### Error Handling
-- Backend errors are displayed in error message box
-- User stays on confirmation modal after errors
-- Network errors show generic "Failed to delete board" message
-- Proper error recovery if deletion fails
+6. **Modal Behavior**
+   - Modal can be closed by:
+     - Clicking Cancel button
+     - Clicking outside modal
+     - Pressing Escape key
+   - Form state is reset on modal close
 
-### Test Coverage
-- ✅ Successful board creation with valid data
-- ✅ Validation errors for empty fields
-- ✅ Error message for duplicate board name
-- ✅ Board deletion with confirmation
-- ✅ Navigation and redirects
-- ✅ Success/error message display
-- ✅ Modal interaction (escape, click outside)
-- ✅ Form state preservation
+## Test Coverage
 
-### Accessibility
-- Modal is properly trapped for keyboard navigation
-- Form fields have associated labels
-- Error messages are properly associated with inputs
-- Submit button state clearly indicates when form can be submitted
-- Loading state is properly indicated to screen readers
-- Proper heading hierarchy in modals
-- ARIA labels for close buttons
-- Focus management for modal open/close
+The board management flow is covered by end-to-end tests in `e2e/board/board.spec.ts`:
+
+1. ✓ Board creation with validation
+   - Create board with valid data
+   - Validate required fields
+   - Handle duplicate board names
+   - Test modal interactions
+
+2. ✓ Board updates
+   - Update board details
+   - Validate changes
+   - Handle validation errors
+
+3. ✓ Board deletion
+   - Delete board with confirmation
+   - Verify board removal
+   - Handle deletion errors
+
+## Implementation Notes
+
+- Board operations require authentication
+- Board names must be unique per user
+- Board slugs are auto-generated from names
+- Success/error messages use toast notifications
+- Modal state is managed through React context
+- Navigation uses client-side routing
+- Board data is cached for performance
+- Real-time updates for collaborative features (TBD)

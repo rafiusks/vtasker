@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import {
 	generateTestUser,
 	expectToBeOnPage,
-	registerTestUser,
+	setupTestUserViaApi,
 } from "../test-utils";
 
 test.describe("User Login", () => {
@@ -22,8 +22,8 @@ test.describe("User Login", () => {
 	};
 
 	test("should successfully login with valid credentials", async ({ page }) => {
-		// First register a test user
-		const testUser = await registerTestUser(page);
+		// First register a test user via API
+		const testUser = await setupTestUserViaApi();
 
 		// Navigate to login page
 		await navigateToLogin(page);
@@ -184,8 +184,8 @@ test.describe("User Login", () => {
 	test("should persist session when remember me is checked", async ({
 		page,
 	}) => {
-		// First register a test user
-		const testUser = await registerTestUser(page);
+		// First register a test user via API
+		const testUser = await setupTestUserViaApi();
 
 		// Navigate to login page
 		await navigateToLogin(page);
@@ -224,8 +224,8 @@ test.describe("User Login", () => {
 	test("should handle token refresh and session management", async ({
 		page,
 	}) => {
-		// First register a test user
-		const testUser = await registerTestUser(page);
+		// First register a test user via API
+		const testUser = await setupTestUserViaApi();
 
 		// Navigate to login page
 		await navigateToLogin(page);

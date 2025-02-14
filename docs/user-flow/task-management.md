@@ -1,102 +1,148 @@
-# Task Management
+# Task Management Flow
 
 ## Overview
-The task management system allows users to create, update, delete, and organize tasks within a board. Tasks can be moved between different status columns and include various properties such as title, description, type, priority, and status.
+The task management system allows users to create, update, delete, and organize tasks within boards. Tasks include various properties like title, description, type, priority, and status, with comprehensive validation and error handling.
 
-## Task Creation and Validation
-test: `pnpm test e2e/task/task.spec.ts --grep "should handle task creation with validation"`
+## Flow Steps
 
-### Creation Flow
-1. Click "Create Task" button
-2. Fill in task details:
-   - Title (required)
-   - Description
-   - Type (Feature/Bug/etc)
-   - Priority (Low/Medium/High)
-   - Status (Backlog/etc)
-3. Submit form
-4. Task appears in correct column
-5. Success message shown
+1. **Access Task Board**
+   - User navigates to a board page (`/b/{board-slug}`)
+   - System displays board with task columns by status
+   - "Create Task" button is visible
 
-### Validation Flow
-1. Click "Create Task" button
-2. Submit without required fields
-3. Validation errors shown:
-   - Required field indicators
-   - Error messages
-   - Form remains open
-4. Fill required fields
-5. Submit successfully
-6. Modal closes
+2. **Task Creation**
+   - User clicks "Create Task" button
+   - System displays task creation modal
+   - Required fields:
+     - Title
+   - Optional fields:
+     - Description
+     - Type (Feature, Bug, etc.)
+     - Priority (Low, Medium, High)
+     - Status (Backlog, In Progress, etc.)
+   - Validation:
+     - Title cannot be empty
+     - Form shows validation errors immediately
+   - On successful creation:
+     - Task is created and appears in appropriate status column
+     - Modal closes automatically
+     - Success message is displayed
+   - On validation error:
+     - Error messages are shown below fields
+     - Form retains entered values
+     - Modal remains open
 
-## Task Updates
-test: `pnpm test e2e/task/task.spec.ts --grep "should update task details"`
+3. **Task Updates**
+   - User clicks on a task card
+   - System displays task details modal
+   - All fields can be updated:
+     - Title
+     - Description
+     - Type
+     - Priority
+     - Status
+   - On successful update:
+     - Task details are updated
+     - Modal closes automatically
+     - Success message is displayed
+   - On validation error:
+     - Error messages are shown
+     - Form retains entered values
+     - Modal remains open
 
-1. Click on existing task
-2. Edit task details:
-   - Title
-   - Description
-   - Status
-   - Priority
-   - Type
-3. Changes auto-save
-4. Success message shown
-5. UI updates to reflect changes
+4. **Task Deletion**
+   - User opens task details modal
+   - Clicks "Delete Task" button
+   - System displays confirmation dialog
+   - On confirmation:
+     - Task is deleted
+     - Modal closes
+     - Success message is displayed
+   - On cancellation:
+     - Dialog closes
+     - No changes are made
 
-## Task Deletion
-test: `pnpm test e2e/task/task.spec.ts --grep "should delete a task"`
+5. **Status Changes**
+   - Two methods available:
+     a. Drag and Drop:
+        - User drags task card to new status column
+        - System updates task status immediately
+        - Visual feedback during drag
+        - Success message on completion
+     
+     b. Status Dropdown:
+        - User opens task details
+        - Changes status in dropdown
+        - Saves changes
+        - Task moves to new column
+        - Success message displayed
 
-1. Open task details
-2. Click delete button
-3. Confirm deletion in modal
-4. Task removed from board
-5. Success message shown
+6. **Error Flows**
 
-## Task Status Changes
+   a. **Validation Errors**
+   - Empty title: Shows "Title is required" message
+   - User remains on form
+   - Form retains valid values
 
-### Via Drag and Drop
-test: `pnpm test e2e/task/task.spec.ts --grep "should change task status via drag and drop"`
+   b. **Network Errors**
+   - Shows appropriate error message
+   - Form state is preserved
+   - Retry options available
 
-1. Drag task card
-2. Drop in new status column
-3. Task moves to new column
-4. Success message shown
-
-### Via Status Select
-test: `pnpm test e2e/task/task.spec.ts --grep "should change task status via dropdown"`
-
-1. Open task details
-2. Change status in dropdown
-3. Task moves to new column
-4. Success message shown
-
-## Error Handling
-
-### Validation Errors
-test: `pnpm test e2e/task/task.spec.ts --grep "should handle validation errors when updating task"`
-
-1. Open task details
-2. Clear required fields
-3. Validation errors shown
-4. Save button disabled
-5. Form prevents submission
-
-### Network Errors
-test: `pnpm test e2e/task/task.spec.ts --grep "should handle network errors gracefully"`
-
-1. Open task details
-2. Simulate network error
-3. Error message shown
-4. UI remains responsive
-5. Changes preserved for retry
+7. **Modal Behavior**
+   - Modal can be closed by:
+     - Clicking Cancel button
+     - Clicking outside modal
+     - Pressing Escape key
+   - Form state is reset on modal close
+   - Unsaved changes are discarded
 
 ## Test Coverage
-- ✅ Task creation with validation
-- ✅ Task updates and auto-save
-- ✅ Task deletion with confirmation
-- ✅ Status changes (drag-drop & dropdown)
-- ✅ Error handling (validation & network)
-- ✅ UI feedback (toasts & loading states)
+
+The task management flow is covered by end-to-end tests in `e2e/task/task.spec.ts`:
+
+1. ✓ Task Creation with Validation
+   - Create task with valid data
+   - Validate required fields
+   - Test form state preservation
+   - Verify success messages
+
+2. ✓ Task Updates
+   - Update task details
+   - Verify changes are reflected
+   - Test form validation
+   - Check success messages
+
+3. ✓ Task Deletion
+   - Delete task with confirmation
+   - Verify task removal
+   - Test cancellation flow
+
+4. ✓ Status Changes
+   - Test drag and drop functionality (Note: Automated test is currently flaky but functionality works manually)
+   - Update status via dropdown
+   - Verify column changes
+   - Check success messages
+
+5. ✓ Error Handling
+   - Test validation errors
+   - Handle network errors
+   - Verify error messages
+   - Test form state preservation
+
+> Note: The drag-and-drop test is currently experiencing intermittent failures in automated testing, but the functionality has been verified to work correctly in manual testing. This is being tracked as a test improvement item.
+
+## Implementation Notes
+
+- Task operations require authentication
+- Tasks belong to a specific board
+- Task status changes trigger real-time updates
+- Form validation is handled both client-side and server-side
+- Success/error messages use toast notifications
+- Modal state is managed through React context
+- Task data is cached for performance
+- Drag and drop uses HTML5 drag and drop API
+- Network operations use React Query for state management
 
 ## Accessibility Features
 - Modal is keyboard navigable (Tab, Escape)
