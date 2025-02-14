@@ -1,7 +1,7 @@
-# VTasker - A Modern Task Management System
+# vTasker - A Modern Task Management System
 
 ## Project Description
-VTasker is a powerful, modern task management system inspired by Jira. It provides a streamlined interface for managing projects, tracking issues, and collaborating with team members. Built with performance and user experience in mind, VTasker offers both a rich web interface and a public API for integration with other tools.
+vTasker is a powerful, modern task management system inspired by Jira. It provides a streamlined interface for managing projects, tracking issues, and collaborating with team members. Built with performance and user experience in mind, vTasker offers both a rich web interface and a public API for integration with other tools.
 
 ### Target Audience
 - Software development teams
@@ -68,7 +68,7 @@ VTasker is a powerful, modern task management system inspired by Jira. It provid
 ## Architecture
 
 ```
-VTasker
+vTasker
 ├── Backend (Go)
 │   ├── API Server
 │   ├── Database Layer
