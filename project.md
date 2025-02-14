@@ -94,67 +94,59 @@
           - [x] Add a command to the Makefile to run Air
 
 ### Frontend Foundation
-- [ ] Initialize Next.js app with TypeScript
-    - [ ] Create Next.js app (`create-next-app`)
-        - [ ] Run `npx create-next-app@latest --typescript`
-    - [ ] Choose TypeScript template
-        - [ ] Select the TypeScript template when prompted
-- [ ] Create shared component directory structure
-    - [ ] Create `components` directory
-        - [ ] Create a directory named `components` in the `frontend` directory
-    - [ ] Define subdirectories (e.g., `ui`, `layout`)
-        - [ ] Create a `ui` directory for UI components
-        - [ ] Create a `layout` directory for layout components
-- [ ] Set up state management store skeleton
-    - [ ] Choose a state management library (e.g., Zustand, Redux Toolkit)
-        - [ ] Research different state management libraries
-        - [ ] Choose the one that best fits the project's needs
-    - [ ] Create store file
-        - [ ] Create a file named `store.ts` in the `frontend` directory
-    - [ ] Define initial state and actions
-        - [ ] Define the initial state for the application
-        - [ ] Define the actions that can be performed
-- [ ] Configure API client base settings
-    - [ ] Install `Tanstack Query`
-        - [ ] Run `npm install @tanstack/react-query`
-    - [ ] Create API client instance
-        - [ ] Create an instance of the Tanstack Query client
-    - [ ] Define base URL
-        - [ ] Set the base URL for the API
-    - [ ] Implement error handling
-        - [ ] Implement error handling for API requests
-- [ ] Create basic layout components (header/footer)
-    - [ ] Create `Header` component
-        - [ ] Create a component named `Header` in the `components/layout` directory
-    - [ ] Create `Footer` component
-        - [ ] Create a component named `Footer` in the `components/layout` directory
-    - [ ] Add basic styling
-        - [ ] Add basic styling to the header and footer
-- [ ] Configure TanStack Query:
-  - [ ] Setup query client provider
-      - [ ] Install `@tanstack/react-query`
-          - [ ] Run `npm install @tanstack/react-query`
-      - [ ] Create `QueryClient` instance
-          - [ ] Create an instance of `QueryClient`
-      - [ ] Wrap app with `QueryClientProvider`
-          - [ ] Wrap the application with `QueryClientProvider`
-  - [ ] Create base query hooks
-      - [ ] Create `useQuery` wrapper
-          - [ ] Create a wrapper for `useQuery`
-      - [ ] Create `useMutation` wrapper
-          - [ ] Create a wrapper for `useMutation`
-  - [ ] Configure global error handling
-      - [ ] Set up error handler in `QueryClient`
-          - [ ] Configure an error handler in `QueryClient`
-- [ ] Replace SWR with TanStack Query in:
-  - [ ] Project list fetching
-      - [ ] Refactor project list component to use `useQuery`
-          - [ ] Remove SWR code
-          - [ ] Add TanStack Query code
-  - [ ] Issue mutation handling
-      - [ ] Refactor issue mutation logic to use `useMutation`
-          - [ ] Remove SWR code
-          - [ ] Add TanStack Query code
+- [x] Initialize Next.js app with TypeScript
+    - [x] Create Next.js app (`create-next-app`)
+        - [x] Run `npx create-next-app@latest --typescript`
+    - [x] Choose TypeScript template
+        - [x] Select the TypeScript template when prompted
+- [x] Create shared component directory structure
+    - [x] Create `components` directory
+        - [x] Create a directory named `components` in the `frontend` directory
+    - [x] Define subdirectories (e.g., `ui`, `layout`)
+        - [x] Create a `ui` directory for UI components
+        - [x] Create a `layout` directory for layout components
+- [x] Set up state management store skeleton
+    - [x] Choose a state management library (Zustand)
+        - [x] Research different state management libraries
+        - [x] Choose the one that best fits the project's needs
+    - [x] Create store file
+    - [x] Define initial state and actions
+        - [x] Define the initial state for the application
+        - [x] Define the actions that can be performed
+- [x] Configure API client base settings
+    - [x] Install `Tanstack Query`
+        - [x] Run `npm install @tanstack/react-query`
+    - [x] Create API client instance
+        - [x] Create base API client with fetch
+        - [x] Set up error handling and type definitions
+    - [x] Define base URL
+        - [x] Set the base URL for the API with environment variable support
+    - [x] Implement error handling
+        - [x] Add comprehensive error handling for API requests
+        - [x] Create error types and response interfaces
+- [x] Create basic layout components (header/footer)
+    - [x] Create `Header` component
+        - [x] Create a component named `Header` in the `components/layout` directory
+    - [x] Create `Footer` component
+        - [x] Create a component named `Footer` in the `components/layout` directory
+    - [x] Add basic styling
+        - [x] Add basic styling to the header and footer using Tailwind CSS
+- [x] Configure TanStack Query:
+  - [x] Setup query client provider
+      - [x] Install `@tanstack/react-query`
+          - [x] Run `npm install @tanstack/react-query`
+      - [x] Create `QueryClient` instance
+          - [x] Create an instance of `QueryClient`
+      - [x] Wrap app with `QueryClientProvider`
+          - [x] Wrap the application with `QueryClientProvider`
+  - [x] Create base query hooks
+      - [x] Create `useQuery` wrapper
+          - [x] Create a wrapper for `useQuery`
+      - [x] Create `useMutation` wrapper
+          - [x] Create a wrapper for `useMutation`
+  - [x] Configure global error handling
+      - [x] Set up error handler in `QueryClient`
+          - [x] Configure an error handler in `QueryClient`
 
 ### Development Environment
 - [ ] Docker-compose for Postgres + Redis
