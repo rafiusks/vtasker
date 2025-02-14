@@ -149,32 +149,32 @@
           - [x] Configure an error handler in `QueryClient`
 
 ### Development Environment
-- [ ] Docker-compose for Postgres + Redis
-    - [ ] Create `docker-compose.yml` file
-        - [ ] Create a file named `docker-compose.yml` in the root directory
-    - [ ] Define Postgres service
-        - [ ] Define a service for Postgres
-    - [ ] Define Redis service
-        - [ ] Define a service for Redis
-    - [ ] Configure volumes and ports
-        - [ ] Configure volumes for persistent data
-        - [ ] Configure ports for accessing the services
-- [ ] Database migration system setup
-    - [ ] Choose a migration tool (e.g., `golang-migrate`, `flyway`)
-        - [ ] Research different migration tools
-        - [ ] Choose the one that best fits the project's needs
-    - [ ] Set up migration directory
-        - [ ] Create a directory for migrations in the `backend` directory
-    - [ ] Create initial migration
-        - [ ] Create an initial migration file
-- [ ] Shared linting configuration
-    - [ ] Create ESLint configuration file (`.eslintrc.js`)
-        - [ ] Create a file named `.eslintrc.js` in the root directory
-    - [ ] Create Prettier configuration file (`.prettierrc.js`)
-        - [ ] Create a file named `.prettierrc.js` in the root directory
-    - [ ] Extend configurations in frontend and backend
-        - [ ] Extend the root configuration in the frontend and backend
-- [ ] Basic CI pipeline (run tests on PR)
+- [x] Docker-compose for Postgres + Redis
+    - [x] Create `docker-compose.yml` file
+        - [x] Create a file named `docker-compose.yml` in the root directory
+    - [x] Define Postgres service
+        - [x] Define a service for Postgres
+    - [x] Define Redis service
+        - [x] Define a service for Redis
+    - [x] Configure volumes and ports
+        - [x] Configure volumes for persistent data
+        - [x] Configure ports for accessing the services
+- [x] Database migration system setup
+    - [x] Choose a migration tool (e.g., `golang-migrate`, `flyway`)
+        - [x] Research different migration tools
+        - [x] Choose the one that best fits the project's needs
+    - [x] Set up migration directory
+        - [x] Create a directory for migrations in the `backend` directory
+    - [x] Create initial migration
+        - [x] Create an initial migration file
+- [x] Shared linting configuration
+    - [x] Create ESLint configuration file (`.eslintrc.js`)
+        - [x] Create a file named `.eslintrc.js` in the root directory
+    - [x] Create Prettier configuration file (`.prettierrc.js`)
+        - [x] Create a file named `.prettierrc.js` in the root directory
+    - [x] Extend configurations in frontend and backend
+        - [x] Extend the root configuration in the frontend and backend
+- [ ] Basic CI pipeline (run tests on PR) - delayed until later
     - [ ] Choose a CI provider (e.g., GitHub Actions, GitLab CI)
         - [ ] Research different CI providers
         - [ ] Choose the one that best fits the project's needs
@@ -184,19 +184,19 @@
         - [ ] Define a job to run tests
     - [ ] Trigger pipeline on pull requests
         - [ ] Configure the pipeline to trigger on pull requests
-- [ ] Makefile for common dev commands
-    - [ ] Create `Makefile`
-        - [ ] Create a file named `Makefile` in the root directory
-    - [ ] Add commands for:
-        - [ ] Running tests
-            - [ ] Add a command to run tests
-        - [ ] Building the application
-            - [ ] Add a command to build the application
-        - [ ] Running Docker Compose
-            - [ ] Add a command to run Docker Compose
-        - [ ] Applying database migrations
-            - [ ] Add a command to apply database migrations
-- [ ] Add Air to backend dev workflow:
+- [x] Makefile for common dev commands
+    - [x] Create `Makefile`
+        - [x] Create a file named `Makefile` in the root directory
+    - [x] Add commands for:
+        - [x] Running tests
+            - [x] Add a command to run tests
+        - [x] Building the application
+            - [x] Add a command to build the application
+        - [x] Running Docker Compose
+            - [x] Add a command to run Docker Compose
+        - [x] Applying database migrations
+            - [x] Add a command to apply database migrations
+- [x] Add Air to backend dev workflow:
   ```makefile
   dev:
       air -c .air.toml

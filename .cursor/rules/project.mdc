@@ -3,3 +3,11 @@ description: Project instructions
 globs: 
 ---
 - Will always check project.md for status of the project and after executing a task, will check if needs to update the list and mark completed tasks.
+
+
+Keep the following documentation up to date and follow its instructions:
+- read me: [README.md](mdc:README.md)
+- URL structure: [url-structure.md](mdc:docs/url-structure.md)
+- Database details: [database.md](mdc:docs/database.md)
+- architecture details: [architecture.md](mdc:docs/architecture.md)
+- project setup: [setup.md](mdc:docs/setup.md)
