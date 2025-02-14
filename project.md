@@ -37,61 +37,61 @@
         - [x] Configure Husky to run the script on pre-commit
 
 ### Backend Foundation
-- [ ] Configure Go module
-    - [ ] Initialize Go module (`go mod init`)
-        - [ ] Run `go mod init <module_name>`
-    - [ ] Define module name
-        - [ ] Choose a meaningful module name
-- [ ] Create base router structure
-    - [ ] Choose a router library (e.g., `chi`, `gin`)
-        - [ ] Research different router libraries
-        - [ ] Choose the one that best fits the project's needs
-    - [ ] Create `router.go` file
-        - [ ] Create a file named `router.go` in the `backend` directory
-    - [ ] Define base routes
-        - [ ] Create a route for `/`
-        - [ ] Create a route for `/health`
-- [ ] Implement configuration loader (env vars)
-    - [ ] Install `dotenv` library
-        - [ ] Run `go get github.com/joho/godotenv`
-    - [ ] Create `.env` file
-        - [ ] Create a file named `.env` in the `backend` directory
-    - [ ] Load environment variables into application
-        - [ ] Use the `dotenv` library to load environment variables
-- [ ] Set up structured logging
-    - [ ] Choose a logging library (e.g., `logrus`, `zap`)
-        - [ ] Research different logging libraries
-        - [ ] Choose the one that best fits the project's needs
-    - [ ] Configure logging levels
-        - [ ] Set the logging level to `info`
-        - [ ] Allow the logging level to be configured via an environment variable
-    - [ ] Implement logging middleware
-        - [ ] Create a middleware that logs all incoming requests
-- [ ] Create health check endpoint
-    - [ ] Create `/health` endpoint
-        - [ ] Add a route for `/health` in the router
-    - [ ] Return 200 OK status
-        - [ ] Return a 200 OK status code
-- [ ] Implement panic recovery middleware
-    - [ ] Create middleware to catch panics
-        - [ ] Create a middleware that recovers from panics
-    - [ ] Log error details
-        - [ ] Log the error message and stack trace
-    - [ ] Return 500 Internal Server Error
-        - [ ] Return a 500 Internal Server Error status code
-- [ ] Configure Go hot reloading:
-  - [ ] Install Air configuration
-      - [ ] Install Air CLI
-          - [ ] Run `go install github.com/cosmtrek/air@latest`
-  - [ ] Set up file watcher patterns
-      - [ ] Configure `.air.toml` file
-          - [ ] Create a file named `.air.toml` in the `backend` directory
-      - [ ] Define file patterns to watch
-          - [ ] Add patterns for `.go` files
-          - [ ] Add patterns for `.env` files
-  - [ ] Integrate with Makefile
-      - [ ] Add Air command to Makefile
-          - [ ] Add a command to the Makefile to run Air
+- [x] Configure Go module
+    - [x] Initialize Go module (`go mod init`)
+        - [x] Run `go mod init <module_name>`
+    - [x] Define module name
+        - [x] Choose a meaningful module name
+- [x] Create base router structure
+    - [x] Choose a router library (e.g., `chi`, `gin`)
+        - [x] Research different router libraries
+        - [x] Choose the one that best fits the project's needs
+    - [x] Create `router.go` file
+        - [x] Create a file named `router.go` in the `backend` directory
+    - [x] Define base routes
+        - [x] Create a route for `/`
+        - [x] Create a route for `/health`
+- [x] Implement configuration loader (env vars)
+    - [x] Install `dotenv` library
+        - [x] Run `go get github.com/joho/godotenv`
+    - [x] Create `.env` file
+        - [x] Create a file named `.env` in the `backend` directory
+    - [x] Load environment variables into application
+        - [x] Use the `dotenv` library to load environment variables
+- [x] Set up structured logging
+    - [x] Choose a logging library (e.g., `logrus`, `zap`)
+        - [x] Research different logging libraries
+        - [x] Choose the one that best fits the project's needs
+    - [x] Configure logging levels
+        - [x] Set the logging level to `info`
+        - [x] Allow the logging level to be configured via an environment variable
+    - [x] Implement logging middleware
+        - [x] Create a middleware that logs all incoming requests
+- [x] Create health check endpoint
+    - [x] Create `/health` endpoint
+        - [x] Add a route for `/health` in the router
+    - [x] Return 200 OK status
+        - [x] Return a 200 OK status code
+- [x] Implement panic recovery middleware
+    - [x] Create middleware to catch panics
+        - [x] Create a middleware that recovers from panics
+    - [x] Log error details
+        - [x] Log the error message and stack trace
+    - [x] Return 500 Internal Server Error
+        - [x] Return a 500 Internal Server Error status code
+- [x] Configure Go hot reloading:
+  - [x] Install Air configuration
+      - [x] Install Air CLI
+          - [x] Run `go install github.com/cosmtrek/air@latest`
+  - [x] Set up file watcher patterns
+      - [x] Configure `.air.toml` file
+          - [x] Create a file named `.air.toml` in the `backend` directory
+      - [x] Define file patterns to watch
+          - [x] Add patterns for `.go` files
+          - [x] Add patterns for `.env` files
+  - [x] Integrate with Makefile
+      - [x] Add Air command to Makefile
+          - [x] Add a command to the Makefile to run Air
 
 ### Frontend Foundation
 - [ ] Initialize Next.js app with TypeScript
@@ -115,10 +115,10 @@
         - [ ] Define the initial state for the application
         - [ ] Define the actions that can be performed
 - [ ] Configure API client base settings
-    - [ ] Install `axios` or `fetch`
-        - [ ] Run `npm install axios`
+    - [ ] Install `Tanstack Query`
+        - [ ] Run `npm install @tanstack/react-query`
     - [ ] Create API client instance
-        - [ ] Create an instance of the Axios client
+        - [ ] Create an instance of the Tanstack Query client
     - [ ] Define base URL
         - [ ] Set the base URL for the API
     - [ ] Implement error handling

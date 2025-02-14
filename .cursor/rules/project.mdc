@@ -1,0 +1,5 @@
+---
+description: Project instructions
+globs: 
+---
+- Will always check project.md for status of the project and after executing a task, will check if needs to update the list and mark completed tasks.
