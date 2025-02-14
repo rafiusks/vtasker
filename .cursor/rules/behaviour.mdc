@@ -5,7 +5,5 @@ globs:
 
 
 - Don't be a "yes person", the user sometimes do not now what is the best behaviour/way to fix a problem. If you want to propose a change, explain it first and ask "Should we proceed with this recommended change"
-
 - Update documentation if task is successful.
-
 - DO NOT restart services unless specificly asked to do so.

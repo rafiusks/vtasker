@@ -2,39 +2,39 @@
 
 ## Technical Foundation (Week 1-2)
 ### Repository Setup
-- [ ] Initialize monorepo structure
-    - [ ] Create root directory
-        - [ ] Create a directory for the entire project
-    - [ ] Initialize Git repository
-        - [ ] Run `git init` in the root directory
-    - [ ] Set up directory structure (backend, frontend, docs, etc.)
-        - [ ] Create `backend` directory
-        - [ ] Create `frontend` directory
-        - [ ] Create `docs` directory
-        - [ ] Create `scripts` directory
-        - [ ] Create `config` directory
-- [ ] Create basic README with architecture diagram
-    - [ ] Write project description
-        - [ ] Describe the purpose of the project
-        - [ ] Describe the target audience
-    - [ ] Add architecture diagram (initial version)
-        - [ ] Create a basic diagram showing the main components
-        - [ ] Use a tool like draw.io or Excalidraw
-    - [ ] Explain technology stack
-        - [ ] List the main technologies used (Go, Next.js, Postgres, Redis, etc.)
-        - [ ] Explain why each technology was chosen
-    - [ ] Outline project goals
-        - [ ] List the main features to be implemented
-        - [ ] Define the success criteria for the project
-- [ ] Set up Git hooks (pre-commit linting)
-    - [ ] Install `husky` and `lint-staged`
-        - [ ] Run `npm install husky lint-staged --save-dev`
-    - [ ] Configure ESLint and Prettier
-        - [ ] Install ESLint and Prettier
-        - [ ] Configure ESLint to use Prettier
-    - [ ] Add pre-commit hook to run linters
-        - [ ] Add a script to `package.json` to run linters
-        - [ ] Configure Husky to run the script on pre-commit
+- [x] Initialize monorepo structure
+    - [x] Create root directory
+        - [x] Create a directory for the entire project
+    - [x] Initialize Git repository
+        - [x] Run `git init` in the root directory
+    - [x] Set up directory structure (backend, frontend, docs, etc.)
+        - [x] Create `backend` directory
+        - [x] Create `frontend` directory
+        - [x] Create `docs` directory
+        - [x] Create `scripts` directory
+        - [x] Create `config` directory
+- [x] Create basic README with architecture diagram
+    - [x] Write project description
+        - [x] Describe the purpose of the project
+        - [x] Describe the target audience
+    - [x] Add architecture diagram (initial version)
+        - [x] Create a basic diagram showing the main components
+        - [x] Use a tool like draw.io or Excalidraw
+    - [x] Explain technology stack
+        - [x] List the main technologies used (Go, Next.js, Postgres, Redis, etc.)
+        - [x] Explain why each technology was chosen
+    - [x] Outline project goals
+        - [x] List the main features to be implemented
+        - [x] Define the success criteria for the project
+- [x] Set up Git hooks (pre-commit linting)
+    - [x] Install `husky` and `lint-staged`
+        - [x] Run `npm install husky lint-staged --save-dev`
+    - [x] Configure ESLint and Prettier
+        - [x] Install ESLint and Prettier
+        - [x] Configure ESLint to use Prettier
+    - [x] Add pre-commit hook to run linters
+        - [x] Add a script to `package.json` to run linters
+        - [x] Configure Husky to run the script on pre-commit
 
 ### Backend Foundation
 - [ ] Configure Go module
