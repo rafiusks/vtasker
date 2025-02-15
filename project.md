@@ -281,61 +281,61 @@
         - [x] Add a foreign key constraint to the issues table
 
 #### API
-- [ ] POST /issues - Create issue
-    - [ ] Define request body
-        - [ ] Define the structure of the request body
-    - [ ] Validate input data
-        - [ ] Validate that the input data is valid
-    - [ ] Create issue in database
-        - [ ] Create a new issue in the database
-    - [ ] Return issue details
-        - [ ] Return the details of the newly created issue
-- [ ] GET /issues - List issues
-    - [ ] Implement pagination
-        - [ ] Implement pagination for the list of issues
-    - [ ] Implement filtering (by project, status, priority, etc.)
-        - [ ] Implement filtering for the list of issues
-    - [ ] Return list of issues
-        - [ ] Return the list of issues
-- [ ] GET /issues/{id} - Get issue details
-    - [ ] Validate issue ID
-        - [ ] Validate that the issue ID is valid
-    - [ ] Fetch issue from database
-        - [ ] Fetch the issue from the database
-    - [ ] Return issue details
-        - [ ] Return the details of the issue
-- [ ] PATCH /issues/{id} - Update issue
-    - [ ] Validate issue ID
-        - [ ] Validate that the issue ID is valid
-    - [ ] Define request body
-        - [ ] Define the structure of the request body
-    - [ ] Validate input data
-        - [ ] Validate that the input data is valid
-    - [ ] Update issue in database
-        - [ ] Update the issue in the database
-    - [ ] Return updated issue details
-        - [ ] Return the updated details of the issue
-- [ ] DELETE /issues/{id} - Archive issue
-    - [ ] Validate issue ID
-        - [ ] Validate that the issue ID is valid
-    - [ ] Archive issue in database (soft delete)
-        - [ ] Archive the issue in the database (soft delete)
-    - [ ] Return success status
-        - [ ] Return a success status code
+- [x] POST /issues - Create issue
+    - [x] Define request body
+        - [x] Define the structure of the request body
+    - [x] Validate input data
+        - [x] Validate that the input data is valid
+    - [x] Create issue in database
+        - [x] Create a new issue in the database
+    - [x] Return issue details
+        - [x] Return the details of the newly created issue
+- [x] GET /issues - List issues
+    - [x] Implement pagination
+        - [x] Implement pagination for the list of issues
+    - [x] Implement filtering (by project, status, priority, etc.)
+        - [x] Implement filtering for the list of issues
+    - [x] Return list of issues
+        - [x] Return the list of issues
+- [x] GET /issues/{id} - Get issue details
+    - [x] Validate issue ID
+        - [x] Validate that the issue ID is valid
+    - [x] Fetch issue from database
+        - [x] Fetch the issue from the database
+    - [x] Return issue details
+        - [x] Return the details of the issue
+- [x] PATCH /issues/{id} - Update issue
+    - [x] Validate issue ID
+        - [x] Validate that the issue ID is valid
+    - [x] Define request body
+        - [x] Define the structure of the request body
+    - [x] Validate input data
+        - [x] Validate that the input data is valid
+    - [x] Update issue in database
+        - [x] Update the issue in the database
+    - [x] Return updated issue details
+        - [x] Return the updated details of the issue
+- [x] DELETE /issues/{id} - Archive issue
+    - [x] Validate issue ID
+        - [x] Validate that the issue ID is valid
+    - [x] Archive issue in database (soft delete)
+        - [x] Archive the issue in the database (soft delete)
+    - [x] Return success status
+        - [x] Return a success status code
 
 ### API Development
-- [ ] Implement pagination with TanStack Query:
-  - [ ] Infinite scroll integration
-      - [ ] Use `useInfiniteQuery` hook
-          - [ ] Use the `useInfiniteQuery` hook from TanStack Query
-      - [ ] Implement `getNextPageParam` function
-          - [ ] Implement the `getNextPageParam` function to fetch the next page of data
-  - [ ] Page parameter handling
-      - [ ] Pass page parameter to API requests
-          - [ ] Pass the page parameter to the API requests
-  - [ ] Cache management
-      - [ ] Configure cache time and stale time
-          - [ ] Configure the cache time and stale time for the queries
+- [x] Implement pagination with TanStack Query:
+  - [x] Infinite scroll integration
+      - [x] Use `useInfiniteQuery` hook
+          - [x] Use the `useInfiniteQuery` hook from TanStack Query
+      - [x] Implement `getNextPageParam` function
+          - [x] Implement the `getNextPageParam` function to fetch the next page of data
+  - [x] Page parameter handling
+      - [x] Pass page parameter to API requests
+          - [x] Pass the page parameter to the API requests
+  - [x] Cache management
+      - [x] Configure cache time and stale time
+          - [x] Configure the cache time and stale time for the queries
 
 ---
 
