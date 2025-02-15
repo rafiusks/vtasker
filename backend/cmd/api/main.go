@@ -15,9 +15,6 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
-	// Initialize logger
-	logger.Init(cfg.LogLevel)
-
 	// Log startup information
 	logger.Info("Starting vTasker API", map[string]interface{}{
 		"version":    "1.0.0",

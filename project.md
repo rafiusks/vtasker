@@ -266,19 +266,19 @@
 
 ### Issues Module
 #### Database
-- [ ] Create issues table migration
-    - [ ] Define table schema (id, project_id, title, description, status, priority, etc.)
-        - [ ] Define the data types for each column
-    - [ ] Create migration file
-        - [ ] Create a migration file in the migrations directory
-- [ ] Add status/priority enums
-    - [ ] Define enum types in database
-        - [ ] Define the enum types for status and priority
-    - [ ] Use enums in issues table
-        - [ ] Use the enum types in the issues table
-- [ ] Create project-issue relationship
-    - [ ] Add foreign key constraint to issues table
-        - [ ] Add a foreign key constraint to the issues table
+- [x] Create issues table migration
+    - [x] Define table schema (id, project_id, title, description, status, priority, etc.)
+        - [x] Define the data types for each column
+    - [x] Create migration file
+        - [x] Create a migration file in the migrations directory
+- [x] Add status/priority enums
+    - [x] Define enum types in database
+        - [x] Define the enum types for status and priority
+    - [x] Use enums in issues table
+        - [x] Use the enum types in the issues table
+- [x] Create project-issue relationship
+    - [x] Add foreign key constraint to issues table
+        - [x] Add a foreign key constraint to the issues table
 
 #### API
 - [ ] POST /issues - Create issue
