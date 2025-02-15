@@ -4,67 +4,162 @@
 
 @layer base {
 	:root {
-		--background: 0 0% 100%;
-		--foreground: 222.2 84% 4.9%;
+		/* Core Background & Foreground */
+		--background: 228 100% 98%; /* #F8F9FC */
+		--foreground: 222 47% 17%; /* #1F2937 */
 
-		--muted: 210 40% 96.1%;
-		--muted-foreground: 215.4 16.3% 46.9%;
+		/* Primary Colors - KSU Purple Spectrum */
+		--primary: 270 54% 35%; /* #512888 */
+		--primary-hover: 270 35% 47%; /* #6E4DA3 */
+		--primary-light: 270 30% 66%; /* #9F8DC2 */
+		--primary-lighter: 270 25% 83%; /* #D1C7E2 */
+		--primary-subtle: 260 33% 95%; /* #F2EFF7 */
+		--primary-dark: 270 54% 25%; /* #3B1D66 */
+		--primary-darker: 270 54% 16%; /* #251240 */
+		--primary-foreground: 0 0% 100%; /* #FFFFFF */
 
-		--popover: 0 0% 100%;
-		--popover-foreground: 222.2 84% 4.9%;
+		/* Secondary Colors - Muted Teal */
+		--secondary: 180 47% 33%; /* #2D7D7D */
+		--secondary-light: 180 37% 47%; /* #4BA3A3 */
+		--secondary-dark: 180 47% 23%; /* #1F5757 */
+		--secondary-subtle: 180 33% 95%; /* #EBF4F4 */
+		--secondary-foreground: 0 0% 100%;
 
+		/* Accent Colors - Soft Blue */
+		--accent: 217 91% 60%; /* #3B82F6 */
+		--accent-light: 213 94% 68%; /* #60A5FA */
+		--accent-dark: 217 91% 53%; /* #2563EB */
+		--accent-subtle: 213 94% 97%; /* #EFF6FF */
+		--accent-foreground: 0 0% 100%;
+
+		/* Surface Colors */
+		--surface: 0 0% 100%; /* #FFFFFF */
+		--surface-muted: 220 33% 98%; /* #F8F9FC */
+		--surface-subtle: 220 13% 96%; /* #F3F4F6 */
+		--surface-emphasis: 220 13% 91%; /* #E5E7EB */
+
+		/* Neutral Colors */
+		--muted: 220 13% 91%; /* #E5E7EB */
+		--muted-foreground: 220 9% 46%; /* #6B7280 */
+
+		/* UI Element Colors */
 		--card: 0 0% 100%;
-		--card-foreground: 222.2 84% 4.9%;
+		--card-foreground: 222 47% 17%;
+		--popover: 0 0% 100%;
+		--popover-foreground: 222 47% 17%;
+		--border: 220 13% 91%;
+		--input: 220 13% 91%;
 
-		--border: 214.3 31.8% 91.4%;
-		--input: 214.3 31.8% 91.4%;
+		/* Semantic Colors */
+		--success: 142 70% 45%; /* #22C55E */
+		--success-light: 142 76% 93%; /* #DCFCE7 */
+		--success-dark: 142 70% 36%; /* #16A34A */
+		--success-subtle: 142 84% 97%; /* #F0FDF4 */
+		--success-foreground: 0 0% 100%;
 
-		--primary: 222.2 47.4% 11.2%;
-		--primary-foreground: 210 40% 98%;
+		--error: 0 84% 60%; /* #EF4444 */
+		--error-light: 0 86% 94%; /* #FEE2E2 */
+		--error-dark: 0 84% 50%; /* #DC2626 */
+		--error-subtle: 0 86% 97%; /* #FEF2F2 */
+		--error-foreground: 0 0% 100%;
 
-		--secondary: 210 40% 96.1%;
-		--secondary-foreground: 222.2 47.4% 11.2%;
+		--warning: 35 92% 50%; /* #F59E0B */
+		--warning-light: 48 96% 89%; /* #FEF3C7 */
+		--warning-dark: 35 92% 43%; /* #D97706 */
+		--warning-subtle: 48 100% 96%; /* #FFFBEB */
+		--warning-foreground: 0 0% 100%;
 
-		--accent: 210 40% 96.1%;
-		--accent-foreground: 222.2 47.4% 11.2%;
+		--info: 217 91% 60%; /* #3B82F6 */
+		--info-light: 214 95% 93%; /* #DBEAFE */
+		--info-dark: 217 91% 53%; /* #2563EB */
+		--info-subtle: 214 95% 97%; /* #EFF6FF */
+		--info-foreground: 0 0% 100%;
 
-		--destructive: 0 84.2% 60.2%;
-		--destructive-foreground: 210 40% 98%;
+		/* Focus & Ring Colors */
+		--ring: 217 91% 60%; /* Using soft blue for focus states */
+		--ring-light: rgba(59, 130, 246, 0.5);
+		--ring-visible: rgba(59, 130, 246, 0.2);
 
-		--ring: 215 20.2% 65.1%;
-
+		/* Border Radius */
 		--radius: 0.5rem;
 	}
 
 	.dark {
-		--background: 222.2 84% 4.9%;
-		--foreground: 210 40% 98%;
+		/* Dark Mode Colors */
+		--background: 222 47% 5%; /* #111827 */
+		--foreground: 220 13% 91%; /* #E5E7EB */
 
-		--muted: 217.2 32.6% 17.5%;
+		/* Dark Mode Primary Colors */
+		--primary: 270 30% 66%; /* #9F8DC2 - Softened purple */
+		--primary-hover: 270 35% 47%; /* #6E4DA3 */
+		--primary-light: 270 25% 83%; /* #D1C7E2 */
+		--primary-lighter: 270 20% 90%; /* #E8E2F0 */
+		--primary-subtle: 260 33% 15%; /* #2A2533 */
+		--primary-dark: 270 54% 25%; /* #3B1D66 */
+		--primary-darker: 270 54% 16%; /* #251240 */
+		--primary-foreground: 222 47% 5%;
+
+		/* Dark Mode Secondary Colors */
+		--secondary: 180 47% 33%; /* #2D7D7D */
+		--secondary-light: 180 37% 47%; /* #4BA3A3 */
+		--secondary-dark: 180 47% 23%; /* #1F5757 */
+		--secondary-subtle: 180 33% 15%; /* #1F2626 */
+		--secondary-foreground: 220 13% 91%;
+
+		/* Dark Mode Accent Colors */
+		--accent: 217 91% 60%; /* #3B82F6 */
+		--accent-light: 213 94% 68%; /* #60A5FA */
+		--accent-dark: 217 91% 53%; /* #2563EB */
+		--accent-subtle: 213 94% 15%; /* #1E2533 */
+		--accent-foreground: 220 13% 91%;
+
+		/* Dark Mode Surface Colors */
+		--surface: 222 47% 5%; /* #111827 */
+		--surface-muted: 222 47% 8%; /* #1A2333 */
+		--surface-subtle: 222 47% 11%; /* #1F2937 */
+		--surface-emphasis: 222 47% 14%; /* #2D3748 */
+
+		/* Dark Mode Neutral Colors */
+		--muted: 217 33% 17.5%;
 		--muted-foreground: 215 20.2% 65.1%;
 
-		--popover: 222.2 84% 4.9%;
-		--popover-foreground: 210 40% 98%;
+		/* Dark Mode UI Elements */
+		--card: 222 47% 5%;
+		--card-foreground: 220 13% 91%;
+		--popover: 222 47% 5%;
+		--popover-foreground: 220 13% 91%;
+		--border: 217 33% 17.5%;
+		--input: 217 33% 17.5%;
 
-		--card: 222.2 84% 4.9%;
-		--card-foreground: 210 40% 98%;
+		/* Dark Mode Semantic Colors */
+		--success: 142 70% 45%;
+		--success-light: 142 76% 93%;
+		--success-dark: 142 70% 36%;
+		--success-subtle: 142 84% 15%;
+		--success-foreground: 0 0% 100%;
 
-		--border: 217.2 32.6% 17.5%;
-		--input: 217.2 32.6% 17.5%;
+		--error: 0 84% 60%;
+		--error-light: 0 86% 94%;
+		--error-dark: 0 84% 50%;
+		--error-subtle: 0 86% 15%;
+		--error-foreground: 0 0% 100%;
 
-		--primary: 210 40% 98%;
-		--primary-foreground: 222.2 47.4% 11.2%;
+		--warning: 35 92% 50%;
+		--warning-light: 48 96% 89%;
+		--warning-dark: 35 92% 43%;
+		--warning-subtle: 48 100% 15%;
+		--warning-foreground: 0 0% 100%;
 
-		--secondary: 217.2 32.6% 17.5%;
-		--secondary-foreground: 210 40% 98%;
+		--info: 217 91% 60%;
+		--info-light: 214 95% 93%;
+		--info-dark: 217 91% 53%;
+		--info-subtle: 214 95% 15%;
+		--info-foreground: 0 0% 100%;
 
-		--accent: 217.2 32.6% 17.5%;
-		--accent-foreground: 210 40% 98%;
-
-		--destructive: 0 62.8% 30.6%;
-		--destructive-foreground: 0 85.7% 97.3%;
-
-		--ring: 217.2 32.6% 17.5%;
+		/* Dark Mode Focus & Ring Colors */
+		--ring: 217 91% 60%;
+		--ring-light: rgba(59, 130, 246, 0.5);
+		--ring-visible: rgba(59, 130, 246, 0.2);
 	}
 }
 
@@ -74,6 +169,7 @@
 	}
 	body {
 		@apply bg-background text-foreground;
+		font-feature-settings: "rlig" 1, "calt" 1;
 	}
 }
 
