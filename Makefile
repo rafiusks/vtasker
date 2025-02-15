@@ -31,13 +31,8 @@ install:
 dev:
 	@echo "Starting development servers..."
 	@echo "Starting Docker services..."
-	docker-compose up -d
-	@echo "Waiting for services to be ready..."
-	@sleep 5
-	@echo "Starting backend server..."
-	cd backend && air &
-	@echo "Starting frontend server..."
-	cd frontend && npm run dev
+	docker-compose up --build
+	# The frontend will be started automatically by docker-compose
 
 # Build
 build:

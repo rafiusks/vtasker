@@ -12,7 +12,96 @@ http://localhost:8080/api/v1
 
 ## Authentication
 
-Authentication will be implemented using JWT tokens. Currently, authentication is not enforced for development purposes.
+The API uses JWT (JSON Web Tokens) for authentication. Tokens should be included in the `Authorization` header of requests:
+
+```
+Authorization: Bearer <token>
+```
+
+### Check Email
+
+Check if an email is already registered.
+
+```http
+POST /auth/check-email
+```
+
+#### Request Body
+```json
+{
+  "email": "string"  // required, valid email format
+}
+```
+
+#### Response
+```json
+{
+  "exists": boolean
+}
+```
+
+Status: 200 OK
+
+### Sign Up
+
+Register a new user account.
+
+```http
+POST /auth/sign-up
+```
+
+#### Request Body
+```json
+{
+  "email": "string",     // required, valid email format
+  "password": "string",  // required, min length: 8
+  "name": "string"       // required, min length: 1
+}
+```
+
+#### Response
+```json
+{
+  "token": "string",
+  "user": {
+    "id": "uuid",
+    "email": "string",
+    "name": "string"
+  }
+}
+```
+
+Status: 201 Created
+
+### Sign In
+
+Authenticate a user and get an access token.
+
+```http
+POST /auth/sign-in
+```
+
+#### Request Body
+```json
+{
+  "email": "string",     // required, valid email format
+  "password": "string"   // required
+}
+```
+
+#### Response
+```json
+{
+  "token": "string",
+  "user": {
+    "id": "uuid",
+    "email": "string",
+    "name": "string"
+  }
+}
+```
+
+Status: 200 OK
 
 ## Projects Module
 
@@ -168,17 +257,23 @@ The API uses standard HTTP status codes and returns error messages in a consiste
 ```json
 {
   "error": "string",
+  "code": "string",  // error code for client-side handling
   "message": "string",
   "details": {}  // optional
 }
 ```
 
 Common error codes:
-- 400 Bad Request: Invalid input data
-- 401 Unauthorized: Missing or invalid authentication
-- 403 Forbidden: Insufficient permissions
-- 404 Not Found: Resource not found
-- 500 Internal Server Error: Server error
+- `INVALID_CREDENTIALS`: Email or password is incorrect
+- `EMAIL_TAKEN`: Email is already registered
+- `INVALID_PASSWORD`: Password doesn't meet requirements
+- `ACCOUNT_LOCKED`: Account has been locked
+- `EMAIL_NOT_VERIFIED`: Email verification required
+- `RATE_LIMIT_EXCEEDED`: Too many requests
+- `ACCOUNT_DISABLED`: Account has been disabled
+- `SESSION_EXPIRED`: Authentication token has expired
+- `INVALID_TOKEN`: Authentication token is invalid
+- `SERVER_ERROR`: Internal server error
 
 ## Rate Limiting
 

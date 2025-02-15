@@ -1,4 +1,3 @@
-// API configuration
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 // Types for API responses
@@ -9,8 +8,51 @@ export interface ApiResponse<T> {
 
 export interface ApiError {
 	message: string;
-	code?: string;
+	code?: ErrorCode;
 	details?: unknown;
+}
+
+// Specific error codes for better error handling
+export type ErrorCode =
+	| "NETWORK_ERROR"
+	| "INVALID_CREDENTIALS"
+	| "ACCOUNT_LOCKED"
+	| "EMAIL_TAKEN"
+	| "INVALID_PASSWORD"
+	| "PASSWORD_TOO_WEAK"
+	| "EMAIL_NOT_VERIFIED"
+	| "RATE_LIMIT_EXCEEDED"
+	| "ACCOUNT_DISABLED"
+	| "SESSION_EXPIRED"
+	| "INVALID_TOKEN"
+	| "SERVER_ERROR";
+
+// Error messages for different scenarios
+export const ERROR_MESSAGES: Record<ErrorCode, string> = {
+	NETWORK_ERROR:
+		"Unable to connect to the server. Please check your internet connection.",
+	INVALID_CREDENTIALS: "The email or password you entered is incorrect.",
+	ACCOUNT_LOCKED:
+		"Your account has been locked due to multiple failed attempts. Please reset your password.",
+	EMAIL_TAKEN:
+		"This email is already registered. Please sign in or use a different email.",
+	INVALID_PASSWORD: "Please enter a valid password.",
+	PASSWORD_TOO_WEAK:
+		"Password is too weak. It should contain at least 8 characters, including uppercase, lowercase, numbers, and symbols.",
+	EMAIL_NOT_VERIFIED: "Please verify your email address before signing in.",
+	RATE_LIMIT_EXCEEDED: "Too many attempts. Please try again later.",
+	ACCOUNT_DISABLED: "This account has been disabled. Please contact support.",
+	SESSION_EXPIRED: "Your session has expired. Please sign in again.",
+	INVALID_TOKEN: "Your authentication token is invalid. Please sign in again.",
+	SERVER_ERROR: "An unexpected error occurred. Please try again later.",
+};
+
+// Helper function to get user-friendly error message
+export function getErrorMessage(error: ApiError): string {
+	if (error.code && ERROR_MESSAGES[error.code]) {
+		return ERROR_MESSAGES[error.code];
+	}
+	return error.message || "An unexpected error occurred. Please try again.";
 }
 
 interface RequestConfig extends RequestInit {
@@ -42,7 +84,8 @@ export async function apiRequest<T>(
 	}
 
 	// Add auth token if available
-	const token = localStorage.getItem("auth_token");
+	const token =
+		localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
 	if (token) {
 		headers.set("Authorization", `Bearer ${token}`);
 	}
@@ -66,6 +109,13 @@ export async function apiRequest<T>(
 			} catch {
 				// If parsing error response fails, use status text
 				error.message = response.statusText;
+			}
+
+			// Handle 401 unauthorized
+			if (response.status === 401) {
+				localStorage.removeItem("auth_token");
+				sessionStorage.removeItem("auth_token");
+				window.location.href = "/auth";
 			}
 
 			throw error;

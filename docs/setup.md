@@ -2,8 +2,6 @@
 
 ## Prerequisites
 
-- Node.js (v18 or later)
-- Go (v1.21 or later)
 - Docker and Docker Compose
 - Git
 
@@ -15,50 +13,18 @@ git clone <repository-url>
 cd vtasker
 ```
 
-2. Start the development database and cache:
+2. Start the development environment:
 ```bash
-docker-compose up -d
+make dev
 ```
 
-This will start:
+This will start all services in Docker containers:
 - PostgreSQL on port 5432
 - Redis on port 6379
+- Backend API (with hot-reloading) on port 8080
+- Frontend (with hot-reloading) on port 3000
 
-3. Install frontend dependencies:
-```bash
-cd frontend
-npm install
-```
-
-4. Set up environment variables:
-
-Create a `.env` file in the root directory:
-```env
-# Database Configuration
-DB_HOST=localhost
-DB_PORT=5432
-DB_USER=vtasker
-DB_PASSWORD=vtasker_dev
-DB_NAME=vtasker
-
-# Redis Configuration
-REDIS_HOST=localhost
-REDIS_PORT=6379
-```
-
-5. Start the development servers:
-
-Backend:
-```bash
-cd backend
-air
-```
-
-Frontend:
-```bash
-cd frontend
-npm run dev
-```
+The development environment is fully containerized, with hot-reloading enabled for both frontend and backend development.
 
 ## Project Structure
 
@@ -68,104 +34,94 @@ vtasker/
 │   ├── cmd/             # Application entrypoints
 │   ├── internal/        # Private application code
 │   ├── pkg/             # Public library code
-│   └── .air.toml        # Hot reload configuration
+│   ├── .air.toml        # Hot reload configuration
+│   └── Dockerfile.dev   # Development container config
 ├── frontend/            # Next.js frontend
 │   ├── app/            # Next.js app directory
 │   ├── components/     # React components
 │   ├── lib/            # Shared utilities
-│   └── store/          # State management
+│   ├── store/          # State management
+│   └── Dockerfile.dev  # Development container config
 ├── docs/               # Documentation
 └── docker-compose.yml  # Development services
 ```
 
-## Available Services
-
-### Database (PostgreSQL)
-
-- **Host:** localhost
-- **Port:** 5432
-- **User:** vtasker
-- **Password:** vtasker_dev
-- **Database:** vtasker
-
-The database data is persisted in a Docker volume named `vtasker-postgres-data`.
-
-### Cache (Redis)
-
-- **Host:** localhost
-- **Port:** 6379
-
-Redis is configured with append-only persistence, and data is stored in a Docker volume named `vtasker-redis-data`.
-
-## Frontend Configuration
-
-The frontend uses several key technologies:
-
-1. **State Management:**
-   - Zustand for global state
-   - TanStack Query for server state
-
-2. **API Integration:**
-   - Custom API client with error handling
-   - Type-safe query hooks
-   - Automatic request retries and caching
-
-3. **Components:**
-   - Shared UI component library
-   - Layout components (Header/Footer)
-   - Tailwind CSS for styling
-
 ## Development Workflow
 
-1. **Backend Changes:**
-   - The backend uses Air for hot reloading
-   - Changes to Go files trigger automatic rebuilds
-   - API endpoints are available at `http://localhost:8080`
+The entire development environment runs in Docker containers with hot-reloading enabled:
 
-   Testing the Projects API:
+1. **Starting the Environment:**
    ```bash
-   # Create a project
-   curl -X POST http://localhost:8080/api/v1/projects \
-     -H "Content-Type: application/json" \
-     -d '{"name": "Test Project", "description": "A test project"}'
-
-   # List projects
-   curl http://localhost:8080/api/v1/projects?page=1&page_size=10
-
-   # Get a project
-   curl http://localhost:8080/api/v1/projects/{project_id}
-
-   # Update a project
-   curl -X PUT http://localhost:8080/api/v1/projects/{project_id} \
-     -H "Content-Type: application/json" \
-     -d '{"name": "Updated Project"}'
-
-   # Delete a project
-   curl -X DELETE http://localhost:8080/api/v1/projects/{project_id}
+   make dev
    ```
+   This command starts all services and shows combined logs in the terminal.
 
-2. **Frontend Changes:**
-   - Next.js provides hot module replacement
-   - Changes are reflected immediately
-   - Application runs at `http://localhost:3000`
+2. **Backend Development:**
+   - Edit Go files in the `backend/` directory
+   - Changes are automatically detected by `air`
+   - Backend rebuilds and restarts automatically
+   - API is available at `http://localhost:8080`
 
-3. **Database Changes:**
-   - Connect using your preferred PostgreSQL client
-   - Default connection string: `postgresql://vtasker:vtasker_dev@localhost:5432/vtasker`
+3. **Frontend Development:**
+   - Edit files in the `frontend/` directory
+   - Next.js hot module replacement is enabled
+   - Changes appear immediately
+   - Frontend is available at `http://localhost:3000`
+
+4. **Database Access:**
+   - Host: localhost
+   - Port: 5432
+   - User: vtasker
+   - Password: vtasker_dev
+   - Database: vtasker
+
+5. **Redis Access:**
+   - Host: localhost
+   - Port: 6379
+
+## Available Services
+
+All services run in Docker containers and are connected through the `vtasker-network`:
+
+### Database (PostgreSQL)
+- Container name: vtasker-postgres
+- Data persisted in `vtasker-postgres-data` volume
+
+### Cache (Redis)
+- Container name: vtasker-redis
+- Data persisted in `vtasker-redis-data` volume
+
+### Backend API
+- Container name: vtasker-backend
+- Hot-reloading enabled via `air`
+- Source code mounted from ./backend
+
+### Frontend
+- Container name: vtasker-frontend
+- Hot-reloading enabled via Next.js
+- Source code mounted from ./frontend
 
 ## Troubleshooting
 
-1. **Database Connection Issues:**
-   - Ensure Docker containers are running: `docker-compose ps`
-   - Check logs: `docker-compose logs postgres`
-   - Verify connection settings in `.env`
+1. **Container Issues:**
+   - View container status: `docker-compose ps`
+   - Check container logs: `docker-compose logs [service]`
+   - Restart services: `docker-compose restart [service]`
+   - Full rebuild: `docker-compose up --build`
 
-2. **Redis Connection Issues:**
-   - Check Redis container: `docker-compose ps redis`
-   - View logs: `docker-compose logs redis`
-   - Ensure ports are not in use
+2. **Hot-Reloading Issues:**
+   - Backend: Check `air` logs in the container output
+   - Frontend: Check Next.js logs in the container output
+   - Rebuild specific service: `docker-compose up -d --build [service]`
 
-3. **Development Server Issues:**
-   - Clear Node modules: `rm -rf node_modules && npm install`
-   - Check for port conflicts
-   - Verify environment variables 
+3. **Network Issues:**
+   - Ensure all containers are on the same network: `docker network inspect vtasker-network`
+   - Check container DNS resolution: `docker exec -it vtasker-backend ping vtasker-postgres`
+
+4. **Database Migrations:**
+   ```bash
+   make migrate-up   # Apply migrations
+   make migrate-down # Rollback migrations
+   ```
+
+For detailed database documentation, see [Database Documentation](database.md). 

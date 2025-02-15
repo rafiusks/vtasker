@@ -2,10 +2,12 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 interface ContainerProps extends React.HTMLAttributes<HTMLDivElement> {
-	size?: "sm" | "default" | "lg" | "fluid";
+	children: React.ReactNode;
+	size?: "default" | "fluid";
 }
 
 export function Container({
+	children,
 	className,
 	size = "default",
 	...props
@@ -13,16 +15,13 @@ export function Container({
 	return (
 		<div
 			className={cn(
-				"mx-auto px-4 w-full",
-				{
-					"max-w-screen-md": size === "sm",
-					"max-w-screen-lg": size === "default",
-					"max-w-screen-xl": size === "lg",
-					"max-w-none": size === "fluid",
-				},
+				"mx-auto w-full",
+				size === "default" ? "max-w-7xl px-4 sm:px-6 lg:px-8" : "px-4",
 				className,
 			)}
 			{...props}
-		/>
+		>
+			{children}
+		</div>
 	);
 }

@@ -8,13 +8,17 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID           uuid.UUID `json:"id" db:"id"`
-	Email        string    `json:"email" db:"email"`
-	Name         string    `json:"name" db:"name"`
-	PasswordHash string    `json:"-" db:"password_hash"`
-	AvatarURL    *string   `json:"avatar_url,omitempty" db:"avatar_url"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	ID                 uuid.UUID  `json:"id" db:"id"`
+	Email              string     `json:"email" db:"email"`
+	Name               string     `json:"name" db:"name"`
+	PasswordHash       string     `json:"-" db:"password_hash"`
+	IsVerified         bool       `json:"is_verified" db:"is_verified"`
+	IsLocked           bool       `json:"is_locked" db:"is_locked"`
+	FailedLoginAttempts int        `json:"-" db:"failed_login_attempts"`
+	LastLoginAt        *time.Time `json:"last_login_at,omitempty" db:"last_login_at"`
+	AvatarURL          *string    `json:"avatar_url,omitempty" db:"avatar_url"`
+	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // GetFullName returns the user's full name

@@ -1,0 +1,11 @@
+CREATE USER vtasker WITH PASSWORD 'vtasker_dev' SUPERUSER;
+
+CREATE DATABASE vtasker;
+
+ALTER DATABASE vtasker OWNER TO vtasker;
+
+\ c vtasker CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+GRANT ALL PRIVILEGES ON DATABASE vtasker TO vtasker;
+
+GRANT ALL PRIVILEGES ON SCHEMA public TO vtasker;

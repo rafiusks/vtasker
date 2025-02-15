@@ -1,160 +1,164 @@
-# System Architecture
+# Architecture Documentation
 
-## Overview
+## System Overview
 
-vTasker is a modern task management system built with a microservices architecture. The system is designed to be scalable, maintainable, and developer-friendly.
+vTasker is a modern task management system built with a microservices architecture. The system consists of the following main components:
 
-## Core Components
+1. **Frontend Service**
+   - Next.js application
+   - React components with Tailwind CSS
+   - TanStack Query for data fetching
+   - Zustand for state management
 
-### Frontend (Next.js)
+2. **Backend Service**
+   - Go HTTP server
+   - Chi router for routing
+   - Repository pattern for data access
+   - JWT authentication
 
-The frontend is built with Next.js and TypeScript, providing a modern and type-safe development experience.
-
-1. **State Management:**
-   - **Local State:** React's useState and useReducer
-   - **Global State:** Zustand for simple and efficient state management
-   - **Server State:** TanStack Query for data fetching, caching, and synchronization
-
-2. **API Integration:**
-   - Custom API client with automatic error handling
-   - Type-safe query hooks for data fetching
-   - Automatic request retries and error recovery
-   - Token-based authentication
-
-3. **UI Components:**
-   - Modular component architecture
-   - Shared UI component library
-   - Tailwind CSS for styling
-   - Responsive design
-
-### Backend (Go)
-
-The backend is built with Go, providing high performance and strong type safety.
-
-1. **HTTP Server:**
-   - Chi router for HTTP routing
-   - Middleware for logging, recovery, and CORS
-   - Structured error handling
-   - RESTful API endpoints with versioning (v1)
-
-2. **Database Layer:**
+3. **Database**
    - PostgreSQL for persistent storage
-   - Connection pooling
-   - Transaction management
-   - Query optimization
-   - Soft delete support
-   - Automatic timestamp management
+   - UUID for primary keys
+   - Optimized indexes
+   - Automatic timestamps
 
-3. **Caching Layer:**
-   - Redis for caching
-   - Session management
+4. **Cache**
+   - Redis for session storage
+   - Query caching
    - Rate limiting
 
-4. **Project Module:**
-   - Models with validation using validator/v10
-   - Repository pattern for database operations
-   - Service layer with business logic
-   - HTTP handlers with proper error handling
-   - Pagination support
-   - Project statistics (issue counts)
-   - Soft delete functionality
+## Database Schema
 
-## Data Flow
+The database uses a relational schema with the following core entities:
 
-1. **Request Flow:**
+1. **Users**
+   - Authentication and profile information
+   - Email-based registration
+   - Secure password hashing
+   - Avatar support
+
+2. **Projects**
+   - Project management
+   - Created by users
+   - Soft deletion support
+   - Automatic timestamps
+
+3. **Issues**
+   - Task tracking
+   - Status workflow
+   - Priority levels
+   - Assignee management
+
+4. **Comments**
+   - Discussion threads
+   - Issue-based grouping
+   - User attribution
+   - Timestamp tracking
+
+For detailed schema information, see [Database Documentation](database.md).
+
+## Authentication Flow
+
+1. **Email Check**
    ```
-   Client -> Next.js -> API Client -> Go Backend -> Database/Cache
+   Client -> POST /auth/check-email -> Server
+   Server -> Check Database -> Response
    ```
 
-2. **Response Flow:**
+2. **Registration**
    ```
-   Database/Cache -> Go Backend -> API Client -> Next.js -> Client
-   ```
-
-3. **Project Operations Flow:**
-   ```
-   HTTP Request -> Handler -> Service -> Repository -> Database
-         ↑            ↓         ↓           ↓           ↓
-   HTTP Response <- JSON <- Validation <- Models <- SQL Query
+   Client -> POST /auth/sign-up -> Server
+   Server -> Hash Password -> Create User -> Generate Token -> Response
    ```
 
-3. **Caching Strategy:**
-   - Client-side caching with TanStack Query
-   - Server-side caching with Redis
-   - Database query caching
+3. **Login**
+   ```
+   Client -> POST /auth/sign-in -> Server
+   Server -> Verify Credentials -> Generate Token -> Response
+   ```
 
-## Security
+4. **Protected Routes**
+   ```
+   Client -> Request with JWT -> Server
+   Server -> Validate Token -> Process Request -> Response
+   ```
 
-1. **Authentication:**
-   - Token-based authentication
-   - Secure session management
-   - HTTPS enforcement
+## Security Measures
 
-2. **Authorization:**
-   - Role-based access control
-   - Resource-level permissions
-   - API key authentication for external access
+1. **Password Security**
+   - Bcrypt hashing
+   - Minimum length requirements
+   - Complexity validation
 
-3. **Data Protection:**
+2. **Authentication**
+   - JWT tokens
+   - Token expiration
+   - Refresh token rotation
+
+3. **Rate Limiting**
+   - Per-endpoint limits
+   - IP-based tracking
+   - Redis-backed storage
+
+4. **Data Protection**
+   - HTTPS only
+   - CORS configuration
    - Input validation
    - SQL injection prevention
-   - XSS protection
-   - CSRF protection
 
-## Development Environment
+## Error Handling
 
-1. **Local Development:**
-   - Docker Compose for services
-   - Hot reloading for both frontend and backend
-   - Environment-based configuration
+1. **Client Errors**
+   - Input validation
+   - Authentication errors
+   - Resource not found
+   - Rate limiting
 
-2. **Testing:**
+2. **Server Errors**
+   - Graceful degradation
+   - Error logging
+   - Retry mechanisms
+   - Circuit breaking
+
+## Performance Optimization
+
+1. **Database**
+   - Optimized indexes
+   - Connection pooling
+   - Query optimization
+   - Soft deletes
+
+2. **Caching**
+   - Redis caching
+   - Query result caching
+   - Session storage
+   - Rate limit tracking
+
+3. **API**
+   - Response compression
+   - Pagination
+   - Partial responses
+   - Batch operations
+
+## Development Workflow
+
+1. **Local Development**
+   - Docker Compose
+   - Hot reloading
+   - Environment variables
+   - Migration tools
+
+2. **Testing**
    - Unit tests
    - Integration tests
    - End-to-end tests
-   - Performance testing
+   - Test data seeding
 
-3. **Monitoring:**
-   - Application metrics
-   - Error tracking
-   - Performance monitoring
-   - Log aggregation
+3. **Deployment**
+   - Container orchestration
+   - Database migrations
+   - Environment configuration
+   - Health monitoring
 
-## Deployment
-
-1. **Infrastructure:**
-   - Containerized deployment
-   - Load balancing
-   - High availability
-   - Automatic scaling
-
-2. **CI/CD:**
-   - Automated testing
-   - Continuous integration
-   - Continuous deployment
-   - Environment promotion
-
-3. **Backup and Recovery:**
-   - Database backups
-   - Disaster recovery
-   - Data retention
-
-## Future Considerations
-
-1. **Scalability:**
-   - Horizontal scaling
-   - Microservices decomposition
-   - Cache optimization
-   - Database sharding
-
-2. **Features:**
-   - AI integration
-   - Real-time updates
-   - Webhook system
-   - Public API
-
-3. **Performance:**
-   - CDN integration
-   - Edge computing
-   - Performance optimization
-   - Load testing
+For setup instructions, see [Setup Guide](setup.md).
+For API documentation, see [API Documentation](api.md).
