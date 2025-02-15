@@ -122,6 +122,28 @@ The frontend uses several key technologies:
    - Changes to Go files trigger automatic rebuilds
    - API endpoints are available at `http://localhost:8080`
 
+   Testing the Projects API:
+   ```bash
+   # Create a project
+   curl -X POST http://localhost:8080/api/v1/projects \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Test Project", "description": "A test project"}'
+
+   # List projects
+   curl http://localhost:8080/api/v1/projects?page=1&page_size=10
+
+   # Get a project
+   curl http://localhost:8080/api/v1/projects/{project_id}
+
+   # Update a project
+   curl -X PUT http://localhost:8080/api/v1/projects/{project_id} \
+     -H "Content-Type: application/json" \
+     -d '{"name": "Updated Project"}'
+
+   # Delete a project
+   curl -X DELETE http://localhost:8080/api/v1/projects/{project_id}
+   ```
+
 2. **Frontend Changes:**
    - Next.js provides hot module replacement
    - Changes are reflected immediately

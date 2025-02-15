@@ -207,62 +207,62 @@
 ## Core Systems Implementation (Week 3-4)
 ### Projects Module
 #### Database
-- [ ] Create projects table migration
-    - [ ] Define table schema (id, name, description, etc.)
-        - [ ] Define the data types for each column
-    - [ ] Create migration file
-        - [ ] Create a migration file in the migrations directory
-- [ ] Add indexes for common queries
-    - [ ] Add index on `name` column
-        - [ ] Add an index to the `name` column in the projects table
-    - [ ] Add index on `created_at` column
-        - [ ] Add an index to the `created_at` column in the projects table
-- [ ] Set up database relationships
-    - [ ] Define relationship with issues table (one-to-many)
-        - [ ] Define a foreign key relationship between the projects and issues tables
+- [x] Create projects table migration
+    - [x] Define table schema (id, name, description, etc.)
+        - [x] Define the data types for each column
+    - [x] Create migration file
+        - [x] Create a migration file in the migrations directory
+- [x] Add indexes for common queries
+    - [x] Add index on `name` column
+        - [x] Add an index to the `name` column in the projects table
+    - [x] Add index on `created_at` column
+        - [x] Add an index to the `created_at` column in the projects table
+- [x] Set up database relationships
+    - [x] Define relationship with issues table (one-to-many)
+        - [x] Define a foreign key relationship between the projects and issues tables
 
 #### API
-- [ ] POST /projects - Create project
-    - [ ] Define request body
-        - [ ] Define the structure of the request body
-    - [ ] Validate input data
-        - [ ] Validate that the input data is valid
-    - [ ] Create project in database
-        - [ ] Create a new project in the database
-    - [ ] Return project details
-        - [ ] Return the details of the newly created project
-- [ ] GET /projects - List projects
-    - [ ] Implement pagination
-        - [ ] Implement pagination for the list of projects
-    - [ ] Implement filtering
-        - [ ] Implement filtering for the list of projects
-    - [ ] Return list of projects
-        - [ ] Return the list of projects
-- [ ] GET /projects/{id} - Get project details
-    - [ ] Validate project ID
-        - [ ] Validate that the project ID is valid
-    - [ ] Fetch project from database
-        - [ ] Fetch the project from the database
-    - [ ] Return project details
-        - [ ] Return the details of the project
-- [ ] PATCH /projects/{id} - Update project
-    - [ ] Validate project ID
-        - [ ] Validate that the project ID is valid
-    - [ ] Define request body
-        - [ ] Define the structure of the request body
-    - [ ] Validate input data
-        - [ ] Validate that the input data is valid
-    - [ ] Update project in database
-        - [ ] Update the project in the database
-    - [ ] Return updated project details
-        - [ ] Return the updated details of the project
-- [ ] DELETE /projects/{id} - Archive project
-    - [ ] Validate project ID
-        - [ ] Validate that the project ID is valid
-    - [ ] Archive project in database (soft delete)
-        - [ ] Archive the project in the database (soft delete)
-    - [ ] Return success status
-        - [ ] Return a success status code
+- [x] POST /projects - Create project
+    - [x] Define request body
+        - [x] Define the structure of the request body
+    - [x] Validate input data
+        - [x] Validate that the input data is valid
+    - [x] Create project in database
+        - [x] Create a new project in the database
+    - [x] Return project details
+        - [x] Return the details of the newly created project
+- [x] GET /projects - List projects
+    - [x] Implement pagination
+        - [x] Implement pagination for the list of projects
+    - [x] Implement filtering
+        - [x] Implement filtering for the list of projects
+    - [x] Return list of projects
+        - [x] Return the list of projects
+- [x] GET /projects/{id} - Get project details
+    - [x] Validate project ID
+        - [x] Validate that the project ID is valid
+    - [x] Fetch project from database
+        - [x] Fetch the project from the database
+    - [x] Return project details
+        - [x] Return the details of the project
+- [x] PATCH /projects/{id} - Update project
+    - [x] Validate project ID
+        - [x] Validate that the project ID is valid
+    - [x] Define request body
+        - [x] Define the structure of the request body
+    - [x] Validate input data
+        - [x] Validate that the input data is valid
+    - [x] Update project in database
+        - [x] Update the project in the database
+    - [x] Return updated project details
+        - [x] Return the updated details of the project
+- [x] DELETE /projects/{id} - Archive project
+    - [x] Validate project ID
+        - [x] Validate that the project ID is valid
+    - [x] Archive project in database (soft delete)
+        - [x] Archive the project in the database (soft delete)
+    - [x] Return success status
+        - [x] Return a success status code
 
 ### Issues Module
 #### Database

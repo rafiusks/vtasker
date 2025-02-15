@@ -10,65 +10,46 @@ import (
 
 var log zerolog.Logger
 
-// Init initializes the logger
-func Init(level string) {
-	// Parse the log level
-	logLevel, err := zerolog.ParseLevel(level)
-	if err != nil {
-		logLevel = zerolog.InfoLevel
-	}
-
+func init() {
 	// Configure zerolog
-	zerolog.TimeFieldFormat = time.RFC3339
-	output := zerolog.ConsoleWriter{
-		Out:        os.Stdout,
-		TimeFormat: time.RFC3339,
-		NoColor:    false,
-	}
-
-	log = zerolog.New(output).
-		Level(logLevel).
-		With().
-		Timestamp().
-		Caller().
-		Logger()
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	log = zerolog.New(os.Stdout).With().Timestamp().Logger()
 }
 
-// WithFields adds structured fields to the log entry
-func WithFields(fields map[string]interface{}) *zerolog.Event {
-	return log.Info().Fields(fields)
-}
-
-// Info logs an info message with structured fields
-func Info(msg string, fields map[string]interface{}) {
-	if fields == nil {
-		fields = make(map[string]interface{})
-	}
-	log.Info().Fields(fields).Msg(msg)
-}
-
-// Error logs an error message with structured fields
+// Error logs an error message with context
 func Error(msg string, err error, fields map[string]interface{}) {
-	if fields == nil {
-		fields = make(map[string]interface{})
+	event := log.Error().Err(err)
+	for k, v := range fields {
+		event = event.Interface(k, v)
 	}
-	log.Error().Err(err).Fields(fields).Msg(msg)
+	event.Msg(msg)
 }
 
-// Debug logs a debug message with structured fields
+// Info logs an info message with context
+func Info(msg string, fields map[string]interface{}) {
+	event := log.Info()
+	for k, v := range fields {
+		event = event.Interface(k, v)
+	}
+	event.Msg(msg)
+}
+
+// Debug logs a debug message with context
 func Debug(msg string, fields map[string]interface{}) {
-	if fields == nil {
-		fields = make(map[string]interface{})
+	event := log.Debug()
+	for k, v := range fields {
+		event = event.Interface(k, v)
 	}
-	log.Debug().Fields(fields).Msg(msg)
+	event.Msg(msg)
 }
 
-// Fatal logs a fatal message with structured fields and exits
+// Fatal logs a fatal message with context and exits
 func Fatal(msg string, err error, fields map[string]interface{}) {
-	if fields == nil {
-		fields = make(map[string]interface{})
+	event := log.Fatal().Err(err)
+	for k, v := range fields {
+		event = event.Interface(k, v)
 	}
-	log.Fatal().Err(err).Fields(fields).Msg(msg)
+	event.Msg(msg)
 }
 
 // RequestLogger is a middleware that logs HTTP requests

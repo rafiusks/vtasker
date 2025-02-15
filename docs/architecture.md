@@ -35,17 +35,29 @@ The backend is built with Go, providing high performance and strong type safety.
    - Chi router for HTTP routing
    - Middleware for logging, recovery, and CORS
    - Structured error handling
+   - RESTful API endpoints with versioning (v1)
 
 2. **Database Layer:**
    - PostgreSQL for persistent storage
    - Connection pooling
    - Transaction management
    - Query optimization
+   - Soft delete support
+   - Automatic timestamp management
 
 3. **Caching Layer:**
    - Redis for caching
    - Session management
    - Rate limiting
+
+4. **Project Module:**
+   - Models with validation using validator/v10
+   - Repository pattern for database operations
+   - Service layer with business logic
+   - HTTP handlers with proper error handling
+   - Pagination support
+   - Project statistics (issue counts)
+   - Soft delete functionality
 
 ## Data Flow
 
@@ -57,6 +69,13 @@ The backend is built with Go, providing high performance and strong type safety.
 2. **Response Flow:**
    ```
    Database/Cache -> Go Backend -> API Client -> Next.js -> Client
+   ```
+
+3. **Project Operations Flow:**
+   ```
+   HTTP Request -> Handler -> Service -> Repository -> Database
+         ↑            ↓         ↓           ↓           ↓
+   HTTP Response <- JSON <- Validation <- Models <- SQL Query
    ```
 
 3. **Caching Strategy:**

@@ -8,6 +8,7 @@ globs:
 Keep the following documentation up to date and follow its instructions:
 - read me: [README.md](mdc:README.md)
 - URL structure: [url-structure.md](mdc:docs/url-structure.md)
+- API structure: [api.md](mdc:docs/api.md)
 - Database details: [database.md](mdc:docs/database.md)
 - architecture details: [architecture.md](mdc:docs/architecture.md)
 - project setup: [setup.md](mdc:docs/setup.md)
