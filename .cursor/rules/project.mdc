@@ -12,3 +12,5 @@ Keep the following documentation up to date and follow its instructions:
 - Database details: [database.md](mdc:docs/database.md)
 - architecture details: [architecture.md](mdc:docs/architecture.md)
 - project setup: [setup.md](mdc:docs/setup.md)
+- layouts: [layouts.md](mdc:docs/layouts.md)
+- authentication: [authentication.md](mdc:docs/authentication.md)

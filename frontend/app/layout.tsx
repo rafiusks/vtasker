@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import { ClientProvider } from "@/components/providers/client-provider";
+import { Providers } from "./providers";
 import "./globals.css";
-import { ThemeProvider } from "next-themes";
-import { ToastProvider } from "@/components/providers/toast-provider";
+import { Header } from '../components/layout/Header';
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -30,16 +29,10 @@ export default function RootLayout({
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 			>
-				<ThemeProvider
-					attribute="class"
-					defaultTheme="system"
-					enableSystem
-					disableTransitionOnChange
-				>
-					<ToastProvider>
-						<ClientProvider>{children}</ClientProvider>
-					</ToastProvider>
-				</ThemeProvider>
+				<Header />
+				<main className="container mx-auto p-4">
+					<Providers>{children}</Providers>
+				</main>
 			</body>
 		</html>
 	);

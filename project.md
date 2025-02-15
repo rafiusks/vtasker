@@ -353,16 +353,16 @@
         - [x] Grid system
         - [x] Container layouts
         - [x] Responsive breakpoints
-- [ ] Core Navigation & Layout
-    - [ ] Main Navigation Layout
-        - [ ] Responsive sidebar/header
-        - [ ] Mobile-friendly navigation
-    - [ ] Basic routing setup
-        - [ ] Route configuration
-        - [ ] Protected routes
-    - [ ] Error boundaries
-        - [ ] Global error handling
-        - [ ] Error pages (404, 500)
+- [x] Core Navigation & Layout
+    - [x] Main Navigation Layout
+        - [x] Responsive sidebar/header
+        - [x] Mobile-friendly navigation
+    - [x] Basic routing setup
+        - [x] Route configuration
+        - [x] Protected routes
+    - [x] Error boundaries
+        - [x] Global error handling
+        - [x] Error pages (404, 500)
 
 ### Phase 2: Authentication & User Flow (Week 5)
 - [ ] Authentication UI
