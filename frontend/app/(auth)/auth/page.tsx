@@ -102,11 +102,25 @@ export default function AuthPage() {
 
 			const returnUrl = searchParams?.get("returnUrl") || "/dashboard";
 			router.push(decodeURIComponent(returnUrl));
-		} catch (error) {
+		} catch (error: unknown) {
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: error &&
+							typeof error === "object" &&
+							"response" in error &&
+							error.response &&
+							typeof error.response === "object" &&
+							"data" in error.response &&
+							error.response.data &&
+							typeof error.response.data === "object" &&
+							"message" in error.response.data
+						? String(error.response.data.message)
+						: "An error occurred during registration";
 			toast({
 				variant: "destructive",
-				title: "Error",
-				description: "An error occurred during registration. Please try again.",
+				title: "Registration failed",
+				description: errorMessage,
 			});
 		}
 	};

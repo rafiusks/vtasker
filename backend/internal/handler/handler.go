@@ -19,5 +19,6 @@ func NewHandler(userRepo repository.UserRepository) *Handler {
 
 func (h *Handler) Routes() chi.Router {
 	h.router.Post("/auth/check-email", h.auth.CheckEmail)
+	h.router.Post("/auth/sign-up", h.auth.SignUp)
 	return h.router
 } 

@@ -24,9 +24,15 @@ export default function RootLayout({
 	children: React.ReactNode;
 }>) {
 	return (
-		<html lang="en" suppressHydrationWarning>
+		<html
+			lang="en"
+			suppressHydrationWarning
+			data-new-gr-c-s-check-loaded="14.1093.0"
+			data-gr-ext-installed=""
+		>
 			<body
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+				suppressHydrationWarning
 			>
 				<Providers>{children}</Providers>
 			</body>
