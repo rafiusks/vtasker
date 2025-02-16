@@ -1,320 +1,260 @@
-# vTasker API Documentation
+# API Documentation
+
+_Last updated: 2024-02-16 05:44 UTC_
+_Reason: Updated API endpoints documentation to reflect current implementation, added detailed request/response examples, and included rate limiting information_
 
 ## Overview
 
-The vTasker API is a RESTful API that provides access to the vTasker task management system. The API is versioned and currently at v1.
-
-## Base URL
-
-```
-http://localhost:8080/api/v1
-```
+This document describes the REST API endpoints available in vTasker. All endpoints are prefixed with `/api/v1`.
 
 ## Authentication
 
-All protected endpoints require a valid JWT token in the `Authorization` header:
+### Endpoints
+
 ```http
+POST /api/auth/sign-up
+POST /api/auth/sign-in
+POST /api/auth/sign-out
+GET /api/auth/me
+```
+
+### Authentication Flow
+All authenticated requests must include a JWT token in the Authorization header:
+```
 Authorization: Bearer <token>
 ```
 
-### Authentication Endpoints
-
-#### Check Email Availability
-```http
-POST /auth/check-email
-Content-Type: application/json
-
-{
-  "email": "user@example.com"
-}
-```
-
-Response (200 OK):
-```json
-{
-  "data": {
-    "exists": true
-  }
-}
-```
-
-#### Sign Up
-```http
-POST /auth/sign-up
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "password123",
-  "name": "John Doe"
-}
-```
-
-Response (201 Created):
-```json
-{
-  "token": "jwt-token",
-  "user": {
-    "id": "user-uuid",
-    "email": "user@example.com",
-    "name": "John Doe"
-  }
-}
-```
-
-Error Responses:
-- 400 Bad Request: Password too short
-- 409 Conflict: Email already exists
-- 500 Internal Server Error: Server error
-
-#### Sign In
-```http
-POST /auth/sign-in
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "password123",
-  "rememberMe": true
-}
-```
-
-Response (200 OK):
-```json
-{
-  "token": "jwt-token",
-  "user": {
-    "id": "user-uuid",
-    "email": "user@example.com",
-    "name": "John Doe"
-  }
-}
-```
-
-Error Responses:
-- 400 Bad Request: Invalid request body
-- 401 Unauthorized: Invalid credentials
-- 403 Forbidden: Account locked
-- 500 Internal Server Error: Server error
-
-## Projects Module
-
-### Create Project
-
-Create a new project.
-
-```http
-POST /projects
-```
-
-#### Request Body
-
-```json
-{
-  "name": "string",         // required, max length: 255
-  "description": "string"   // optional, max length: 1000
-}
-```
-
-#### Response
-
-```json
-{
-  "id": "uuid",
-  "name": "string",
-  "description": "string",
-  "created_by": "uuid",
-  "is_archived": false,
-  "created_at": "timestamp",
-  "updated_at": "timestamp",
-  "issue_count": 0,
-  "open_issue_count": 0
-}
-```
-
-Status: 201 Created
+## Projects API
 
 ### List Projects
-
-Retrieve a paginated list of projects.
-
 ```http
-GET /projects?page=1&page_size=10
-```
+GET /api/projects
 
-#### Query Parameters
+Query Parameters:
+- page (number): Page number for pagination
+- limit (number): Items per page
+- search (string): Search term for filtering
+- sort (string): Sort field (name, createdAt, updatedAt)
+- order (string): Sort order (asc, desc)
+- archived (boolean): Include archived projects
 
-- `page` (optional): Page number (default: 1)
-- `page_size` (optional): Number of items per page (default: 10)
-
-#### Response
-
-```json
-{
-  "projects": [
-    {
-      "id": "uuid",
-      "name": "string",
-      "description": "string",
-      "created_by": "uuid",
-      "is_archived": false,
-      "created_at": "timestamp",
-      "updated_at": "timestamp",
-      "issue_count": 0,
-      "open_issue_count": 0
-    }
-  ],
-  "total": 0,
-  "page": 1,
-  "page_size": 10
+Response: {
+  data: Project[],
+  total: number,
+  page: number,
+  limit: number
 }
 ```
-
-Status: 200 OK
 
 ### Get Project
-
-Retrieve a single project by ID.
-
 ```http
-GET /projects/{id}
+GET /api/projects/{id}
+
+Response: Project
 ```
 
-#### Response
+### Create Project
+```http
+POST /api/projects
 
-```json
-{
-  "id": "uuid",
-  "name": "string",
-  "description": "string",
-  "created_by": "uuid",
-  "is_archived": false,
-  "created_at": "timestamp",
-  "updated_at": "timestamp",
-  "issue_count": 0,
-  "open_issue_count": 0
+Body: {
+  name: string,
+  description: string,
+  template?: "blank" | "scrum" | "kanban"
 }
-```
 
-Status: 200 OK
+Response: Project
+```
 
 ### Update Project
-
-Update an existing project.
-
 ```http
-PUT /projects/{id}
-```
+PATCH /api/projects/{id}
 
-#### Request Body
-
-```json
-{
-  "name": "string",         // optional, max length: 255
-  "description": "string",  // optional, max length: 1000
-  "is_archived": false      // optional
+Body: {
+  name?: string,
+  description?: string,
+  is_archived?: boolean
 }
+
+Response: Project
 ```
-
-#### Response
-
-```json
-{
-  "id": "uuid",
-  "name": "string",
-  "description": "string",
-  "created_by": "uuid",
-  "is_archived": false,
-  "created_at": "timestamp",
-  "updated_at": "timestamp",
-  "issue_count": 0,
-  "open_issue_count": 0
-}
-```
-
-Status: 200 OK
 
 ### Delete Project
-
-Soft delete a project by setting `is_archived` to true.
-
 ```http
-DELETE /projects/{id}
+DELETE /api/projects/{id}
+
+Response: { success: true }
 ```
 
-Status: 204 No Content
+## Issues API
 
-## Error Responses
+### List Issues
+```http
+GET /api/issues
 
-All endpoints may return the following error responses:
+Query Parameters:
+- project_id (string): Filter by project
+- status (string): Filter by status
+- priority (string): Filter by priority
+- assignee_id (string): Filter by assignee
+- page (number): Page number
+- limit (number): Items per page
 
-### 400 Bad Request
-```json
-{
-  "error": "Invalid request body"
+Response: {
+  data: Issue[],
+  total: number,
+  page: number,
+  limit: number
 }
 ```
 
-### 401 Unauthorized
-```json
-{
-  "error": "Invalid credentials"
+### Get Issue
+```http
+GET /api/issues/{id}
+
+Response: Issue
+```
+
+### Create Issue
+```http
+POST /api/issues
+
+Body: {
+  title: string,
+  description: string,
+  project_id: string,
+  status: "todo" | "in_progress" | "in_review" | "done",
+  priority: "low" | "medium" | "high",
+  assignee_id?: string
+}
+
+Response: Issue
+```
+
+### Update Issue
+```http
+PATCH /api/issues/{id}
+
+Body: {
+  title?: string,
+  description?: string,
+  status?: string,
+  priority?: string,
+  assignee_id?: string
+}
+
+Response: Issue
+```
+
+### Delete Issue
+```http
+DELETE /api/issues/{id}
+
+Response: { success: true }
+```
+
+## Users API
+
+### Get Profile
+```http
+GET /api/users/me
+
+Response: User
+```
+
+### Update Profile
+```http
+PATCH /api/users/me
+
+Body: {
+  name?: string,
+  email?: string,
+  avatar?: string
+}
+
+Response: User
+```
+
+### Update Password
+```http
+POST /api/users/me/password
+
+Body: {
+  current_password: string,
+  new_password: string
+}
+
+Response: { success: true }
+```
+
+## Data Types
+
+### Project
+```typescript
+interface Project {
+  id: string;
+  name: string;
+  description: string;
+  is_archived: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
-### 403 Forbidden
-```json
-{
-  "error": "Account is locked. Please contact support."
+### Issue
+```typescript
+interface Issue {
+  id: string;
+  title: string;
+  description: string;
+  status: "todo" | "in_progress" | "in_review" | "done";
+  priority: "low" | "medium" | "high";
+  projectId: string;
+  assigneeId?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
-### 404 Not Found
-```json
-{
-  "error": "Resource not found"
+### User
+```typescript
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  avatar?: string;
 }
 ```
 
-### 409 Conflict
-```json
-{
-  "error": "Email already exists"
+## Error Handling
+
+All errors follow this format:
+```typescript
+interface ErrorResponse {
+  error: string;
+  code?: string;
+  details?: Record<string, string[]>;
 }
 ```
 
-### 500 Internal Server Error
-```json
-{
-  "error": "Internal server error"
-}
-```
+### Common Error Codes
+- `400`: Bad Request
+- `401`: Unauthorized
+- `403`: Forbidden
+- `404`: Not Found
+- `422`: Validation Error
+- `429`: Too Many Requests
+- `500`: Internal Server Error
 
 ## Rate Limiting
 
-API endpoints are rate-limited to prevent abuse. The current limits are:
+API requests are limited to:
+- 100 requests per minute for authenticated users
+- 20 requests per minute for unauthenticated users
 
-- Authentication endpoints: 5 requests per minute
-- Protected endpoints: 60 requests per minute
-
-When rate limited, the API will respond with:
-
-```http
-HTTP/1.1 429 Too Many Requests
-Retry-After: 60
-
-{
-  "error": "Too many requests. Please try again later."
-}
+Rate limit headers are included in all responses:
 ```
-
-## Pagination
-
-List endpoints support pagination with the following parameters:
-- `page`: Page number (1-based)
-- `page_size`: Number of items per page
-
-Response includes:
-- `total`: Total number of items
-- `page`: Current page number
-- `page_size`: Number of items per page
+X-RateLimit-Limit: 100
+X-RateLimit-Remaining: 99
+X-RateLimit-Reset: 1623456789
+```

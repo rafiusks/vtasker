@@ -1,5 +1,8 @@
 # Entity Relationships
 
+_Last updated: 2024-02-16 03:30 UTC_
+_Reason: Updated entity relationships documentation to reflect current data model, added detailed examples of database queries, and included cascade behaviors_
+
 ## Overview
 
 This document provides a detailed explanation of the relationships between core entities in the vTasker system. Understanding these relationships is crucial for developers working with the system's data model and API.

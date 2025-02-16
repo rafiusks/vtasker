@@ -1,164 +1,174 @@
-# Architecture Documentation
+# Architecture Overview
 
-## System Overview
+_Last updated: 2024-02-16 05:37 UTC_
+_Reason: Updated frontend and backend architecture details to reflect current implementation, added sections for monitoring and testing strategy_
 
-vTasker is a modern task management system built with a microservices architecture. The system consists of the following main components:
+## Frontend Architecture
 
-1. **Frontend Service**
-   - Next.js application
-   - React components with Tailwind CSS
-   - TanStack Query for data fetching
-   - Zustand for state management
+### Current Implementation
+- **Framework**: Next.js 14 with App Router
+- **State Management**: 
+  - Zustand for global state
+  - TanStack Query for server state
+- **UI Components**: 
+  - Shadcn/ui component library
+  - Tailwind CSS for styling
+- **Key Features**:
+  - Server and client components
+  - Optimistic updates
+  - Responsive layouts
+  - Dark mode support
 
-2. **Backend Service**
-   - Go HTTP server
-   - Chi router for routing
-   - Repository pattern for data access
-   - JWT authentication
+### Directory Structure
+```
+frontend/
+├── app/
+│   ├── (auth)/         # Authentication routes
+│   ├── (dashboard)/    # Protected dashboard routes
+│   ├── api/            # API route handlers
+│   └── providers.tsx   # Global providers
+├── components/
+│   ├── ui/            # Reusable UI components
+│   ├── layout/        # Layout components
+│   └── projects/      # Project-specific components
+├── store/
+│   ├── index.ts       # Store exports
+│   ├── slices/        # Store slices
+│   └── types.ts       # TypeScript types
+└── hooks/             # Custom hooks
+```
 
-3. **Database**
-   - PostgreSQL for persistent storage
-   - UUID for primary keys
-   - Optimized indexes
-   - Automatic timestamps
+## Backend Architecture
 
-4. **Cache**
-   - Redis for session storage
-   - Query caching
-   - Rate limiting
+### Current Implementation
+- **Language**: Go
+- **Router**: Chi
+- **Database**: PostgreSQL
+- **Cache**: Redis (prepared)
+- **Key Features**:
+  - Structured logging
+  - Middleware chain
+  - Error handling
+  - Hot reloading
+
+### Directory Structure
+```
+backend/
+├── cmd/
+│   └── server/        # Application entry point
+├── internal/
+│   ├── handler/       # HTTP handlers
+│   ├── middleware/    # HTTP middleware
+│   ├── model/         # Database models
+│   └── service/       # Business logic
+├── migrations/        # Database migrations
+└── pkg/              # Shared packages
+```
 
 ## Database Schema
 
-The database uses a relational schema with the following core entities:
+### Core Tables
+- **users**: User management
+- **projects**: Project information
+- **issues**: Task/issue tracking
+- **comments**: Issue comments
 
-1. **Users**
-   - Authentication and profile information
-   - Email-based registration
-   - Secure password hashing
-   - Avatar support
+### Relationships
+- One-to-many between projects and issues
+- One-to-many between users and projects (creator)
+- One-to-many between users and issues (creator/assignee)
 
-2. **Projects**
-   - Project management
-   - Created by users
-   - Soft deletion support
-   - Automatic timestamps
+## API Structure
 
-3. **Issues**
-   - Task tracking
-   - Status workflow
-   - Priority levels
-   - Assignee management
+### Current Endpoints
+- `/api/auth/*`: Authentication endpoints
+- `/api/projects/*`: Project management
+- `/api/issues/*`: Issue management
+- `/api/users/*`: User management
 
-4. **Comments**
-   - Discussion threads
-   - Issue-based grouping
-   - User attribution
-   - Timestamp tracking
+### Authentication
+- JWT-based authentication
+- Token refresh mechanism
+- Role-based access control (prepared)
 
-For detailed schema information, see [Database Documentation](database.md).
+## Development Environment
 
-## Authentication Flow
+### Tools
+- Docker for containerization
+- Air for Go hot reloading
+- ESLint + Prettier for code formatting
+- Husky for Git hooks
 
-1. **Email Check**
-   ```
-   Client -> POST /auth/check-email -> Server
-   Server -> Check Database -> Response
-   ```
+### Local Setup
+- Docker Compose for services
+- Make commands for common operations
+- Environment variable management
 
-2. **Registration**
-   ```
-   Client -> POST /auth/sign-up -> Server
-   Server -> Hash Password -> Create User -> Generate Token -> Response
-   ```
+## Deployment
 
-3. **Login**
-   ```
-   Client -> POST /auth/sign-in -> Server
-   Server -> Verify Credentials -> Generate Token -> Response
-   ```
+### Current Status
+- Development environment complete
+- Production setup pending
+- CI/CD pipeline planned
 
-4. **Protected Routes**
-   ```
-   Client -> Request with JWT -> Server
-   Server -> Validate Token -> Process Request -> Response
-   ```
+### Infrastructure Requirements
+- PostgreSQL database
+- Redis cache
+- Node.js runtime
+- Go runtime
+- Reverse proxy (planned)
 
-## Security Measures
+## Security Considerations
 
-1. **Password Security**
-   - Bcrypt hashing
-   - Minimum length requirements
-   - Complexity validation
+### Implemented
+- HTTPS enforcement
+- CORS configuration
+- Input validation
+- SQL injection prevention
+- XSS protection
 
-2. **Authentication**
-   - JWT tokens
-   - Token expiration
-   - Refresh token rotation
+### Planned
+- Rate limiting
+- API key authentication
+- Audit logging
+- Security headers
+- CSRF protection
 
-3. **Rate Limiting**
-   - Per-endpoint limits
-   - IP-based tracking
-   - Redis-backed storage
+## Monitoring and Logging
 
-4. **Data Protection**
-   - HTTPS only
-   - CORS configuration
-   - Input validation
-   - SQL injection prevention
+### Current Status
+- Basic structured logging
+- Error tracking
+- Performance monitoring (planned)
 
-## Error Handling
+### Future Plans
+- APM integration
+- Log aggregation
+- Metrics collection
+- Alert system
 
-1. **Client Errors**
-   - Input validation
-   - Authentication errors
-   - Resource not found
-   - Rate limiting
+## Testing Strategy
 
-2. **Server Errors**
-   - Graceful degradation
-   - Error logging
-   - Retry mechanisms
-   - Circuit breaking
+### Current Status
+- Unit test structure prepared
+- Integration tests planned
+- E2E testing framework selected
 
-## Performance Optimization
+### Coverage Goals
+- Backend: 80% coverage target
+- Frontend: Component testing focus
+- API: Full integration test suite
 
-1. **Database**
-   - Optimized indexes
-   - Connection pooling
-   - Query optimization
-   - Soft deletes
+## Documentation
 
-2. **Caching**
-   - Redis caching
-   - Query result caching
-   - Session storage
-   - Rate limit tracking
+### Available
+- API documentation
+- Setup guides
+- Architecture overview
+- Entity relationships
 
-3. **API**
-   - Response compression
-   - Pagination
-   - Partial responses
-   - Batch operations
-
-## Development Workflow
-
-1. **Local Development**
-   - Docker Compose
-   - Hot reloading
-   - Environment variables
-   - Migration tools
-
-2. **Testing**
-   - Unit tests
-   - Integration tests
-   - End-to-end tests
-   - Test data seeding
-
-3. **Deployment**
-   - Container orchestration
-   - Database migrations
-   - Environment configuration
-   - Health monitoring
-
-For setup instructions, see [Setup Guide](setup.md).
-For API documentation, see [API Documentation](api.md).
+### In Progress
+- User guides
+- API reference
+- Deployment guides
+- Troubleshooting guides

@@ -1,68 +1,128 @@
-# URL Structure for Jira Clone - Frontend
+# URL Structure
 
-## Documentation
-- `/api-docs` - Interactive API documentation
-- `/api-docs/[version]` - Version-specific API docs (v1, v2)
+_Last updated: 2024-02-16 05:46 UTC_
+_Reason: Updated URL structure documentation to reflect current routing implementation, added API endpoints, and included route protection information
 
-## Authentication
+## Overview
+
+vTasker uses Next.js App Router for routing, with a clean URL structure that reflects the application's hierarchy.
+
+## Route Groups
+
+### Authentication Routes
+```
+/auth
+├── /sign-in     # Login page
+├── /sign-up     # Registration page
+└── /forgot      # Password recovery
+```
+
+### Dashboard Routes
+```
+/dashboard
+├── /            # Overview dashboard
+├── /analytics   # Analytics and reports
+└── /settings    # Global settings
+```
+
+### Project Routes
+```
+/projects
+├── /                    # Project list
+├── /[id]               # Project details
+│   ├── /overview       # Project overview
+│   ├── /issues         # Project issues
+│   ├── /team           # Team management
+│   ├── /settings       # Project settings
+│   └── /analytics      # Project analytics
+└── /archived           # Archived projects
+```
+
+### Issue Routes
+```
+/projects/[projectId]/issues
+├── /                   # Issue list
+├── /[id]              # Issue details
+│   ├── /activity      # Issue activity
+│   └── /settings      # Issue settings
+└── /board             # Kanban board
+```
+
+### Profile Routes
+```
+/profile
+├── /                  # User profile
+├── /settings         # User settings
+│   ├── /account     # Account settings
+│   ├── /security    # Security settings
+│   └── /preferences # User preferences
+└── /notifications   # Notification settings
+```
+
+## API Routes
+
+### Authentication
+```
+/api/auth
+├── /sign-up          # Create account
+├── /sign-in          # Login
+├── /sign-out         # Logout
+└── /refresh          # Refresh token
+```
+
+### Projects
+```
+/api/projects
+├── /                 # List/create projects
+├── /[id]            # Get/update/delete project
+└── /[id]/issues     # Project issues
+```
+
+### Issues
+```
+/api/issues
+├── /                # List/create issues
+├── /[id]           # Get/update/delete issue
+└── /[id]/comments  # Issue comments
+```
+
+### Users
+```
+/api/users
+├── /me              # Current user
+├── /me/settings     # User settings
+└── /me/password     # Password update
+```
+
+## Route Protection
+
 ### Public Routes
-- `/login` - User authentication form
-- `/register` - New user registration
-- `/forgot-password` - Password reset request
-- `/reset-password/[token]` - Password reset form (token parameterized)
+- `/auth/*`
+- `/api/auth/*`
+- `/` (landing page)
 
 ### Protected Routes
-- `/` - Dashboard redirect (authenticated users)
-- `/dashboard` - Personal task dashboard
-- `/projects` - Accessible projects list
-  - `/projects/[projectId]` - Project overview (ID parameterized)
-  - `/projects/[projectId]/board` - Kanban board
-  - `/projects/[projectId]/backlog` - Backlog management
-  - `/projects/[projectId]/settings` - Project configuration
-  - `/projects/[projectId]/reports` - Project analytics
-- `/issues` - Global issue tracker
-  - `/issues/[issueId]` - Issue details (ID parameterized)
-  - `/issues/new` - Issue creation
-  - `/issues/[issueId]/edit` - Issue modification
-  - `/issues/search` - Advanced search
-  - `/issues/bulk-edit` - Bulk operations
-- `/profile` - User management
-  - `/profile/security` - Authentication settings
-  - `/profile/preferences` - UI customization
-  - `/profile/api-keys` - API credentials
-  - `/profile/activity-log` - User actions history
+- `/dashboard/*`
+- `/projects/*`
+- `/profile/*`
+- `/api/*` (except auth)
 
-### Admin Routes
-- `/admin` - Admin dashboard
-  - `/admin/users` - User management
-    - `/admin/users/[userId]` - User details
-    - `/admin/users/[userId]/edit` - User modification
-  - `/admin/audit-logs` - System activity
-  - `/admin/settings` - Global configuration
-  - `/admin/reports` - System analytics
-  - `/admin/health` - System monitoring
+## Current Status
 
-## Project Management
-- `/projects/new` - Project creation wizard
-- `/projects/[projectId]/edit` - Project settings modification
-- `/projects/[projectId]/roadmap` - Project timeline view
+### Implemented
+- ✅ Authentication routes
+- ✅ Project routes
+- ✅ Basic API routes
+- ✅ Profile routes
+- ✅ Route protection
 
-## Reports & Analytics
-- `/reports` - Consolidated analytics
-  - `/reports/velocity` - Team performance
-  - `/reports/burndown` - Sprint progress
-  - `/reports/custom` - Report builder
-  - `/reports/export` - Data exports
+### In Progress
+- 🔄 Issue management routes
+- 🔄 Analytics routes
+- 🔄 Team management routes
 
-## Settings
-- `/settings` - Application configuration
-  - `/settings/team` - Collaboration settings
-  - `/settings/workflows` - Process designer
-  - `/styles` - `/settings/styles` - UI theming
-  - `/settings/notifications` - Alert preferences
-  - `/settings/integrations` - Third-party connections
-
-## System
-- `/health` - Service status
-- `/not-found` - Custom 404 page
-- `/unauthorized` - Access denied
+### Planned
+- ⏳ Kanban board routes
+- ⏳ Advanced analytics
+- ⏳ API documentation routes
+- ⏳ Webhook management routes

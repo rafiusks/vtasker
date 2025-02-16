@@ -1,17 +1,161 @@
 # Authentication
 
+_Last updated: 2024-02-16 05:44 UTC_
+_Reason: Updated authentication flow documentation, added implementation details for JWT handling, and included frontend integration examples_
+
 ## Overview
 
-The vTasker application uses a secure JWT-based authentication system with bcrypt password hashing and various security features to protect user accounts.
+vTasker uses JWT (JSON Web Tokens) for authentication. The system implements a secure, stateless authentication flow with token refresh capabilities.
 
-## Security Features
+## Authentication Flow
 
-- Password hashing using bcrypt (cost factor: 12)
-- JWT token-based authentication
-- Account locking after 5 failed login attempts
-- "Remember Me" functionality with extended token expiration
-- Last login tracking
-- Failed login attempt monitoring
+### 1. Registration
+```typescript
+POST /api/auth/sign-up
+{
+  email: string;
+  password: string;
+  name: string;
+}
+```
+
+- Validates email format and uniqueness
+- Enforces password strength requirements
+- Creates user account
+- Returns JWT token and user data
+
+### 2. Login
+```typescript
+POST /api/auth/sign-in
+{
+  email: string;
+  password: string;
+}
+```
+
+- Validates credentials
+- Returns JWT token and user data
+- Includes refresh token for extended sessions
+
+### 3. Token Refresh
+```typescript
+POST /api/auth/refresh
+{
+  refreshToken: string;
+}
+```
+
+- Validates refresh token
+- Issues new access token
+- Updates refresh token rotation
+
+### 4. Logout
+```typescript
+POST /api/auth/sign-out
+```
+
+- Invalidates current session
+- Clears refresh token
+- Returns success status
+
+## Implementation Details
+
+### JWT Structure
+```typescript
+{
+  "sub": "user-id",
+  "email": "user@example.com",
+  "name": "User Name",
+  "iat": 1516239022,
+  "exp": 1516242622
+}
+```
+
+### Security Measures
+1. **Password Storage**
+   - Bcrypt hashing
+   - Salt rounds: 12
+   - Minimum length: 8 characters
+
+2. **Token Security**
+   - Short-lived access tokens (1 hour)
+   - HTTP-only cookies for refresh tokens
+   - Secure flag in production
+   - CSRF protection
+
+3. **Rate Limiting**
+   - Login attempts: 5 per minute
+   - Token refresh: 10 per minute
+   - Account creation: 3 per hour
+
+### Error Handling
+
+1. **Registration Errors**
+   - Email already exists
+   - Password too weak
+   - Invalid email format
+
+2. **Login Errors**
+   - Invalid credentials
+   - Account locked
+   - Too many attempts
+
+3. **Token Errors**
+   - Token expired
+   - Invalid token
+   - Refresh token reuse
+
+## Frontend Integration
+
+### State Management
+```typescript
+interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+```
+
+### Protected Routes
+```typescript
+// Route guard implementation
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const isAuthenticated = useIsAuthenticated();
+  if (!isAuthenticated) {
+    return redirect("/auth/login");
+  }
+  return children;
+};
+```
+
+### Token Management
+- Automatic token refresh
+- Background refresh before expiration
+- Logout on token failure
+
+## Current Status
+
+### Implemented
+- ✅ Basic authentication flow
+- ✅ JWT token handling
+- ✅ Protected routes
+- ✅ User registration
+- ✅ Login/logout functionality
+- ✅ Password hashing
+- ✅ Error handling
+
+### In Progress
+- 🔄 Remember me functionality
+- 🔄 Password reset flow
+- 🔄 Email verification
+
+### Planned
+- ⏳ Two-factor authentication
+- ⏳ OAuth integration
+- ⏳ Session management
+- ⏳ Account lockout
+- ⏳ Security audit logging
 
 ## API Endpoints
 
