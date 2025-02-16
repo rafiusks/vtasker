@@ -1,10 +1,11 @@
 module.exports = {
 	extends: [
-		"../.eslintrc.js",
-		"next/core-web-vitals", // Add Next.js specific rules
-		"plugin:react/recommended",
-		"plugin:react-hooks/recommended",
-	],
+        "../.eslintrc.js",
+        "next/core-web-vitals",
+        "plugin:react/recommended",
+        "plugin:react-hooks/recommended",
+        "plugin:storybook/recommended"
+    ],
 	plugins: ["react", "react-hooks"],
 	rules: {
 		// Frontend-specific rules
