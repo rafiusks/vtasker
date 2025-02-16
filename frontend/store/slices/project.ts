@@ -1,6 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { ProjectState, Project } from "../types";
-import { AUTH_TOKEN_KEY } from "@/lib/config";
+import { getDefaultHeaders } from "@/lib/config";
 
 export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	projects: [],
@@ -11,25 +11,21 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	fetchProjects: async () => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
-			const token =
-				localStorage.getItem(AUTH_TOKEN_KEY) ||
-				sessionStorage.getItem(AUTH_TOKEN_KEY);
 			const response = await fetch("/api/projects", {
-				headers: {
-					"Content-Type": "application/json",
-					...(token ? { Authorization: `Bearer ${token}` } : {}),
-				},
+				headers: getDefaultHeaders(true),
 			});
 			if (!response.ok) {
 				throw new Error("Failed to fetch projects");
 			}
 
 			const data = await response.json();
+			console.log("Store received data:", data);
 			set({
-				projects: Array.isArray(data) ? data : [],
+				projects: data.projects || [], // Extract projects from the paginated response
 				projectsLoading: false,
 			});
 		} catch (error) {
+			console.error("Store fetch error:", error);
 			set({
 				projectsError:
 					error instanceof Error ? error.message : "Failed to fetch projects",
@@ -42,14 +38,8 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	fetchProject: async (id: string) => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
-			const token =
-				localStorage.getItem(AUTH_TOKEN_KEY) ||
-				sessionStorage.getItem(AUTH_TOKEN_KEY);
 			const response = await fetch(`/api/projects/${id}`, {
-				headers: {
-					"Content-Type": "application/json",
-					...(token ? { Authorization: `Bearer ${token}` } : {}),
-				},
+				headers: getDefaultHeaders(true),
 			});
 
 			const data = await response.json();
@@ -78,15 +68,9 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	createProject: async (project) => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
-			const token =
-				localStorage.getItem(AUTH_TOKEN_KEY) ||
-				sessionStorage.getItem(AUTH_TOKEN_KEY);
 			const response = await fetch("/api/projects", {
 				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					...(token ? { Authorization: `Bearer ${token}` } : {}),
-				},
+				headers: getDefaultHeaders(true),
 				body: JSON.stringify(project),
 			});
 
@@ -118,15 +102,9 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	updateProject: async (id, project) => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
-			const token =
-				localStorage.getItem(AUTH_TOKEN_KEY) ||
-				sessionStorage.getItem(AUTH_TOKEN_KEY);
 			const response = await fetch(`/api/projects/${id}`, {
 				method: "PATCH",
-				headers: {
-					"Content-Type": "application/json",
-					...(token ? { Authorization: `Bearer ${token}` } : {}),
-				},
+				headers: getDefaultHeaders(true),
 				body: JSON.stringify(project),
 			});
 
@@ -162,15 +140,9 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	deleteProject: async (id) => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
-			const token =
-				localStorage.getItem(AUTH_TOKEN_KEY) ||
-				sessionStorage.getItem(AUTH_TOKEN_KEY);
 			const response = await fetch(`/api/projects/${id}`, {
 				method: "DELETE",
-				headers: {
-					"Content-Type": "application/json",
-					...(token ? { Authorization: `Bearer ${token}` } : {}),
-				},
+				headers: getDefaultHeaders(true),
 			});
 
 			const data = await response.json();
