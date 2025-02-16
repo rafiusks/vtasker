@@ -15,6 +15,7 @@ export interface Project {
 	id: string;
 	name: string;
 	description: string;
+	is_archived: boolean;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -47,8 +48,8 @@ export interface AuthState {
 export interface ProjectState {
 	projects: Project[];
 	currentProject: Project | null;
-	isLoading: boolean;
-	error: string | null;
+	projectsLoading: boolean;
+	projectsError: string | null;
 	fetchProjects: () => Promise<void>;
 	createProject: (
 		project: Omit<Project, "id" | "createdAt" | "updatedAt">,
@@ -56,7 +57,7 @@ export interface ProjectState {
 	updateProject: (id: string, project: Partial<Project>) => Promise<void>;
 	deleteProject: (id: string) => Promise<void>;
 	setCurrentProject: (project: Project | null) => void;
-	clearError: () => void;
+	clearProjectError: () => void;
 }
 
 // Issue state

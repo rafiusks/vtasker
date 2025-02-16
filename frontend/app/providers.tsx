@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import type { ReactNode } from "react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const queryClient = new QueryClient({
 	defaultOptions: {
@@ -26,7 +27,7 @@ export function Providers({ children }: ProvidersProps) {
 				enableSystem
 				disableTransitionOnChange
 			>
-				{children}
+				<TooltipProvider>{children}</TooltipProvider>
 			</ThemeProvider>
 		</QueryClientProvider>
 	);

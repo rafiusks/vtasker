@@ -1,94 +1,219 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { Settings, User, Bell, Lock, Palette } from "lucide-react";
-import { useEffect, useState } from "react";
+import {
+	Settings,
+	User,
+	Bell,
+	Lock,
+	Palette,
+	LayoutDashboard,
+	FolderKanban,
+	ListTodo,
+	Users,
+	BarChart,
+	ChevronLeft,
+	ChevronRight,
+	Menu,
+	Plus,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import {
+	Tooltip,
+	TooltipContent,
+	TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-const items = [
-	{
-		title: "Profile",
-		href: "/profile",
-		icon: User,
-	},
-	{
-		title: "Settings",
-		href: "/profile/settings",
-		icon: Settings,
-		items: [
-			{
-				title: "Theme",
-				href: "/profile/settings#theme",
-				icon: Palette,
-			},
-			{
-				title: "Notifications",
-				href: "/profile/settings#notifications",
-				icon: Bell,
-			},
-			{
-				title: "Security",
-				href: "/profile/settings#security",
-				icon: Lock,
-			},
-		],
-	},
-];
+interface NavItem {
+	title: string;
+	href: string;
+	icon: LucideIcon;
+	items?: NavItem[];
+}
+
+type NavigationConfig = {
+	[key: string]: NavItem[];
+};
+
+// Navigation configurations for different sections
+const navigationConfig: NavigationConfig = {
+	dashboard: [
+		{
+			title: "Overview",
+			href: "/dashboard",
+			icon: LayoutDashboard,
+		},
+		{
+			title: "Analytics",
+			href: "/dashboard/analytics",
+			icon: BarChart,
+		},
+	],
+	projects: [
+		{
+			title: "All Projects",
+			href: "/projects",
+			icon: FolderKanban,
+		},
+		{
+			title: "Active Tasks",
+			href: "/projects/tasks",
+			icon: ListTodo,
+		},
+		{
+			title: "Team",
+			href: "/projects/team",
+			icon: Users,
+		},
+	],
+	profile: [
+		{
+			title: "Profile",
+			href: "/profile",
+			icon: User,
+		},
+		{
+			title: "Settings",
+			href: "/profile/settings",
+			icon: Settings,
+			items: [
+				{
+					title: "Theme",
+					href: "/profile/settings#theme",
+					icon: Palette,
+				},
+				{
+					title: "Notifications",
+					href: "/profile/settings#notifications",
+					icon: Bell,
+				},
+				{
+					title: "Security",
+					href: "/profile/settings#security",
+					icon: Lock,
+				},
+			],
+		},
+	],
+};
 
 export function SideNav() {
-	const pathname = usePathname();
-	const [currentHash, setCurrentHash] = useState("");
+	const pathname = usePathname() || "/";
+	const section = pathname.split("/")[1] || "dashboard";
+	const [isCollapsed, setIsCollapsed] = useLocalStorage<boolean>(
+		"sidebar-collapsed",
+		false,
+	);
 
-	// Update hash when it changes
-	useEffect(() => {
-		const updateHash = () => {
-			setCurrentHash(window.location.hash);
-		};
+	// Get the navigation items for the current section
+	const items = navigationConfig[section] || [];
 
-		// Set initial hash
-		updateHash();
+	// Function to check if a link is active
+	const isActive = (href: string) => {
+		if (href.includes("#")) {
+			const [path, hash] = href.split("#");
+			return pathname === path && window.location.hash === `#${hash}`;
+		}
+		return pathname === href;
+	};
 
-		// Listen for hash changes
-		window.addEventListener("hashchange", updateHash);
-		return () => window.removeEventListener("hashchange", updateHash);
-	}, []);
+	// Function to check if a section is active (for items with subitems)
+	const isSectionActive = (item: NavItem) => {
+		if (item.items) {
+			return item.items.some((subItem) => isActive(subItem.href));
+		}
+		return isActive(item.href);
+	};
 
 	return (
-		<nav className="grid items-start gap-2">
-			{items.map((item) => (
-				<div key={item.href}>
-					<Link
-						href={item.href}
-						className={cn(
-							"group flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-							pathname === item.href ? "bg-accent" : "transparent",
-						)}
-					>
-						<item.icon className="mr-2 h-4 w-4" />
-						<span>{item.title}</span>
-					</Link>
-					{item.items?.length && (
-						<div className="ml-4 mt-2 grid gap-1">
-							{item.items.map((subItem) => (
+		<>
+			<div className="flex h-14 items-center justify-between border-b px-3">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="h-8 w-8"
+					onClick={() => setIsCollapsed(!isCollapsed)}
+				>
+					{isCollapsed ? <Menu /> : <ChevronLeft />}
+				</Button>
+				{!isCollapsed && (
+					<Button variant="outline" size="sm" className="ml-auto">
+						<Plus className="mr-2 h-4 w-4" />
+						New
+					</Button>
+				)}
+			</div>
+			<nav className="flex-1 space-y-1 p-2">
+				{items.map((item) => (
+					<div key={item.href}>
+						<Tooltip>
+							<TooltipTrigger asChild>
 								<Link
-									key={subItem.href}
-									href={subItem.href}
+									href={item.href}
 									className={cn(
-										"group flex items-center rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground",
-										pathname === item.href && subItem.href.endsWith(currentHash)
-											? "bg-accent"
-											: "transparent",
+										"group relative flex h-10 w-full items-center rounded-lg px-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+										isSectionActive(item)
+											? "bg-accent text-accent-foreground"
+											: "text-muted-foreground hover:text-foreground",
 									)}
 								>
-									<subItem.icon className="mr-2 h-4 w-4" />
-									<span>{subItem.title}</span>
+									<div
+										className={cn(
+											"flex h-8 w-8 items-center justify-center rounded-lg",
+											isSectionActive(item)
+												? "text-accent-foreground"
+												: "text-muted-foreground group-hover:text-foreground",
+										)}
+									>
+										{item.icon && <item.icon className="h-5 w-5" />}
+									</div>
+									{!isCollapsed && <span className="ml-2">{item.title}</span>}
+									{!isCollapsed && item.items && (
+										<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-hover:text-foreground" />
+									)}
 								</Link>
-							))}
-						</div>
-					)}
-				</div>
-			))}
-		</nav>
+							</TooltipTrigger>
+							{isCollapsed && (
+								<TooltipContent side="right" className="flex items-center">
+									{item.title}
+								</TooltipContent>
+							)}
+						</Tooltip>
+						{!isCollapsed && item.items && (
+							<div className="mt-1 ml-10 space-y-1">
+								{item.items.map((subItem) => (
+									<Link
+										key={subItem.href}
+										href={subItem.href}
+										className={cn(
+											"group flex h-8 w-full items-center rounded-lg px-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground",
+											isActive(subItem.href)
+												? "bg-accent text-accent-foreground"
+												: "text-muted-foreground hover:text-foreground",
+										)}
+									>
+										<div
+											className={cn(
+												"flex h-6 w-6 items-center justify-center rounded-lg",
+												isActive(subItem.href)
+													? "text-accent-foreground"
+													: "text-muted-foreground group-hover:text-foreground",
+											)}
+										>
+											{subItem.icon && <subItem.icon className="h-4 w-4" />}
+										</div>
+										<span className="ml-2">{subItem.title}</span>
+									</Link>
+								))}
+							</div>
+						)}
+					</div>
+				))}
+			</nav>
+		</>
 	);
 }

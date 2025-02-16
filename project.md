@@ -1,4 +1,6 @@
-# Jira Clone Solo Development Roadmap
+# Jira/Monday.com Clone Solo Development Roadmap
+
+## !!! Important documentation @/docs
 
 ## Technical Foundation (Week 1-2)
 ### Repository Setup

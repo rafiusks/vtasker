@@ -4,12 +4,16 @@ import { redirect } from "next/navigation";
 import { MainNav } from "@/components/layout/main-nav";
 import { UserNav } from "@/components/layout/user-nav";
 import { SideNav } from "@/components/layout/side-nav";
+import { useLocalStorage } from "@/hooks/use-local-storage";
+import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
+	const [isCollapsed] = useLocalStorage<boolean>("sidebar-collapsed", false);
+
 	// TODO: Add authentication check
 	// const session = await getSession();
 	// if (!session) {
@@ -26,16 +30,24 @@ export default function DashboardLayout({
 					</div>
 				</div>
 			</header>
-			<main className="flex-1">
-				<div className="container flex-1 items-start md:grid md:grid-cols-[220px_minmax(0,1fr)] md:gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-10">
-					<aside className="fixed top-14 z-30 -ml-2 hidden h-[calc(100vh-3.5rem)] w-full shrink-0 overflow-y-auto border-r md:sticky md:block">
-						<div className="relative overflow-hidden py-6 pr-6 lg:py-8">
-							<SideNav />
-						</div>
-					</aside>
-					<div className="flex w-full flex-col overflow-hidden">{children}</div>
-				</div>
-			</main>
+			<div className="flex flex-1">
+				<aside
+					className={cn(
+						"group fixed inset-y-0 left-0 mt-14 flex h-[calc(100vh-3.5rem)] flex-col border-r bg-background transition-all duration-300 ease-in-out",
+						isCollapsed ? "w-16" : "w-72",
+					)}
+				>
+					<SideNav />
+				</aside>
+				<main
+					className={cn(
+						"flex-1 transition-all duration-300 ease-in-out",
+						isCollapsed ? "ml-16" : "ml-72",
+					)}
+				>
+					<div className="container py-6">{children}</div>
+				</main>
+			</div>
 		</div>
 	);
 }

@@ -1,14 +1,14 @@
-import { StateCreator } from "zustand";
-import { ProjectState, Project } from "../types";
+import type { StateCreator } from "zustand";
+import type { ProjectState, Project } from "../types";
 
 export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	projects: [],
 	currentProject: null,
-	isLoading: false,
-	error: null,
+	projectsLoading: false,
+	projectsError: null,
 
 	fetchProjects: async () => {
-		set({ isLoading: true, error: null });
+		set({ projectsLoading: true, projectsError: null });
 		try {
 			// TODO: Implement actual API call
 			const response = await fetch("/api/projects");
@@ -17,18 +17,18 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 			}
 
 			const projects = await response.json();
-			set({ projects, isLoading: false });
+			set({ projects, projectsLoading: false });
 		} catch (error) {
 			set({
-				error:
+				projectsError:
 					error instanceof Error ? error.message : "Failed to fetch projects",
-				isLoading: false,
+				projectsLoading: false,
 			});
 		}
 	},
 
 	createProject: async (project) => {
-		set({ isLoading: true, error: null });
+		set({ projectsLoading: true, projectsError: null });
 		try {
 			// TODO: Implement actual API call
 			const response = await fetch("/api/projects", {
@@ -44,19 +44,19 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 			const newProject = await response.json();
 			set((state) => ({
 				projects: [...state.projects, newProject],
-				isLoading: false,
+				projectsLoading: false,
 			}));
 		} catch (error) {
 			set({
-				error:
+				projectsError:
 					error instanceof Error ? error.message : "Failed to create project",
-				isLoading: false,
+				projectsLoading: false,
 			});
 		}
 	},
 
 	updateProject: async (id, project) => {
-		set({ isLoading: true, error: null });
+		set({ projectsLoading: true, projectsError: null });
 		try {
 			// TODO: Implement actual API call
 			const response = await fetch(`/api/projects/${id}`, {
@@ -78,19 +78,19 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 					state.currentProject?.id === id
 						? { ...state.currentProject, ...updatedProject }
 						: state.currentProject,
-				isLoading: false,
+				projectsLoading: false,
 			}));
 		} catch (error) {
 			set({
-				error:
+				projectsError:
 					error instanceof Error ? error.message : "Failed to update project",
-				isLoading: false,
+				projectsLoading: false,
 			});
 		}
 	},
 
 	deleteProject: async (id) => {
-		set({ isLoading: true, error: null });
+		set({ projectsLoading: true, projectsError: null });
 		try {
 			// TODO: Implement actual API call
 			const response = await fetch(`/api/projects/${id}`, {
@@ -105,13 +105,13 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 				projects: state.projects.filter((p) => p.id !== id),
 				currentProject:
 					state.currentProject?.id === id ? null : state.currentProject,
-				isLoading: false,
+				projectsLoading: false,
 			}));
 		} catch (error) {
 			set({
-				error:
+				projectsError:
 					error instanceof Error ? error.message : "Failed to delete project",
-				isLoading: false,
+				projectsLoading: false,
 			});
 		}
 	},
@@ -120,7 +120,7 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 		set({ currentProject: project });
 	},
 
-	clearError: () => {
-		set({ error: null });
+	clearProjectError: () => {
+		set({ projectsError: null });
 	},
 });
