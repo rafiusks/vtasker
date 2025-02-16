@@ -12,96 +12,90 @@ http://localhost:8080/api/v1
 
 ## Authentication
 
-The API uses JWT (JSON Web Tokens) for authentication. Tokens should be included in the `Authorization` header of requests:
-
-```
+All protected endpoints require a valid JWT token in the `Authorization` header:
+```http
 Authorization: Bearer <token>
 ```
 
-### Check Email
+### Authentication Endpoints
 
-Check if an email is already registered.
-
+#### Check Email Availability
 ```http
 POST /auth/check-email
-```
+Content-Type: application/json
 
-#### Request Body
-```json
 {
-  "email": "string"  // required, valid email format
+  "email": "user@example.com"
 }
 ```
 
-#### Response
+Response (200 OK):
 ```json
 {
-  "exists": boolean
+  "data": {
+    "exists": true
+  }
 }
 ```
 
-Status: 200 OK
-
-### Sign Up
-
-Register a new user account.
-
+#### Sign Up
 ```http
 POST /auth/sign-up
-```
+Content-Type: application/json
 
-#### Request Body
-```json
 {
-  "email": "string",     // required, valid email format
-  "password": "string",  // required, min length: 8
-  "name": "string"       // required, min length: 1
+  "email": "user@example.com",
+  "password": "password123",
+  "name": "John Doe"
 }
 ```
 
-#### Response
+Response (201 Created):
 ```json
 {
-  "token": "string",
+  "token": "jwt-token",
   "user": {
-    "id": "uuid",
-    "email": "string",
-    "name": "string"
+    "id": "user-uuid",
+    "email": "user@example.com",
+    "name": "John Doe"
   }
 }
 ```
 
-Status: 201 Created
+Error Responses:
+- 400 Bad Request: Password too short
+- 409 Conflict: Email already exists
+- 500 Internal Server Error: Server error
 
-### Sign In
-
-Authenticate a user and get an access token.
-
+#### Sign In
 ```http
 POST /auth/sign-in
-```
+Content-Type: application/json
 
-#### Request Body
-```json
 {
-  "email": "string",     // required, valid email format
-  "password": "string"   // required
+  "email": "user@example.com",
+  "password": "password123",
+  "rememberMe": true
 }
 ```
 
-#### Response
+Response (200 OK):
 ```json
 {
-  "token": "string",
+  "token": "jwt-token",
   "user": {
-    "id": "uuid",
-    "email": "string",
-    "name": "string"
+    "id": "user-uuid",
+    "email": "user@example.com",
+    "name": "John Doe"
   }
 }
 ```
 
-Status: 200 OK
+Error Responses:
+- 400 Bad Request: Invalid request body
+- 401 Unauthorized: Invalid credentials
+- 403 Forbidden: Account locked
+- 500 Internal Server Error: Server error
 
 ## Projects Module
 
@@ -252,32 +246,67 @@ Status: 204 No Content
 
 ## Error Responses
 
-The API uses standard HTTP status codes and returns error messages in a consistent format:
+All endpoints may return the following error responses:
 
+### 400 Bad Request
 ```json
 {
-  "error": "string",
-  "code": "string",  // error code for client-side handling
-  "message": "string",
-  "details": {}  // optional
+  "error": "Invalid request body"
 }
 ```
 
-Common error codes:
-- `INVALID_CREDENTIALS`: Email or password is incorrect
-- `EMAIL_TAKEN`: Email is already registered
-- `INVALID_PASSWORD`: Password doesn't meet requirements
-- `ACCOUNT_LOCKED`: Account has been locked
-- `EMAIL_NOT_VERIFIED`: Email verification required
-- `RATE_LIMIT_EXCEEDED`: Too many requests
-- `ACCOUNT_DISABLED`: Account has been disabled
-- `SESSION_EXPIRED`: Authentication token has expired
-- `INVALID_TOKEN`: Authentication token is invalid
-- `SERVER_ERROR`: Internal server error
+### 401 Unauthorized
+```json
+{
+  "error": "Invalid credentials"
+}
+```
+
+### 403 Forbidden
+```json
+{
+  "error": "Account is locked. Please contact support."
+}
+```
+
+### 404 Not Found
+```json
+{
+  "error": "Resource not found"
+}
+```
+
+### 409 Conflict
+```json
+{
+  "error": "Email already exists"
+}
+```
+
+### 500 Internal Server Error
+```json
+{
+  "error": "Internal server error"
+}
+```
 
 ## Rate Limiting
 
-Rate limiting will be implemented in future versions of the API.
+API endpoints are rate-limited to prevent abuse. The current limits are:
+
+- Authentication endpoints: 5 requests per minute
+- Protected endpoints: 60 requests per minute
+
+When rate limited, the API will respond with:
+
+```http
+HTTP/1.1 429 Too Many Requests
+Retry-After: 60
+
+{
+  "error": "Too many requests. Please try again later."
+}
+```
 
 ## Pagination
 

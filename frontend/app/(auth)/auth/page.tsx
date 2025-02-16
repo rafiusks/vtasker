@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,13 +18,33 @@ interface AuthFormData {
 	password: string;
 }
 
+interface PasswordValidation {
+	minLength: boolean;
+	hasUppercase?: boolean;
+	hasLowercase?: boolean;
+	hasNumber?: boolean;
+	hasSpecial?: boolean;
+}
+
 export default function AuthPage() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const { toast } = useToast();
 	const [currentStep, setCurrentStep] = useState<AuthStep>("email");
 	const [formData, setFormData] = useState<Partial<AuthFormData>>({});
+	const [passwordValidation, setPasswordValidation] =
+		useState<PasswordValidation>({
+			minLength: false,
+		});
 	const { checkEmail, signIn, signUp } = useAuthMutations();
+	const passwordInputRef = useRef<HTMLInputElement>(null);
+
+	const validatePassword = (password: string) => {
+		setPasswordValidation({
+			minLength: password.length >= 8,
+		});
+		return password.length >= 8;
+	};
 
 	const handleEmailSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -68,12 +88,28 @@ export default function AuthPage() {
 
 			const returnUrl = searchParams?.get("returnUrl") || "/dashboard";
 			router.push(decodeURIComponent(returnUrl));
-		} catch (error) {
+		} catch (error: unknown) {
+			const errorMessage =
+				error instanceof Error
+					? error.message
+					: error && typeof error === "object" && "code" in error
+						? error.code === "ACCOUNT_LOCKED"
+							? "Your account has been locked. Please try again later."
+							: error.code === "FORBIDDEN"
+								? "Access denied. Please check your credentials."
+								: "Invalid credentials. Please try again."
+						: "An error occurred. Please try again.";
+
 			toast({
 				variant: "destructive",
 				title: "Error",
-				description: "Invalid credentials. Please try again.",
+				description: errorMessage,
 			});
+
+			if (passwordInputRef.current) {
+				passwordInputRef.current.value = "";
+				passwordInputRef.current.focus();
+			}
 		}
 	};
 
@@ -87,6 +123,15 @@ export default function AuthPage() {
 
 			if (!formData.email) {
 				throw new Error("Email is required");
+			}
+
+			if (!validatePassword(password)) {
+				toast({
+					variant: "destructive",
+					title: "Invalid Password",
+					description: "Password must be at least 8 characters long.",
+				});
+				return;
 			}
 
 			await signUp.mutateAsync({
@@ -123,6 +168,10 @@ export default function AuthPage() {
 				description: errorMessage,
 			});
 		}
+	};
+
+	const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		validatePassword(e.target.value);
 	};
 
 	return (
@@ -197,6 +246,9 @@ export default function AuthPage() {
 										type="password"
 										required
 										disabled={signIn.isPending}
+										autoFocus
+										autoComplete="current-password"
+										ref={passwordInputRef}
 									/>
 								</div>
 								<div className="flex items-center space-x-2">
@@ -283,12 +335,20 @@ export default function AuthPage() {
 										type="password"
 										required
 										disabled={signUp.isPending}
+										onChange={handlePasswordChange}
 									/>
+									<div className="mt-2 text-sm">
+										<p
+											className={`${passwordValidation.minLength ? "text-success" : "text-error"}`}
+										>
+											• At least 8 characters
+										</p>
+									</div>
 								</div>
 								<Button
 									type="submit"
 									className="w-full"
-									disabled={signUp.isPending}
+									disabled={signUp.isPending || !passwordValidation.minLength}
 								>
 									{signUp.isPending ? "Creating account..." : "Create account"}
 								</Button>

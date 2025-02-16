@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -12,7 +13,9 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"github.com/redis/go-redis/v9"
 
+	"github.com/vtasker/internal/auth"
 	"github.com/vtasker/internal/handler"
 	"github.com/vtasker/internal/repository"
 )
@@ -50,6 +53,23 @@ func main() {
 		log.Fatalf("Failed to ping database: %v", err)
 	}
 
+	// Redis connection
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+	redisAddr := fmt.Sprintf("%s:%s", redisHost, redisPort)
+
+	log.Printf("Connecting to Redis at %s", redisAddr)
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: redisAddr,
+		DB:   0, // use default DB
+	})
+
+	// Test Redis connection
+	if err := rdb.Ping(context.Background()).Err(); err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
@@ -67,11 +87,12 @@ func main() {
 		AllowCredentials: true,
 	}))
 
-	// Initialize repositories
+	// Initialize repositories and services
 	userRepo := repository.NewUserRepository(db)
+	sessionStore := auth.NewRedisSessionStore(rdb)
 
 	// Initialize handlers
-	h := handler.NewHandler(userRepo)
+	h := handler.NewHandler(userRepo, sessionStore)
 	
 	// Mount routes
 	r.Mount("/", h.Routes())

@@ -365,28 +365,36 @@
         - [x] Error pages (404, 500)
 
 ### Phase 2: Authentication & User Flow (Week 5)
-- [ ] Authentication UI
-    - [ ] Login Page
-        - [ ] Email/Password form
-        - [ ] Validation and error handling
+- [x] Authentication UI
+    - [x] Login Page
+        - [x] Email/Password form
+        - [x] Validation and error handling
         - [ ] "Remember me" functionality
-    - [ ] Registration Page
-        - [ ] User registration form
-        - [ ] Email verification flow
+    - [x] Registration Page
+        - [x] User registration form
+        - [x] Email verification flow
         - [ ] Welcome onboarding
     - [ ] Password Management
         - [ ] Reset password flow
-        - [ ] Change password interface
-- [ ] User Profile
-    - [ ] Profile Management
-        - [ ] View/Edit profile
-        - [ ] Avatar upload
+        - [x] Change password interface
+- [x] User Profile
+    - [x] Profile Management
+        - [x] View/Edit profile
+            - Implemented basic profile view/edit UI
+            - Form validation and error handling in place
+            - TODO: Backend integration pending
+        - [-] Avatar upload
+            - Basic avatar display implemented with placeholder
+            - TODO: Implement actual file upload functionality
     - [ ] User Preferences
-        - [ ] Theme settings
+        - [x] Theme settings
+            - [x] Dark mode toggle
+            - [x] System theme preference
+            - [x] Theme persistence
         - [ ] Notification preferences
         - [ ] Account Security
             - [ ] Two-factor setup
-            - [ ] Session management
+            - [ ] Session management (UI works, backend returns 401)
 
 ### Phase 3: Core Features (Week 6)
 - [ ] Project Management

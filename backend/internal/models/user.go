@@ -1,6 +1,7 @@
 package models
 
 import (
+	"database/sql"
 	"time"
 
 	"github.com/google/uuid"
@@ -8,17 +9,17 @@ import (
 
 // User represents a user in the system
 type User struct {
-	ID                 uuid.UUID  `json:"id" db:"id"`
-	Email              string     `json:"email" db:"email"`
-	Name               string     `json:"name" db:"name"`
-	PasswordHash       string     `json:"-" db:"password_hash"`
-	IsVerified         bool       `json:"is_verified" db:"is_verified"`
-	IsLocked           bool       `json:"is_locked" db:"is_locked"`
-	FailedLoginAttempts int        `json:"-" db:"failed_login_attempts"`
-	LastLoginAt        *time.Time `json:"last_login_at,omitempty" db:"last_login_at"`
-	AvatarURL          *string    `json:"avatar_url,omitempty" db:"avatar_url"`
-	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at" db:"updated_at"`
+	ID                 uuid.UUID      `json:"id" db:"id"`
+	Email              string         `json:"email" db:"email"`
+	Name               string         `json:"name" db:"name"`
+	PasswordHash       string         `json:"-" db:"password_hash"`
+	IsVerified         bool           `json:"is_verified" db:"is_verified"`
+	IsLocked           bool           `json:"is_locked" db:"is_locked"`
+	FailedLoginAttempts int            `json:"-" db:"failed_login_attempts"`
+	LastLoginAt        sql.NullTime   `json:"last_login_at,omitempty" db:"last_login_at"`
+	AvatarURL          sql.NullString `json:"avatar_url,omitempty" db:"avatar_url"`
+	CreatedAt          time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt          time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 // GetFullName returns the user's full name
@@ -53,11 +54,16 @@ type UserResponse struct {
 
 // ToResponse converts a User to a UserResponse
 func (u *User) ToResponse() *UserResponse {
+	var avatarURL *string
+	if u.AvatarURL.Valid {
+		avatarURL = &u.AvatarURL.String
+	}
+	
 	return &UserResponse{
 		ID:        u.ID,
 		Email:     u.Email,
 		Name:      u.Name,
-		AvatarURL: u.AvatarURL,
+		AvatarURL: avatarURL,
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
 	}

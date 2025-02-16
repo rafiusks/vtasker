@@ -2,8 +2,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 // Types for API responses
 export interface ApiResponse<T> {
-	data: T;
-	message?: string;
+	data?: T;
+	error?: ApiError;
+	// Add direct response fields
+	token?: string;
+	user?: T;
+	[key: string]: unknown;
 }
 
 export interface ApiError {
@@ -25,7 +29,10 @@ export type ErrorCode =
 	| "ACCOUNT_DISABLED"
 	| "SESSION_EXPIRED"
 	| "INVALID_TOKEN"
-	| "SERVER_ERROR";
+	| "SERVER_ERROR"
+	| "INVALID_REQUEST"
+	| "USER_NOT_FOUND"
+	| "INVALID_RESPONSE";
 
 // Error messages for different scenarios
 export const ERROR_MESSAGES: Record<ErrorCode, string> = {
@@ -45,6 +52,10 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
 	SESSION_EXPIRED: "Your session has expired. Please sign in again.",
 	INVALID_TOKEN: "Your authentication token is invalid. Please sign in again.",
 	SERVER_ERROR: "An unexpected error occurred. Please try again later.",
+	INVALID_REQUEST: "Please check your input and try again.",
+	USER_NOT_FOUND: "No account found with this email. Please sign up first.",
+	INVALID_RESPONSE:
+		"The server returned an invalid response. Please try again.",
 };
 
 // Helper function to get user-friendly error message
@@ -63,9 +74,9 @@ interface RequestConfig extends RequestInit {
 function buildUrl(path: string, params?: Record<string, string>): string {
 	const url = new URL(path, API_URL);
 	if (params) {
-		Object.entries(params).forEach(([key, value]) => {
+		for (const [key, value] of Object.entries(params)) {
 			url.searchParams.append(key, value);
-		});
+		}
 	}
 	return url.toString();
 }
@@ -87,7 +98,9 @@ export async function apiRequest<T>(
 	const token =
 		localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
 	if (token) {
-		headers.set("Authorization", `Bearer ${token}`);
+		// Remove any existing Bearer prefix to avoid duplication
+		const cleanToken = token.replace(/^Bearer\s+/, "");
+		headers.set("Authorization", `Bearer ${cleanToken}`);
 	}
 
 	try {
@@ -97,39 +110,62 @@ export async function apiRequest<T>(
 		});
 
 		if (!response.ok) {
-			const error: ApiError = {
-				message: "An error occurred",
-				code: response.status.toString(),
-			};
-
-			try {
-				const errorData = await response.json();
-				error.message = errorData.message || error.message;
-				error.details = errorData;
-			} catch {
-				// If parsing error response fails, use status text
-				error.message = response.statusText;
-			}
-
-			// Handle 401 unauthorized
+			// Handle 401 Unauthorized specifically
 			if (response.status === 401) {
+				// Clear tokens if they're invalid
 				localStorage.removeItem("auth_token");
 				sessionStorage.removeItem("auth_token");
-				window.location.href = "/auth";
+				return {
+					error: {
+						message: "Your session has expired. Please sign in again.",
+						code: "SESSION_EXPIRED",
+					},
+				};
 			}
 
-			throw error;
+			// Try to parse error response as JSON
+			let errorData: { message?: string; code?: ErrorCode; details?: unknown } =
+				{};
+			try {
+				errorData = await response.json();
+			} catch {
+				// If response is not JSON, use text content
+				const text = await response.text();
+				errorData = {
+					message: text || "An unexpected error occurred",
+					code: response.status === 404 ? "INVALID_REQUEST" : "SERVER_ERROR",
+				};
+			}
+
+			return {
+				error: {
+					message: errorData.message || "An unexpected error occurred",
+					code: errorData.code || "SERVER_ERROR",
+					details: errorData.details,
+				},
+			};
 		}
 
 		const data = await response.json();
-		return data;
+		return data as ApiResponse<T>;
 	} catch (error) {
-		if (error instanceof Error) {
-			throw {
-				message: error.message,
-				code: "NETWORK_ERROR",
-			} satisfies ApiError;
+		if (error instanceof TypeError && error.message === "Failed to fetch") {
+			return {
+				error: {
+					message: "Unable to connect to the server",
+					code: "NETWORK_ERROR",
+				},
+			};
 		}
-		throw error;
+
+		return {
+			error: {
+				message:
+					error instanceof Error
+						? error.message
+						: "An unexpected error occurred",
+				code: "SERVER_ERROR",
+			},
+		};
 	}
 }

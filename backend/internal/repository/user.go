@@ -21,6 +21,7 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*models.User, error)
 	Update(ctx context.Context, user *models.User) error
 	Delete(ctx context.Context, id uuid.UUID) error
+	FindByEmail(ctx context.Context, email string) (*models.User, error)
 }
 
 // PostgresUserRepository implements UserRepository for PostgreSQL
@@ -66,10 +67,23 @@ func (r *PostgresUserRepository) GetByEmail(ctx context.Context, email string) (
 
 // Create inserts a new user into the database
 func (r *PostgresUserRepository) Create(ctx context.Context, user *models.User) error {
-	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO users (email, name, password_hash, is_verified, is_locked, failed_login_attempts)
-		VALUES ($1, $2, $3, $4, $5, $6)
-	`, user.Email, user.Name, user.PasswordHash, user.IsVerified, user.IsLocked, user.FailedLoginAttempts)
+	query := `
+		INSERT INTO users (id, email, name, password_hash, avatar_url, is_verified, is_locked, failed_login_attempts, last_login_at, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`
+	_, err := r.db.ExecContext(ctx, query,
+		user.ID,
+		user.Email,
+		user.Name,
+		user.PasswordHash,
+		user.AvatarURL,
+		user.IsVerified,
+		user.IsLocked,
+		user.FailedLoginAttempts,
+		user.LastLoginAt,
+		user.CreatedAt,
+		user.UpdatedAt,
+	)
 	return err
 }
 
@@ -101,13 +115,31 @@ func (r *PostgresUserRepository) GetByID(ctx context.Context, id uuid.UUID) (*mo
 
 // Update updates an existing user
 func (r *PostgresUserRepository) Update(ctx context.Context, user *models.User) error {
-	_, err := r.db.ExecContext(ctx, `
-		UPDATE users 
-		SET name = $1, password_hash = $2, is_verified = $3, is_locked = $4, 
-		failed_login_attempts = $5, last_login_at = $6, updated_at = CURRENT_TIMESTAMP
-		WHERE id = $7
-	`, user.Name, user.PasswordHash, user.IsVerified, user.IsLocked,
-		user.FailedLoginAttempts, user.LastLoginAt, user.ID)
+	query := `
+		UPDATE users
+		SET name = $1,
+			email = $2,
+			password_hash = $3,
+			avatar_url = $4,
+			is_verified = $5,
+			is_locked = $6,
+			failed_login_attempts = $7,
+			last_login_at = $8,
+			updated_at = $9
+		WHERE id = $10
+	`
+	_, err := r.db.ExecContext(ctx, query,
+		user.Name,
+		user.Email,
+		user.PasswordHash,
+		user.AvatarURL,
+		user.IsVerified,
+		user.IsLocked,
+		user.FailedLoginAttempts,
+		user.LastLoginAt,
+		user.UpdatedAt,
+		user.ID,
+	)
 	return err
 }
 
@@ -129,4 +161,30 @@ func (r *PostgresUserRepository) Delete(ctx context.Context, id uuid.UUID) error
 	}
 
 	return nil
+}
+
+func (r *PostgresUserRepository) FindByEmail(ctx context.Context, email string) (*models.User, error) {
+	user := &models.User{}
+	query := `
+		SELECT id, email, name, password_hash, avatar_url, is_verified, is_locked, failed_login_attempts, last_login_at, created_at, updated_at
+		FROM users
+		WHERE email = $1
+	`
+	err := r.db.QueryRowContext(ctx, query, email).Scan(
+		&user.ID,
+		&user.Email,
+		&user.Name,
+		&user.PasswordHash,
+		&user.AvatarURL,
+		&user.IsVerified,
+		&user.IsLocked,
+		&user.FailedLoginAttempts,
+		&user.LastLoginAt,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err == sql.ErrNoRows {
+		return nil, err
+	}
+	return user, err
 } 
