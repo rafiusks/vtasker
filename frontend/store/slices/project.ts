@@ -137,17 +137,47 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 		}
 	},
 
-	deleteProject: async (id) => {
+	deleteProject: async (id: string): Promise<void> => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
-			const response = await fetch(`/api/projects/${id}`, {
-				method: "DELETE",
-				headers: getDefaultHeaders(true),
+			const token =
+				localStorage.getItem("auth_token") ||
+				sessionStorage.getItem("auth_token") ||
+				document.cookie
+					.split(";")
+					.find((c) => c.trim().startsWith("auth_token="))
+					?.split("=")[1];
+
+			if (!token) {
+				throw new Error("Unauthorized - No auth token found");
+			}
+
+			const headers = {
+				...getDefaultHeaders(true),
+				Authorization: `Bearer ${token}`,
+			};
+
+			console.log("Delete project request:", {
+				id,
+				hasToken: !!token,
+				headers: Object.keys(headers),
+				authHeader: headers.Authorization,
 			});
 
-			const data = await response.json();
+			const response = await fetch(`/api/projects/${id}`, {
+				method: "DELETE",
+				headers,
+				credentials: "include",
+			});
 
 			if (!response.ok) {
+				const data = await response.json();
+				console.error("Delete project error:", {
+					status: response.status,
+					data,
+					headers: Object.fromEntries(response.headers),
+					requestHeaders: headers,
+				});
 				throw new Error(data.error || "Failed to delete project");
 			}
 
@@ -159,16 +189,15 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 					state.currentProject?.id === id ? null : state.currentProject,
 				projectsLoading: false,
 			}));
-
-			return data;
 		} catch (error) {
+			console.error("Delete project error:", error);
 			const errorMessage =
 				error instanceof Error ? error.message : "Failed to delete project";
 			set({
 				projectsError: errorMessage,
 				projectsLoading: false,
 			});
-			throw new Error(errorMessage);
+			throw error;
 		}
 	},
 

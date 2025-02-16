@@ -93,39 +93,64 @@ export const getDefaultHeaders = (
 	};
 
 	if (includeAuth) {
-		// For server-side requests, try to get the token from the request headers
+		// For server-side requests, try to get the token from the request headers or cookies
 		if (isServer && requestHeaders) {
-			// Try different possible header names
+			// Try different possible header names and cookie
 			const authHeader =
 				requestHeaders.get("authorization") ||
-				requestHeaders.get("Authorization") ||
-				requestHeaders.get("Authorization") ||
-				requestHeaders.get("AUTHORIZATION");
+				requestHeaders.get("Authorization");
 
-			console.log("Server-side auth header check:", {
-				found: !!authHeader,
-				headerValue: authHeader,
+			const cookieHeader = requestHeaders.get("cookie");
+			const cookieToken = cookieHeader
+				?.split(";")
+				.find((c) => c.trim().startsWith("auth_token="))
+				?.split("=")[1];
+
+			console.log("Server-side auth check:", {
+				hasAuthHeader: !!authHeader,
+				hasCookieHeader: !!cookieHeader,
+				cookieToken: cookieToken ? "present" : "not found",
+				finalToken: authHeader || cookieToken || "none",
 			});
 
-			if (authHeader) {
-				headers.Authorization = authHeader;
+			const token = authHeader || cookieToken;
+			if (token) {
+				headers.Authorization = token.startsWith("Bearer ")
+					? token
+					: `Bearer ${token}`;
 			}
 		}
 		// For client-side requests, get the token from storage
 		else if (isBrowser) {
-			const token =
-				localStorage.getItem(AUTH_TOKEN_KEY) ||
-				sessionStorage.getItem(AUTH_TOKEN_KEY);
+			const localStorageToken = localStorage.getItem(AUTH_TOKEN_KEY);
+			const sessionStorageToken = sessionStorage.getItem(AUTH_TOKEN_KEY);
+			const cookieToken = document.cookie
+				.split(";")
+				.find((c) => c.trim().startsWith("auth_token="))
+				?.split("=")[1];
 
-			console.log("Client-side token check:", {
-				found: !!token,
+			const token = localStorageToken || sessionStorageToken || cookieToken;
+
+			console.log("Client-side auth check:", {
+				hasLocalStorage: !!localStorageToken,
+				hasSessionStorage: !!sessionStorageToken,
+				hasCookie: !!cookieToken,
+				finalToken: token || "none",
 			});
 
 			if (token) {
-				headers.Authorization = `Bearer ${token}`;
+				// Ensure token is properly formatted
+				const cleanToken = token.replace(/^Bearer\s+/, "");
+				headers.Authorization = `Bearer ${cleanToken}`;
 			}
 		}
 	}
+
+	console.log("Final headers:", {
+		hasAuth: !!headers.Authorization,
+		headers: Object.keys(headers),
+		authHeader: headers.Authorization ? "present" : "not found",
+	});
 
 	return headers;
 };

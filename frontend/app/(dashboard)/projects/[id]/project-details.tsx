@@ -26,6 +26,8 @@ import { ProjectOverview } from "./project-overview";
 import { ProjectIssues } from "./project-issues";
 import Link from "next/link";
 import { getDefaultHeaders } from "@/lib/config";
+import { toast } from "@/components/ui/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 
 function ProjectSkeleton() {
 	return (
@@ -55,6 +57,13 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
 	const router = useRouter();
 	const { projects, setProjects, archiveProject, deleteProject } =
 		useProjectsStore();
+	const { isAuthenticated } = useAuth();
+
+	React.useEffect(() => {
+		if (!isAuthenticated) {
+			router.push("/auth");
+		}
+	}, [isAuthenticated, router]);
 
 	const {
 		data: project,
@@ -65,7 +74,9 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
 		queryFn: () =>
 			fetch(`/api/projects/${id}`, {
 				headers: getDefaultHeaders(true),
+				credentials: "include",
 			}).then((res) => res.json()),
+		enabled: isAuthenticated,
 	});
 
 	React.useEffect(() => {
@@ -99,8 +110,67 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
 	};
 
 	const handleDelete = async () => {
-		await deleteProject(id);
-		router.push("/projects");
+		try {
+			// Check token availability
+			const localStorageToken = localStorage.getItem("auth_token");
+			const sessionStorageToken = sessionStorage.getItem("auth_token");
+			const cookieToken = document.cookie
+				.split(";")
+				.find((c) => c.trim().startsWith("auth_token="))
+				?.split("=")[1];
+
+			console.log("Token check before delete:", {
+				hasLocalStorage: !!localStorageToken,
+				hasSessionStorage: !!sessionStorageToken,
+				hasCookie: !!cookieToken,
+				isAuthenticated,
+			});
+
+			if (
+				!isAuthenticated ||
+				(!localStorageToken && !sessionStorageToken && !cookieToken)
+			) {
+				toast({
+					variant: "destructive",
+					title: "Authentication Error",
+					description: "You are not authenticated. Please sign in again.",
+				});
+				router.push("/auth");
+				return;
+			}
+
+			// Set the token in the cookie before making the request
+			const token = localStorageToken || sessionStorageToken || cookieToken;
+			if (token) {
+				document.cookie = `auth_token=${token}; path=/`;
+			}
+
+			await deleteProject(id);
+			toast({
+				title: "Project deleted",
+				description: "The project has been successfully deleted.",
+			});
+			router.push("/projects");
+		} catch (error) {
+			console.error("Failed to delete project:", error);
+			if (error instanceof Error && error.message.includes("Unauthorized")) {
+				toast({
+					variant: "destructive",
+					title: "Authentication Error",
+					description: "Your session has expired. Please sign in again.",
+				});
+				router.push("/auth");
+				return;
+			}
+			toast({
+				variant: "destructive",
+				title: "Error",
+				description:
+					error instanceof Error
+						? error.message
+						: "Failed to delete project. Please try again.",
+			});
+		}
 	};
 
 	return (

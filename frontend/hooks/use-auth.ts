@@ -34,12 +34,29 @@ const useAuth = create<AuthState>()((set) => ({
 
 	initializeAuth: async () => {
 		try {
-			const token =
-				localStorage.getItem("auth_token") ||
-				sessionStorage.getItem("auth_token");
+			const localStorageToken = localStorage.getItem("auth_token");
+			const sessionStorageToken = sessionStorage.getItem("auth_token");
+			const cookieToken = document.cookie
+				.split(";")
+				.find((c) => c.trim().startsWith("auth_token="))
+				?.split("=")[1];
+
+			const token = localStorageToken || sessionStorageToken || cookieToken;
+
+			console.log("Auth initialization:", {
+				hasLocalStorage: !!localStorageToken,
+				hasSessionStorage: !!sessionStorageToken,
+				hasCookie: !!cookieToken,
+				finalToken: token ? "present" : "none",
+			});
+
 			if (!token) {
+				set({ user: null, isAuthenticated: false, error: null });
 				return;
 			}
+
+			// Set the token in the cookie for API requests
+			document.cookie = `auth_token=${token}; path=/`;
 
 			// Validate token by trying to fetch user sessions
 			const response = await authApi.listSessions();
@@ -47,6 +64,8 @@ const useAuth = create<AuthState>()((set) => ({
 				// Clear invalid tokens
 				localStorage.removeItem("auth_token");
 				sessionStorage.removeItem("auth_token");
+				document.cookie =
+					"auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 				set({ user: null, isAuthenticated: false, error: null });
 				return;
 			}
@@ -54,9 +73,12 @@ const useAuth = create<AuthState>()((set) => ({
 			// If we can fetch sessions, the token is valid
 			set({ isAuthenticated: true });
 		} catch (error) {
+			console.error("Auth initialization error:", error);
 			// Clear tokens on error
 			localStorage.removeItem("auth_token");
 			sessionStorage.removeItem("auth_token");
+			document.cookie =
+				"auth_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
 			set({ user: null, isAuthenticated: false, error: null });
 		}
 	},

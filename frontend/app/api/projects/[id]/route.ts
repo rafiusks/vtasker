@@ -110,15 +110,37 @@ export async function DELETE(
 		const { id } = await params;
 		const apiUrl = getApiUrl();
 
-		// Log incoming request headers for debugging
-		console.log("Incoming request headers:", {
+		console.log("Delete project request headers:", {
 			authorization: request.headers.get("authorization"),
 			cookie: request.headers.get("cookie"),
+			allHeaders: Object.fromEntries(request.headers.entries()),
+		});
+
+		// Get auth token from headers and cookies
+		const headers = getDefaultHeaders(true, request.headers);
+
+		// If no auth token found, return unauthorized
+		if (!headers.Authorization) {
+			console.error("No authorization token found in headers:", {
+				headers: Object.keys(headers),
+				requestHeaders: Object.fromEntries(request.headers.entries()),
+				cookies: request.cookies.getAll(),
+			});
+			return NextResponse.json(
+				{ error: "Unauthorized - No token provided" },
+				{ status: 401 },
+			);
+		}
+
+		console.log("Making backend request with headers:", {
+			hasAuth: !!headers.Authorization,
+			url: `${apiUrl}/api/v1/projects/${id}`,
 		});
 
 		const res = await fetch(`${apiUrl}/api/v1/projects/${id}`, {
 			method: "DELETE",
-			headers: getDefaultHeaders(true, request.headers),
+			headers,
+			credentials: "include",
 		});
 
 		if (!res.ok) {
@@ -127,11 +149,18 @@ export async function DELETE(
 
 			if (contentType?.includes("application/json")) {
 				const error = await res.json();
-				errorMessage = error.message || errorMessage;
+				errorMessage = error.message || error.error || errorMessage;
 			} else {
 				const text = await res.text();
 				errorMessage = text || errorMessage;
 			}
+
+			console.error("Delete project error:", {
+				status: res.status,
+				message: errorMessage,
+				headers: Object.fromEntries(res.headers.entries()),
+				responseHeaders: Object.fromEntries(res.headers.entries()),
+			});
 
 			return NextResponse.json({ error: errorMessage }, { status: res.status });
 		}
