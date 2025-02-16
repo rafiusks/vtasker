@@ -1,7 +1,7 @@
 # API Documentation
 
-_Last updated: 2024-02-16 05:44 UTC_
-_Reason: Updated API endpoints documentation to reflect current implementation, added detailed request/response examples, and included rate limiting information_
+_Last updated: 2024-02-16 14:54 UTC_
+_Reason: Updated Projects API response format, added pagination details, and updated authentication header examples_
 
 ## Overview
 
@@ -24,6 +24,8 @@ All authenticated requests must include a JWT token in the Authorization header:
 Authorization: Bearer <token>
 ```
 
+The token can be stored in either localStorage (for "Remember me" functionality) or sessionStorage.
+
 ## Projects API
 
 ### List Projects
@@ -31,18 +33,38 @@ Authorization: Bearer <token>
 GET /api/projects
 
 Query Parameters:
-- page (number): Page number for pagination
-- limit (number): Items per page
+- page (number): Page number for pagination (default: 1)
+- page_size (number): Items per page (default: 10)
 - search (string): Search term for filtering
-- sort (string): Sort field (name, createdAt, updatedAt)
+- sort (string): Sort field (name, created_at, updated_at)
 - order (string): Sort order (asc, desc)
 - archived (boolean): Include archived projects
 
 Response: {
-  data: Project[],
+  projects: Project[],
   total: number,
   page: number,
-  limit: number
+  page_size: number
+}
+
+Example Response:
+{
+  "projects": [
+    {
+      "id": "2930e246-196b-46c0-b8cb-bbe0f604454c",
+      "name": "Project",
+      "description": "Description",
+      "created_by": "1878c1b7-3461-48ba-8a98-d998c77f6d43",
+      "is_archived": false,
+      "created_at": "2025-02-16T14:49:53.673061Z",
+      "updated_at": "2025-02-16T14:49:53.673061Z",
+      "issue_count": 0,
+      "open_issue_count": 0
+    }
+  ],
+  "total": 9,
+  "page": 1,
+  "page_size": 10
 }
 ```
 
@@ -51,6 +73,19 @@ Response: {
 GET /api/projects/{id}
 
 Response: Project
+
+Example Response:
+{
+  "id": "2930e246-196b-46c0-b8cb-bbe0f604454c",
+  "name": "Project",
+  "description": "Description",
+  "created_by": "1878c1b7-3461-48ba-8a98-d998c77f6d43",
+  "is_archived": false,
+  "created_at": "2025-02-16T14:49:53.673061Z",
+  "updated_at": "2025-02-16T14:49:53.673061Z",
+  "issue_count": 0,
+  "open_issue_count": 0
+}
 ```
 
 ### Create Project
@@ -195,9 +230,12 @@ interface Project {
   id: string;
   name: string;
   description: string;
+  created_by: string;
   is_archived: boolean;
-  createdAt: string;
-  updatedAt: string;
+  created_at: string;
+  updated_at: string;
+  issue_count: number;
+  open_issue_count: number;
 }
 ```
 
