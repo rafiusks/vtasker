@@ -37,6 +37,7 @@ import {
 	Trash2,
 	Users,
 	FolderKanban,
+	ListTodo,
 } from "lucide-react";
 
 interface ProjectCardProps {
@@ -95,6 +96,12 @@ export function ProjectCard({ project, view }: ProjectCardProps) {
 							>
 								<FolderKanban className="mr-2 h-4 w-4" />
 								View Project
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								onClick={() => router.push(`/projects/${project.id}/issues`)}
+							>
+								<ListTodo className="mr-2 h-4 w-4" />
+								View Issues
 							</DropdownMenuItem>
 							<DropdownMenuItem
 								onClick={() => router.push(`/projects/${project.id}/settings`)}

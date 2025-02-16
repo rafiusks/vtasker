@@ -8,6 +8,7 @@ import {
 	getErrorMessage,
 	type ErrorCode,
 } from "@/lib/api/client";
+import type { User } from "@/store/types";
 
 // Retry configuration
 const RETRY_COUNT = 2;
@@ -29,7 +30,7 @@ export function useAuthMutations() {
 	const checkEmailMutation = useMutation({
 		mutationFn: async (email: string) => {
 			const response = await authApi.checkEmail(email);
-			return response.data;
+			return response;
 		},
 		retry: shouldRetry,
 		retryDelay: RETRY_DELAY,
@@ -48,30 +49,31 @@ export function useAuthMutations() {
 			password: string;
 			rememberMe: boolean;
 		}) => {
-			const response = await authApi.signIn(email, password);
-			
-			// Handle both response structures
-			const responseData = response.data ?? response;
-			
-			if (!responseData.token || !responseData.user) {
+			const response = await authApi.signIn({
+				email,
+				password,
+				rememberMe,
+			});
+
+			if (!response.data || !response.data.token || !response.data.user) {
 				const error = new Error("Missing token or user in response");
 				(error as ApiError).code = "INVALID_RESPONSE";
-				(error as ApiError).details = responseData;
+				(error as ApiError).details = response;
 				throw error;
 			}
 
 			// Type assertion for user data
-			const user = responseData.user as User;
-			
+			const user = response.data.user as User;
+
 			// Store token and update state
 			if (rememberMe) {
-				localStorage.setItem("auth_token", responseData.token);
+				localStorage.setItem("auth_token", response.data.token);
 			} else {
-				sessionStorage.setItem("auth_token", responseData.token);
+				sessionStorage.setItem("auth_token", response.data.token);
 			}
-			
+
 			auth.updateAuthState(user, rememberMe);
-			return responseData;
+			return response;
 		},
 		retry: (failureCount: number, error: ApiError) => {
 			const statusCode = Number(error.code);
@@ -111,7 +113,8 @@ export function useAuthMutations() {
 
 			// Handle invalid response
 			if (error.code === "INVALID_RESPONSE") {
-				error.message = "Received an invalid response from the server. Please try again.";
+				error.message =
+					"Received an invalid response from the server. Please try again.";
 				return;
 			}
 

@@ -58,6 +58,7 @@ services:
       - DB_NAME=vtasker
       - REDIS_HOST=vtasker-redis
       - REDIS_PORT=6379
+      - JWT_SECRET=vtasker_development_secret_key_2024
 
   frontend:
     build:
@@ -71,8 +72,10 @@ services:
       - /app/node_modules
     networks:
       - vtasker-network
+    env_file:
+      - ./frontend/.env.docker
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      - JWT_SECRET=vtasker_development_secret_key_2024
     depends_on:
       - backend
 

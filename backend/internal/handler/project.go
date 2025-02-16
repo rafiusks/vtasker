@@ -7,6 +7,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/vtasker/internal/config"
+	"github.com/vtasker/internal/middleware"
 	"github.com/vtasker/internal/models"
 	"github.com/vtasker/internal/service"
 	"github.com/vtasker/pkg/logger"
@@ -15,18 +17,21 @@ import (
 // ProjectHandler handles HTTP requests for projects
 type ProjectHandler struct {
 	service *service.ProjectService
+	config  *config.Config
 }
 
 // NewProjectHandler creates a new project handler
-func NewProjectHandler(service *service.ProjectService) *ProjectHandler {
+func NewProjectHandler(service *service.ProjectService, cfg *config.Config) *ProjectHandler {
 	return &ProjectHandler{
 		service: service,
+		config:  cfg,
 	}
 }
 
 // RegisterRoutes registers the project routes
 func (h *ProjectHandler) RegisterRoutes(r chi.Router) {
-	r.Route("/api/v1/projects", func(r chi.Router) {
+	r.Route(h.config.GetAPIPath("/projects"), func(r chi.Router) {
+		r.Use(middleware.RequireAuth)
 		r.Post("/", h.CreateProject)
 		r.Get("/", h.ListProjects)
 		r.Get("/{id}", h.GetProject)
@@ -43,8 +48,19 @@ func (h *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Get user ID from context after auth middleware is implemented
-	userID := uuid.New() // Temporary placeholder
+	// Get user ID from context
+	userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		logger.Error("Invalid user ID format", err, nil)
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
 
 	project, err := h.service.CreateProject(r.Context(), req, userID)
 	if err != nil {

@@ -61,6 +61,10 @@ export default function ProjectsPage() {
 
 	// Filter and sort projects
 	const filteredProjects = React.useMemo(() => {
+		if (!Array.isArray(projects)) {
+			return [];
+		}
+
 		return projects
 			.filter((project: Project) => {
 				const matchesSearch = project.name
@@ -167,17 +171,21 @@ export default function ProjectsPage() {
 		if (isLoading) {
 			return viewMode === "grid" ? (
 				<Grid className="grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-					{Array.from({ length: 6 }).map((_, i) => (
-						<GridItem key={i}>
-							<ProjectSkeleton view={viewMode} />
-						</GridItem>
-					))}
+					{Array.from({ length: 6 }, (_, i) => crypto.randomUUID()).map(
+						(id) => (
+							<GridItem key={id}>
+								<ProjectSkeleton view={viewMode} />
+							</GridItem>
+						),
+					)}
 				</Grid>
 			) : (
 				<div className="space-y-4">
-					{Array.from({ length: 4 }).map((_, i) => (
-						<ProjectSkeleton key={i} view={viewMode} />
-					))}
+					{Array.from({ length: 4 }, (_, i) => crypto.randomUUID()).map(
+						(id) => (
+							<ProjectSkeleton key={id} view={viewMode} />
+						),
+					)}
 				</div>
 			);
 		}

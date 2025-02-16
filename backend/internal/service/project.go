@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	"github.com/vtasker/internal/config"
 	"github.com/vtasker/internal/models"
 	"github.com/vtasker/internal/repository"
 	"github.com/vtasker/pkg/logger"
@@ -13,15 +14,17 @@ import (
 
 // ProjectService handles business logic for projects
 type ProjectService struct {
+	BaseService
 	repo     repository.ProjectRepository
 	validate *validator.Validate
 }
 
 // NewProjectService creates a new project service
-func NewProjectService(repo repository.ProjectRepository) *ProjectService {
+func NewProjectService(repo repository.ProjectRepository, cfg *config.Config) *ProjectService {
 	return &ProjectService{
-		repo:     repo,
-		validate: validator.New(),
+		BaseService: NewBaseService(cfg),
+		repo:       repo,
+		validate:   validator.New(),
 	}
 }
 

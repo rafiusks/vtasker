@@ -1,37 +1,49 @@
 import { notFound } from "next/navigation";
-import { ProjectDetails } from "./project-details";
-import { headers } from "next/headers";
+import {
+	dehydrate,
+	HydrationBoundary,
+	QueryClient,
+} from "@tanstack/react-query";
+import ProjectDetails from "./project-details";
 
 async function getProject(id: string) {
-	const headersList = headers();
-	const host = headersList.get("host") || "localhost:3000";
-	const protocol = process.env.NODE_ENV === "development" ? "http" : "https";
-
-	const res = await fetch(`${protocol}://${host}/api/projects/${id}`, {
-		method: "GET",
-		cache: "no-store",
-	});
+	const res = await fetch(
+		`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/projects/${id}`,
+		{
+			method: "GET",
+			headers: {
+				"Content-Type": "application/json",
+			},
+		},
+	);
 
 	if (!res.ok) {
 		if (res.status === 404) {
 			notFound();
 		}
-		throw new Error("Failed to fetch project");
+		const error = await res.json();
+		throw new Error(error.message || "Failed to fetch project");
 	}
 
 	return res.json();
 }
 
-export default async function ProjectPage({
-	params,
-}: {
-	params: { id: string };
-}) {
-	const project = await getProject(params.id);
+interface PageProps {
+	params: Promise<{ id: string }>;
+}
+
+export default async function ProjectPage({ params }: PageProps) {
+	const { id } = await params;
+	const queryClient = new QueryClient();
+
+	await queryClient.prefetchQuery({
+		queryKey: ["project", id],
+		queryFn: () => getProject(id),
+	});
 
 	return (
-		<div className="container space-y-6">
-			<ProjectDetails initialProject={project} />
-		</div>
+		<HydrationBoundary state={dehydrate(queryClient)}>
+			<ProjectDetails id={id} />
+		</HydrationBoundary>
 	);
 }

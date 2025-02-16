@@ -53,8 +53,8 @@ export default function AuthPage() {
 			const email = new FormData(e.currentTarget).get("email") as string;
 			setFormData({ ...formData, email });
 
-			const { exists } = await checkEmail.mutateAsync(email);
-			setCurrentStep(exists ? "login" : "register");
+			const response = await checkEmail.mutateAsync(email);
+			setCurrentStep(response.data.exists ? "login" : "register");
 		} catch (error) {
 			toast({
 				variant: "destructive",

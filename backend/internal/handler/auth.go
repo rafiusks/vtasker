@@ -263,16 +263,20 @@ func (h *AuthHandler) SignIn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := SignInResponse{
-		Token: token,
-		User: struct {
-			ID    string `json:"id"`
-			Email string `json:"email"`
-			Name  string `json:"name"`
-		}{
-			ID:    user.ID.String(),
-			Email: user.Email,
-			Name:  user.Name,
+	response := struct {
+		Data SignInResponse `json:"data"`
+	}{
+		Data: SignInResponse{
+			Token: token,
+			User: struct {
+				ID    string `json:"id"`
+				Email string `json:"email"`
+				Name  string `json:"name"`
+			}{
+				ID:    user.ID.String(),
+				Email: user.Email,
+				Name:  user.Name,
+			},
 		},
 	}
 

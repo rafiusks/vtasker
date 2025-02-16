@@ -2,9 +2,10 @@ import { create } from "zustand";
 import { devtools, persist } from "zustand/middleware";
 import { createAuthSlice } from "./slices/auth";
 import { createProjectSlice } from "./slices/project";
-import type { AuthState, ProjectState } from "./types";
+import { createIssueSlice } from "./slices/issue";
+import type { AuthState, ProjectState, IssueState } from "./types";
 
-type StoreState = AuthState & ProjectState;
+type StoreState = AuthState & ProjectState & IssueState;
 
 export const useStore = create<StoreState>()(
 	devtools(
@@ -12,6 +13,7 @@ export const useStore = create<StoreState>()(
 			(...a) => ({
 				...createAuthSlice(...a),
 				...createProjectSlice(...a),
+				...createIssueSlice(...a),
 			}),
 			{
 				name: "vtasker-store",
@@ -20,6 +22,8 @@ export const useStore = create<StoreState>()(
 					isAuthenticated: state.isAuthenticated,
 					projects: state.projects,
 					currentProject: state.currentProject,
+					issues: state.issues,
+					currentIssue: state.currentIssue,
 				}),
 			},
 		),
@@ -51,3 +55,16 @@ export const useSetCurrentProject = () =>
 	useStore((state) => state.setCurrentProject);
 export const useClearProjectError = () =>
 	useStore((state) => state.clearProjectError);
+
+// Issue selectors
+export const useIssues = () => useStore((state) => state.issues);
+export const useCurrentIssue = () => useStore((state) => state.currentIssue);
+export const useIssuesLoading = () => useStore((state) => state.isLoading);
+export const useIssuesError = () => useStore((state) => state.error);
+export const useFetchIssues = () => useStore((state) => state.fetchIssues);
+export const useCreateIssue = () => useStore((state) => state.createIssue);
+export const useUpdateIssue = () => useStore((state) => state.updateIssue);
+export const useDeleteIssue = () => useStore((state) => state.deleteIssue);
+export const useSetCurrentIssue = () =>
+	useStore((state) => state.setCurrentIssue);
+export const useClearIssueError = () => useStore((state) => state.clearError);

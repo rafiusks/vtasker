@@ -18,6 +18,7 @@ import {
 	ChevronRight,
 	Menu,
 	Plus,
+	AlertCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
+import React from "react";
 
 interface NavItem {
 	title: string;
@@ -60,9 +62,14 @@ const navigationConfig: NavigationConfig = {
 			icon: FolderKanban,
 		},
 		{
-			title: "Active Tasks",
-			href: "/projects/tasks",
+			title: "Active Issues",
+			href: "/projects/active-issues",
 			icon: ListTodo,
+		},
+		{
+			title: "High Priority",
+			href: "/projects/high-priority",
+			icon: AlertCircle,
 		},
 		{
 			title: "Team",
@@ -104,10 +111,18 @@ const navigationConfig: NavigationConfig = {
 export function SideNav() {
 	const pathname = usePathname() || "/";
 	const section = pathname.split("/")[1] || "dashboard";
+	const [mounted, setMounted] = React.useState(false);
 	const [isCollapsed, setIsCollapsed] = useLocalStorage<boolean>(
 		"sidebar-collapsed",
 		false,
 	);
+
+	React.useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	// Use the default state for server-side rendering and initial client render
+	const sidebarCollapsed = mounted ? isCollapsed : false;
 
 	// Get the navigation items for the current section
 	const items = navigationConfig[section] || [];
@@ -138,9 +153,9 @@ export function SideNav() {
 					className="h-8 w-8"
 					onClick={() => setIsCollapsed(!isCollapsed)}
 				>
-					{isCollapsed ? <Menu /> : <ChevronLeft />}
+					{sidebarCollapsed ? <Menu /> : <ChevronLeft />}
 				</Button>
-				{!isCollapsed && (
+				{!sidebarCollapsed && (
 					<Button variant="outline" size="sm" className="ml-auto">
 						<Plus className="mr-2 h-4 w-4" />
 						New
@@ -171,19 +186,21 @@ export function SideNav() {
 									>
 										{item.icon && <item.icon className="h-5 w-5" />}
 									</div>
-									{!isCollapsed && <span className="ml-2">{item.title}</span>}
-									{!isCollapsed && item.items && (
+									{!sidebarCollapsed && (
+										<span className="ml-2">{item.title}</span>
+									)}
+									{!sidebarCollapsed && item.items && (
 										<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-hover:text-foreground" />
 									)}
 								</Link>
 							</TooltipTrigger>
-							{isCollapsed && (
+							{sidebarCollapsed && (
 								<TooltipContent side="right" className="flex items-center">
 									{item.title}
 								</TooltipContent>
 							)}
 						</Tooltip>
-						{!isCollapsed && item.items && (
+						{!sidebarCollapsed && item.items && (
 							<div className="mt-1 ml-10 space-y-1">
 								{item.items.map((subItem) => (
 									<Link

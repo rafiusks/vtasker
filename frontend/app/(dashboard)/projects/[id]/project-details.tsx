@@ -2,48 +2,129 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { useProjectsStore } from "@/store/projects";
 import type { Project } from "@/store/types";
 import { Button } from "@/components/ui/button";
-import { ProjectDashboard } from "./project-dashboard";
-import { Archive, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+	ChevronDown,
+	ListTodo,
+	Settings,
+	Users,
+	Archive,
+	Trash2,
+} from "lucide-react";
+import { ProjectOverview } from "./project-overview";
+import { ProjectIssues } from "./project-issues";
+import Link from "next/link";
 
-interface ProjectDetailsProps {
-	initialProject: Project;
+function ProjectSkeleton() {
+	return (
+		<div className="space-y-6">
+			<div className="flex items-center justify-between">
+				<div className="space-y-1">
+					<Skeleton className="h-8 w-[200px]" />
+					<Skeleton className="h-4 w-[300px]" />
+				</div>
+				<div className="flex items-center gap-2">
+					<Skeleton className="h-10 w-24" />
+					<Skeleton className="h-10 w-24" />
+					<Skeleton className="h-10 w-24" />
+					<Skeleton className="h-10 w-32" />
+				</div>
+			</div>
+			<Skeleton className="h-[400px] w-full" />
+		</div>
+	);
 }
 
-export function ProjectDetails({ initialProject }: ProjectDetailsProps) {
+interface ProjectDetailsProps {
+	id: string;
+}
+
+export default function ProjectDetails({ id }: ProjectDetailsProps) {
 	const router = useRouter();
 	const { projects, setProjects, archiveProject, deleteProject } =
 		useProjectsStore();
 
-	React.useEffect(() => {
-		if (initialProject) {
-			setProjects([initialProject]);
-		}
-	}, [initialProject, setProjects]);
+	const {
+		data: project,
+		isLoading,
+		error,
+	} = useQuery({
+		queryKey: ["project", id],
+		queryFn: () => fetch(`/api/projects/${id}`).then((res) => res.json()),
+	});
 
-	const project = projects[0];
+	React.useEffect(() => {
+		if (project) {
+			setProjects([project]);
+		}
+	}, [project, setProjects]);
+
+	if (isLoading) {
+		return <ProjectSkeleton />;
+	}
+
+	if (error) {
+		return (
+			<div className="flex h-[400px] items-center justify-center">
+				<div className="text-center">
+					<h3 className="text-lg font-medium">Error loading project</h3>
+					<p className="text-sm text-muted-foreground">{error.message}</p>
+				</div>
+			</div>
+		);
+	}
 
 	if (!project) {
 		return null;
 	}
 
 	const handleArchive = async () => {
-		await archiveProject(project.id);
+		await archiveProject(id);
 		router.push("/projects");
 	};
 
 	const handleDelete = async () => {
-		await deleteProject(project.id);
+		await deleteProject(id);
 		router.push("/projects");
 	};
 
 	return (
 		<div className="space-y-6">
 			<div className="flex items-center justify-between">
-				<h2 className="text-3xl font-bold tracking-tight">{project.name}</h2>
-				<div className="flex items-center gap-4">
+				<div className="space-y-1">
+					<h1 className="text-3xl font-bold">{project.name}</h1>
+					<p className="text-sm text-muted-foreground">{project.description}</p>
+				</div>
+				<div className="flex items-center gap-2">
+					<Button variant="outline" asChild>
+						<Link href={`/projects/${id}/issues`}>
+							<ListTodo className="mr-2 h-4 w-4" />
+							Issues
+						</Link>
+					</Button>
+					<Button variant="outline" asChild>
+						<Link href={`/projects/${id}/team`}>
+							<Users className="mr-2 h-4 w-4" />
+							Team
+						</Link>
+					</Button>
+					<Button variant="outline" asChild>
+						<Link href={`/projects/${id}/settings`}>
+							<Settings className="mr-2 h-4 w-4" />
+							Settings
+						</Link>
+					</Button>
 					<Button
 						variant="outline"
 						size="icon"
@@ -60,9 +141,57 @@ export function ProjectDetails({ initialProject }: ProjectDetailsProps) {
 					>
 						<Trash2 className="h-4 w-4" />
 					</Button>
+					<DropdownMenu>
+						<DropdownMenuTrigger asChild>
+							<Button variant="outline">
+								Quick Actions
+								<ChevronDown className="ml-2 h-4 w-4" />
+							</Button>
+						</DropdownMenuTrigger>
+						<DropdownMenuContent align="end">
+							<DropdownMenuItem asChild>
+								<Link href={`/projects/${id}/issues/new`}>
+									Create New Issue
+								</Link>
+							</DropdownMenuItem>
+							<DropdownMenuItem asChild>
+								<Link href={`/projects/${id}/issues?status=in_progress`}>
+									View In Progress Issues
+								</Link>
+							</DropdownMenuItem>
+							<DropdownMenuItem asChild>
+								<Link href={`/projects/${id}/issues?priority=high`}>
+									View High Priority Issues
+								</Link>
+							</DropdownMenuItem>
+						</DropdownMenuContent>
+					</DropdownMenu>
 				</div>
 			</div>
-			<ProjectDashboard project={project} />
+
+			<Tabs defaultValue="overview" className="space-y-4">
+				<TabsList>
+					<TabsTrigger value="overview">Overview</TabsTrigger>
+					<TabsTrigger value="issues">Issues</TabsTrigger>
+					<TabsTrigger value="settings">Settings</TabsTrigger>
+				</TabsList>
+
+				<TabsContent value="overview" className="space-y-4">
+					<ProjectOverview project={project} />
+				</TabsContent>
+
+				<TabsContent value="issues" className="space-y-4">
+					<ProjectIssues project={project} />
+				</TabsContent>
+
+				<TabsContent value="settings" className="space-y-4">
+					<div className="rounded-md bg-muted p-4">
+						<p className="text-sm text-muted-foreground">
+							Project settings coming soon...
+						</p>
+					</div>
+				</TabsContent>
+			</Tabs>
 		</div>
 	);
 }

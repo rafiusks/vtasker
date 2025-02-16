@@ -6,13 +6,24 @@ import { UserNav } from "@/components/layout/user-nav";
 import { SideNav } from "@/components/layout/side-nav";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { cn } from "@/lib/utils";
+import { useEffect, useState } from "react";
 
 export default function DashboardLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
+	// Start with a default state for server-side rendering
+	const [mounted, setMounted] = useState(false);
 	const [isCollapsed] = useLocalStorage<boolean>("sidebar-collapsed", false);
+
+	// Only update the mounted state after hydration
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	// Use the default state for server-side rendering and initial client render
+	const sidebarCollapsed = mounted ? isCollapsed : false;
 
 	// TODO: Add authentication check
 	// const session = await getSession();
@@ -34,7 +45,7 @@ export default function DashboardLayout({
 				<aside
 					className={cn(
 						"group fixed inset-y-0 left-0 mt-14 flex h-[calc(100vh-3.5rem)] flex-col border-r bg-background transition-all duration-300 ease-in-out",
-						isCollapsed ? "w-16" : "w-72",
+						sidebarCollapsed ? "w-16" : "w-72",
 					)}
 				>
 					<SideNav />
@@ -42,7 +53,7 @@ export default function DashboardLayout({
 				<main
 					className={cn(
 						"flex-1 transition-all duration-300 ease-in-out",
-						isCollapsed ? "ml-16" : "ml-72",
+						sidebarCollapsed ? "ml-16" : "ml-72",
 					)}
 				>
 					<div className="container py-6">{children}</div>

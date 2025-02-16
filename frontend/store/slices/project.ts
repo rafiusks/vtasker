@@ -1,5 +1,6 @@
 import type { StateCreator } from "zustand";
 import type { ProjectState, Project } from "../types";
+import { AUTH_TOKEN_KEY } from "@/lib/config";
 
 export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	projects: [],
@@ -10,7 +11,15 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	fetchProjects: async () => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
-			const response = await fetch("/api/projects");
+			const token =
+				localStorage.getItem(AUTH_TOKEN_KEY) ||
+				sessionStorage.getItem(AUTH_TOKEN_KEY);
+			const response = await fetch("/api/projects", {
+				headers: {
+					"Content-Type": "application/json",
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
+			});
 			if (!response.ok) {
 				throw new Error("Failed to fetch projects");
 			}
