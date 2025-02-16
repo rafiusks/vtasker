@@ -183,7 +183,20 @@ export function useAuthMutations() {
 			password: string;
 			name: string;
 		}) => {
-			return auth.signUp(email, password, name);
+			const response = await authApi.signUp({ email, password, name });
+
+			if (!response.token || !response.user) {
+				const error = new Error("Missing token or user in response");
+				(error as ApiError).code = "INVALID_RESPONSE";
+				(error as ApiError).details = response;
+				throw error;
+			}
+
+			// Store token and update state
+			localStorage.setItem("auth_token", response.token);
+			auth.updateAuthState(response.user);
+
+			return response;
 		},
 		retry: shouldRetry,
 		retryDelay: RETRY_DELAY,

@@ -66,30 +66,3 @@ CREATE INDEX idx_issues_assignee_id ON issues(assignee_id);
 CREATE INDEX idx_issues_status ON issues(status);
 
 CREATE INDEX idx_comments_issue_id ON comments(issue_id);
-
--- Create updated_at trigger function
-CREATE
-OR REPLACE FUNCTION update_updated_at_column() RETURNS TRIGGER AS \ $ trigger \ $ BEGIN NEW.updated_at = CURRENT_TIMESTAMP;
-
-RETURN NEW;
-
-END;
-
-\ $ trigger \ $ LANGUAGE plpgsql;
-
--- Create triggers for updated_at
-CREATE TRIGGER update_users_updated_at BEFORE
-UPDATE
-    ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_projects_updated_at BEFORE
-UPDATE
-    ON projects FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_issues_updated_at BEFORE
-UPDATE
-    ON issues FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-
-CREATE TRIGGER update_comments_updated_at BEFORE
-UPDATE
-    ON comments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

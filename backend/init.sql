@@ -1,8 +1,28 @@
--- Create the vtasker role
-CREATE USER vtasker WITH PASSWORD 'vtasker_dev' SUPERUSER;
+-- Create the vtasker role if it doesn't exist
+DO $ $ BEGIN IF NOT EXISTS (
+    SELECT
+    FROM
+        pg_catalog.pg_roles
+    WHERE
+        rolname = 'vtasker'
+) THEN CREATE USER vtasker WITH PASSWORD 'vtasker_dev' SUPERUSER;
 
--- Create the database
-CREATE DATABASE vtasker WITH OWNER vtasker;
+END IF;
+
+END $ $;
+
+-- Create the database if it doesn't exist
+DO $ $ BEGIN IF NOT EXISTS (
+    SELECT
+    FROM
+        pg_database
+    WHERE
+        datname = 'vtasker'
+) THEN CREATE DATABASE vtasker WITH OWNER vtasker;
+
+END IF;
+
+END $ $;
 
 -- Grant privileges
 GRANT ALL PRIVILEGES ON DATABASE vtasker TO vtasker;

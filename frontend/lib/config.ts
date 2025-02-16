@@ -25,23 +25,23 @@ export const DEFAULT_PAGE = 1;
 // API Endpoints
 export const ENDPOINTS = {
 	AUTH: {
-		SIGN_IN: "auth/sign-in",
-		SIGN_UP: "auth/sign-up",
-		CHECK_EMAIL: "auth/check-email",
-		SIGN_OUT: "auth/sign-out",
+		SIGN_IN: "/auth/sign-in",
+		SIGN_UP: "/auth/sign-up",
+		CHECK_EMAIL: "/auth/check-email",
+		SIGN_OUT: "/auth/sign-out",
 	},
 	PROJECTS: {
-		BASE: "projects",
-		DETAIL: (id: string) => `projects/${id}`,
+		BASE: "/projects",
+		DETAIL: (id: string) => `/projects/${id}`,
 	},
 	ISSUES: {
-		BASE: "issues",
-		DETAIL: (id: string) => `issues/${id}`,
-		BY_PROJECT: (projectId: string) => `projects/${projectId}/issues`,
+		BASE: "/issues",
+		DETAIL: (id: string) => `/issues/${id}`,
+		BY_PROJECT: (projectId: string) => `/projects/${projectId}/issues`,
 	},
 	USER: {
-		PROFILE: "user/profile",
-		SETTINGS: "user/settings",
+		PROFILE: "/user/profile",
+		SETTINGS: "/user/settings",
 	},
 } as const;
 
@@ -65,7 +65,9 @@ export const getApiUrl = (path: string): string => {
 };
 
 export const getEndpointUrl = (endpoint: string): string => {
-	return getApiUrl(endpoint);
+	// Remove leading slash if present to avoid double slashes
+	const cleanEndpoint = endpoint.startsWith("/") ? endpoint.slice(1) : endpoint;
+	return getApiUrl(cleanEndpoint);
 };
 
 // Common query parameters builder
