@@ -5,14 +5,19 @@ import {
 	QueryClient,
 } from "@tanstack/react-query";
 import ProjectDetails from "./project-details";
+import { cookies } from "next/headers";
 
 async function getProject(id: string) {
+	const cookieStore = await cookies();
+	const token = cookieStore.get("auth_token")?.value;
+
 	const res = await fetch(
-		`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/projects/${id}`,
+		`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080"}/api/v1/projects/${id}`,
 		{
 			method: "GET",
 			headers: {
 				"Content-Type": "application/json",
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
 			},
 		},
 	);

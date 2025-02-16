@@ -24,23 +24,69 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 				throw new Error("Failed to fetch projects");
 			}
 
-			const projects = await response.json();
-			set({ projects, projectsLoading: false });
+			const data = await response.json();
+			set({
+				projects: Array.isArray(data) ? data : [],
+				projectsLoading: false,
+			});
 		} catch (error) {
 			set({
 				projectsError:
 					error instanceof Error ? error.message : "Failed to fetch projects",
 				projectsLoading: false,
+				projects: [], // Ensure projects is always an array even on error
 			});
+		}
+	},
+
+	fetchProject: async (id: string) => {
+		set({ projectsLoading: true, projectsError: null });
+		try {
+			const token =
+				localStorage.getItem(AUTH_TOKEN_KEY) ||
+				sessionStorage.getItem(AUTH_TOKEN_KEY);
+			const response = await fetch(`/api/projects/${id}`, {
+				headers: {
+					"Content-Type": "application/json",
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
+			});
+
+			const data = await response.json();
+
+			if (!response.ok) {
+				throw new Error(data.error || "Failed to fetch project");
+			}
+
+			set((state) => ({
+				currentProject: data,
+				projectsLoading: false,
+			}));
+
+			return data;
+		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : "Failed to fetch project";
+			set({
+				projectsError: errorMessage,
+				projectsLoading: false,
+			});
+			throw new Error(errorMessage);
 		}
 	},
 
 	createProject: async (project) => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
+			const token =
+				localStorage.getItem(AUTH_TOKEN_KEY) ||
+				sessionStorage.getItem(AUTH_TOKEN_KEY);
 			const response = await fetch("/api/projects", {
 				method: "POST",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
 				body: JSON.stringify(project),
 			});
 
@@ -51,7 +97,9 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 			}
 
 			set((state) => ({
-				projects: [...state.projects, data],
+				projects: Array.isArray(state.projects)
+					? [...state.projects, data]
+					: [data],
 				projectsLoading: false,
 			}));
 
@@ -70,9 +118,15 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	updateProject: async (id, project) => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
+			const token =
+				localStorage.getItem(AUTH_TOKEN_KEY) ||
+				sessionStorage.getItem(AUTH_TOKEN_KEY);
 			const response = await fetch(`/api/projects/${id}`, {
 				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
+				headers: {
+					"Content-Type": "application/json",
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
 				body: JSON.stringify(project),
 			});
 
@@ -83,9 +137,9 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 			}
 
 			set((state) => ({
-				projects: state.projects.map((p) =>
-					p.id === id ? { ...p, ...data } : p,
-				),
+				projects: Array.isArray(state.projects)
+					? state.projects.map((p) => (p.id === id ? { ...p, ...data } : p))
+					: [data],
 				currentProject:
 					state.currentProject?.id === id
 						? { ...state.currentProject, ...data }
@@ -108,8 +162,15 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 	deleteProject: async (id) => {
 		set({ projectsLoading: true, projectsError: null });
 		try {
+			const token =
+				localStorage.getItem(AUTH_TOKEN_KEY) ||
+				sessionStorage.getItem(AUTH_TOKEN_KEY);
 			const response = await fetch(`/api/projects/${id}`, {
 				method: "DELETE",
+				headers: {
+					"Content-Type": "application/json",
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
+				},
 			});
 
 			const data = await response.json();
@@ -119,7 +180,9 @@ export const createProjectSlice: StateCreator<ProjectState> = (set) => ({
 			}
 
 			set((state) => ({
-				projects: state.projects.filter((p) => p.id !== id),
+				projects: Array.isArray(state.projects)
+					? state.projects.filter((p) => p.id !== id)
+					: [],
 				currentProject:
 					state.currentProject?.id === id ? null : state.currentProject,
 				projectsLoading: false,

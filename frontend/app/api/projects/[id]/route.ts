@@ -1,20 +1,32 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { Project } from "@/store/types";
-import { projectsStore } from "../route";
+import { getDefaultHeaders } from "@/lib/config";
+
+const getApiUrl = () => {
+	// Use Docker service name for server-side requests
+	return typeof window === "undefined"
+		? "http://vtasker-backend:8080"
+		: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+};
 
 export async function GET(
-	request: Request,
+	request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> | { id: string } },
 ) {
 	try {
 		const { id } = await params;
-		const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
-		const res = await fetch(`${apiUrl}/api/projects/${id}`, {
+		const apiUrl = getApiUrl();
+
+		// Log incoming request headers for debugging
+		console.log("Incoming request headers:", {
+			authorization: request.headers.get("authorization"),
+			cookie: request.headers.get("cookie"),
+		});
+
+		const res = await fetch(`${apiUrl}/api/v1/projects/${id}`, {
 			method: "GET",
-			headers: {
-				"Content-Type": "application/json",
-			},
+			headers: getDefaultHeaders(true, request.headers),
 		});
 
 		if (!res.ok) {
@@ -44,19 +56,23 @@ export async function GET(
 }
 
 export async function PATCH(
-	request: Request,
+	request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> | { id: string } },
 ) {
 	try {
 		const { id } = await params;
 		const body = await request.json();
-		const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+		const apiUrl = getApiUrl();
 
-		const res = await fetch(`${apiUrl}/api/projects/${id}`, {
+		// Log incoming request headers for debugging
+		console.log("Incoming request headers:", {
+			authorization: request.headers.get("authorization"),
+			cookie: request.headers.get("cookie"),
+		});
+
+		const res = await fetch(`${apiUrl}/api/v1/projects/${id}`, {
 			method: "PATCH",
-			headers: {
-				"Content-Type": "application/json",
-			},
+			headers: getDefaultHeaders(true, request.headers),
 			body: JSON.stringify(body),
 		});
 
@@ -87,18 +103,22 @@ export async function PATCH(
 }
 
 export async function DELETE(
-	request: Request,
+	request: NextRequest,
 	{ params }: { params: Promise<{ id: string }> | { id: string } },
 ) {
 	try {
 		const { id } = await params;
-		const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+		const apiUrl = getApiUrl();
 
-		const res = await fetch(`${apiUrl}/api/projects/${id}`, {
+		// Log incoming request headers for debugging
+		console.log("Incoming request headers:", {
+			authorization: request.headers.get("authorization"),
+			cookie: request.headers.get("cookie"),
+		});
+
+		const res = await fetch(`${apiUrl}/api/v1/projects/${id}`, {
 			method: "DELETE",
-			headers: {
-				"Content-Type": "application/json",
-			},
+			headers: getDefaultHeaders(true, request.headers),
 		});
 
 		if (!res.ok) {

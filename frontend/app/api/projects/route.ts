@@ -9,6 +9,13 @@ import {
 	DEFAULT_PAGE_SIZE,
 } from "@/lib/config";
 
+const getApiUrl = () => {
+	// Use Docker service name for server-side requests
+	return typeof window === "undefined"
+		? "http://vtasker-backend:8080"
+		: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+};
+
 export async function GET(request: NextRequest) {
 	try {
 		const { searchParams } = new URL(request.url);
@@ -18,9 +25,8 @@ export async function GET(request: NextRequest) {
 			search: searchParams.get("search") ?? undefined,
 		};
 
-		const url = getEndpointUrl(
-			`${ENDPOINTS.PROJECTS.BASE}?${buildQueryParams(params)}`,
-		);
+		const apiUrl = getApiUrl();
+		const url = `${apiUrl}/api/v1/projects?${buildQueryParams(params)}`;
 		console.log("Fetching projects from:", url);
 
 		// Log incoming request headers
@@ -29,21 +35,9 @@ export async function GET(request: NextRequest) {
 			cookie: request.headers.get("cookie"),
 		});
 
-		// Get the auth token from the request headers
-		const authHeader = request.headers.get("authorization");
-
-		// Forward the auth token to the backend
-		const headers = {
-			"Content-Type": "application/json",
-			...(authHeader ? { Authorization: authHeader } : {}),
-		};
-
-		// Log outgoing request headers
-		console.log("Outgoing request headers:", headers);
-
 		const response = await fetch(url, {
 			method: "GET",
-			headers,
+			headers: getDefaultHeaders(true, request.headers),
 			cache: "no-store",
 		});
 
@@ -84,7 +78,8 @@ export async function POST(request: NextRequest) {
 			);
 		}
 
-		const response = await fetch(getEndpointUrl(ENDPOINTS.PROJECTS.BASE), {
+		const apiUrl = getApiUrl();
+		const response = await fetch(`${apiUrl}/api/v1/projects`, {
 			method: "POST",
 			headers: getDefaultHeaders(true, request.headers),
 			body: JSON.stringify(body),

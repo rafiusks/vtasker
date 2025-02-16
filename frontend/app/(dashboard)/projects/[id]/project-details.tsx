@@ -25,6 +25,7 @@ import {
 import { ProjectOverview } from "./project-overview";
 import { ProjectIssues } from "./project-issues";
 import Link from "next/link";
+import { getDefaultHeaders } from "@/lib/config";
 
 function ProjectSkeleton() {
 	return (
@@ -61,7 +62,10 @@ export default function ProjectDetails({ id }: ProjectDetailsProps) {
 		error,
 	} = useQuery({
 		queryKey: ["project", id],
-		queryFn: () => fetch(`/api/projects/${id}`).then((res) => res.json()),
+		queryFn: () =>
+			fetch(`/api/projects/${id}`, {
+				headers: getDefaultHeaders(true),
+			}).then((res) => res.json()),
 	});
 
 	React.useEffect(() => {
