@@ -399,18 +399,18 @@
             - [ ] Session management (UI works, backend returns 401)
 
 ### Phase 3: Core Features (Week 6)
-- [ ] Project Management
-    - [ ] Project List
-        - [ ] Grid/List view toggle
-        - [ ] Sorting and filtering
-        - [ ] Search functionality
-    - [ ] Project Creation
-        - [ ] Creation wizard
-        - [ ] Template selection
-    - [ ] Project Dashboard
-        - [ ] Overview statistics
-        - [ ] Activity feed
-        - [ ] Team section
+- [x] Project Management
+    - [x] Project List
+        - [x] Grid/List view toggle
+        - [x] Sorting and filtering
+        - [x] Search functionality
+    - [x] Project Creation
+        - [x] Creation wizard
+        - [x] Template selection
+    - [x] Project Dashboard
+        - [x] Overview statistics
+        - [x] Activity feed
+        - [x] Team section
 - [ ] Issue Management
     - [ ] Issue List
         - [ ] Advanced filtering

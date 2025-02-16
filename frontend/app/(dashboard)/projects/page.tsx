@@ -17,19 +17,31 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/components/ui/select";
-import {
-	Card,
-	CardContent,
-	CardFooter,
-	CardHeader,
-	CardTitle,
-} from "@/components/ui/card";
 import { Grid, GridItem } from "@/components/ui/grid";
-import { LayoutGrid, List, Plus, Search } from "lucide-react";
+import { LayoutGrid, List } from "lucide-react";
+import { ProjectCard } from "@/components/projects/project-card";
+import { CreateProjectDialog } from "@/components/projects/create-project-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type ViewMode = "grid" | "list";
 type SortField = "name" | "createdAt" | "updatedAt";
 type SortOrder = "asc" | "desc";
+
+function ProjectSkeleton({ view }: { view: ViewMode }) {
+	return (
+		<div className={view === "grid" ? "h-[200px]" : "h-[160px]"}>
+			<div className="h-full space-y-4 rounded-lg border p-4">
+				<div className="space-y-2">
+					<Skeleton className="h-4 w-[250px]" />
+					<Skeleton className="h-4 w-[200px]" />
+				</div>
+				<div className="space-y-2">
+					<Skeleton className="h-20 w-full" />
+				</div>
+			</div>
+		</div>
+	);
+}
 
 export default function ProjectsPage() {
 	const projects = useProjects();
@@ -133,14 +145,82 @@ export default function ProjectsPage() {
 		</div>
 	);
 
+	const renderContent = () => {
+		if (error) {
+			return (
+				<div className="flex h-[400px] items-center justify-center">
+					<div className="text-center">
+						<h3 className="text-lg font-medium">Error loading projects</h3>
+						<p className="text-sm text-muted-foreground">{error}</p>
+						<Button
+							variant="outline"
+							className="mt-4"
+							onClick={() => fetchProjects()}
+						>
+							Try Again
+						</Button>
+					</div>
+				</div>
+			);
+		}
+
+		if (isLoading) {
+			return viewMode === "grid" ? (
+				<Grid className="grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+					{Array.from({ length: 6 }).map((_, i) => (
+						<GridItem key={i}>
+							<ProjectSkeleton view={viewMode} />
+						</GridItem>
+					))}
+				</Grid>
+			) : (
+				<div className="space-y-4">
+					{Array.from({ length: 4 }).map((_, i) => (
+						<ProjectSkeleton key={i} view={viewMode} />
+					))}
+				</div>
+			);
+		}
+
+		if (filteredProjects.length === 0) {
+			return (
+				<div className="flex h-[400px] items-center justify-center">
+					<div className="text-center">
+						<h3 className="text-lg font-medium">No projects found</h3>
+						<p className="text-sm text-muted-foreground">
+							{searchQuery
+								? "Try adjusting your search or filters"
+								: "Create your first project to get started"}
+						</p>
+						<CreateProjectDialog />
+					</div>
+				</div>
+			);
+		}
+
+		return viewMode === "grid" ? (
+			<Grid className="grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+				{filteredProjects.map((project) => (
+					<GridItem key={project.id}>
+						<ProjectCard project={project} view={viewMode} />
+					</GridItem>
+				))}
+			</Grid>
+		) : (
+			<div className="space-y-4">
+				{filteredProjects.map((project) => (
+					<ProjectCard key={project.id} project={project} view={viewMode} />
+				))}
+			</div>
+		);
+	};
+
 	return (
 		<div className="flex-1 space-y-4 p-8 pt-6">
 			<div className="flex items-center justify-between space-y-2">
 				<h2 className="text-3xl font-bold tracking-tight">Projects</h2>
 				<div className="flex items-center space-x-2">
-					<Button>
-						<Plus className="mr-2 h-4 w-4" /> Create Project
-					</Button>
+					<CreateProjectDialog />
 				</div>
 			</div>
 			<div className="flex flex-col space-y-4 md:flex-row md:space-x-4 md:space-y-0">
@@ -181,50 +261,7 @@ export default function ProjectsPage() {
 							</SelectContent>
 						</Select>
 					</div>
-					{viewMode === "grid" ? (
-						<Grid className="grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-							{filteredProjects.map((project) => (
-								<GridItem key={project.id}>
-									<Card>
-										<CardHeader>
-											<CardTitle>{project.name}</CardTitle>
-										</CardHeader>
-										<CardContent>
-											<p className="text-sm text-muted-foreground">
-												{project.description}
-											</p>
-										</CardContent>
-										<CardFooter>
-											<p className="text-sm text-muted-foreground">
-												Created{" "}
-												{new Date(project.createdAt).toLocaleDateString()}
-											</p>
-										</CardFooter>
-									</Card>
-								</GridItem>
-							))}
-						</Grid>
-					) : (
-						<div className="space-y-4">
-							{filteredProjects.map((project) => (
-								<Card key={project.id}>
-									<CardHeader>
-										<CardTitle>{project.name}</CardTitle>
-									</CardHeader>
-									<CardContent>
-										<p className="text-sm text-muted-foreground">
-											{project.description}
-										</p>
-									</CardContent>
-									<CardFooter>
-										<p className="text-sm text-muted-foreground">
-											Created {new Date(project.createdAt).toLocaleDateString()}
-										</p>
-									</CardFooter>
-								</Card>
-							))}
-						</div>
-					)}
+					{renderContent()}
 				</div>
 			</div>
 		</div>
