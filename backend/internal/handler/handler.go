@@ -13,6 +13,7 @@ import (
 type Handler struct {
 	router  chi.Router
 	auth    *AuthHandler
+	user    *UserHandler
 	issue   *IssueHandler
 	project *ProjectHandler
 	config  *config.Config
@@ -30,6 +31,7 @@ func NewHandler(userRepo repository.UserRepository, sessionStore auth.SessionSto
 	return &Handler{
 		router:  chi.NewRouter(),
 		auth:    NewAuthHandler(userRepo, sessionStore),
+		user:    NewUserHandler(userRepo),
 		issue:   NewIssueHandler(issueService),
 		project: NewProjectHandler(projectService, cfg),
 		config:  cfg,
@@ -49,6 +51,9 @@ func (h *Handler) Routes() chi.Router {
 		r.Post(h.config.GetAPIPath("/auth/sessions/revoke"), h.auth.RevokeSession)
 		r.Post(h.config.GetAPIPath("/auth/sessions/revoke-all"), h.auth.RevokeAllSessions)
 	})
+
+	// Mount user routes
+	h.user.RegisterRoutes(h.router)
 
 	// Mount issue routes
 	h.issue.RegisterRoutes(h.router)

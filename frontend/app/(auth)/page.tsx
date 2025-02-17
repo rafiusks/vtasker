@@ -20,10 +20,6 @@ interface AuthFormData {
 
 interface PasswordValidation {
 	minLength: boolean;
-	hasUppercase?: boolean;
-	hasLowercase?: boolean;
-	hasNumber?: boolean;
-	hasSpecial?: boolean;
 }
 
 export default function AuthPage() {
@@ -54,12 +50,23 @@ export default function AuthPage() {
 			setFormData({ ...formData, email });
 
 			const response = await checkEmail.mutateAsync(email);
+			if (response.error) {
+				throw new Error(response.error.message);
+			}
+
+			if (!response.data) {
+				throw new Error("Invalid response from server");
+			}
+
 			setCurrentStep(response.data.exists ? "login" : "register");
 		} catch (error) {
 			toast({
 				variant: "destructive",
 				title: "Error",
-				description: "An error occurred. Please try again.",
+				description:
+					error instanceof Error
+						? error.message
+						: "An error occurred. Please try again.",
 			});
 		}
 	};
@@ -87,7 +94,7 @@ export default function AuthPage() {
 			});
 
 			const returnUrl = searchParams?.get("returnUrl") || "/dashboard";
-			router.push(decodeURIComponent(returnUrl));
+			router.replace(decodeURIComponent(returnUrl));
 		} catch (error: unknown) {
 			const errorMessage =
 				error instanceof Error
@@ -339,7 +346,11 @@ export default function AuthPage() {
 									/>
 									<div className="mt-2 text-sm">
 										<p
-											className={`${passwordValidation.minLength ? "text-success" : "text-error"}`}
+											className={`${
+												passwordValidation.minLength
+													? "text-green-500"
+													: "text-red-500"
+											}`}
 										>
 											• At least 8 characters
 										</p>

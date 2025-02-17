@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Providers } from "./providers";
+import { AuthDebugMenu } from "@/components/debug/auth-debug-menu";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -34,7 +35,10 @@ export default function RootLayout({
 				className={`${geistSans.variable} ${geistMono.variable} antialiased`}
 				suppressHydrationWarning
 			>
-				<Providers>{children}</Providers>
+				<Providers>
+					{children}
+					<AuthDebugMenu />
+				</Providers>
 			</body>
 		</html>
 	);

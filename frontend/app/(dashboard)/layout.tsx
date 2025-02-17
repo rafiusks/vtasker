@@ -1,35 +1,56 @@
 "use client";
 
-import { redirect } from "next/navigation";
 import { MainNav } from "@/components/layout/main-nav";
 import { UserNav } from "@/components/layout/user-nav";
 import { SideNav } from "@/components/layout/side-nav";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function DashboardLayout({
 	children,
 }: {
 	children: React.ReactNode;
 }) {
+	const router = useRouter();
+	const { isAuthenticated, initializeAuth } = useAuth();
+
 	// Start with a default state for server-side rendering
 	const [mounted, setMounted] = useState(false);
 	const [isCollapsed] = useLocalStorage<boolean>("sidebar-collapsed", false);
+	const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
 
 	// Only update the mounted state after hydration
 	useEffect(() => {
 		setMounted(true);
-	}, []);
+		// Initialize auth state when layout mounts
+		initializeAuth()
+			.then(() => setInitialAuthCheckDone(true))
+			.catch((error) => {
+				console.error("Auth initialization error:", error);
+				setInitialAuthCheckDone(true);
+			});
+	}, [initializeAuth]);
 
 	// Use the default state for server-side rendering and initial client render
 	const sidebarCollapsed = mounted ? isCollapsed : false;
 
-	// TODO: Add authentication check
-	// const session = await getSession();
-	// if (!session) {
-	//   redirect("/auth");
-	// }
+	useEffect(() => {
+		if (mounted && initialAuthCheckDone && !isAuthenticated) {
+			console.log("Not authenticated, redirecting to home page...");
+			router.replace("/");
+		}
+	}, [isAuthenticated, router, mounted, initialAuthCheckDone]);
+
+	// Don't render anything until mounted and initial auth check is done
+	if (!mounted || !initialAuthCheckDone) return null;
+
+	// Don't render protected content if not authenticated
+	if (!isAuthenticated) {
+		return null;
+	}
 
 	return (
 		<div className="flex min-h-screen flex-col">
