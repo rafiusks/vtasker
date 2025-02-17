@@ -23,6 +23,21 @@ interface CheckEmailResponse {
 	exists: boolean;
 }
 
+export interface Session {
+	id: string;
+	device: string;
+	ip_address: string;
+	last_used_at: string;
+	created_at: string;
+	is_current: boolean;
+}
+
+interface UpdateProfileData {
+	name?: string;
+	email?: string;
+	avatar_url?: string;
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 async function getProfile(): Promise<ApiResponse<User>> {
@@ -64,12 +79,10 @@ async function getProfile(): Promise<ApiResponse<User>> {
 		}
 
 		// Use the standard users endpoint with the user's ID
-		const endpoint = `/api/v1/users/${userId}`;
-		const url = `${API_BASE_URL}${endpoint}`;
+		const url = `${API_BASE_URL}/api/v1/users/${userId}`;
 
 		console.log("Fetching user profile:", {
 			url,
-			endpoint,
 			userId,
 		});
 
@@ -381,4 +394,246 @@ async function checkEmail(
 	}
 }
 
-export { signIn, signUp, checkEmail, getProfile };
+async function listSessions(): Promise<ApiResponse<Session[]>> {
+	try {
+		const token =
+			localStorage.getItem("auth_token") ||
+			sessionStorage.getItem("auth_token") ||
+			document.cookie
+				.split(";")
+				.find((c) => c.trim().startsWith("auth_token="))
+				?.split("=")[1];
+
+		if (!token) {
+			return {
+				error: {
+					message: "No authentication token found",
+				},
+			};
+		}
+
+		const response = await fetch(`${API_BASE_URL}/api/v1/auth/sessions`, {
+			method: "GET",
+			credentials: "include",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json();
+			return {
+				error: {
+					message: errorData.message || "Failed to fetch sessions",
+				},
+			};
+		}
+
+		const data = await response.json();
+		return { data: data.sessions || [] };
+	} catch (error) {
+		console.error("List sessions error:", error);
+		return {
+			error: {
+				message:
+					error instanceof Error ? error.message : "Failed to fetch sessions",
+			},
+		};
+	}
+}
+
+async function revokeSession(sessionId: string): Promise<ApiResponse<void>> {
+	try {
+		const token =
+			localStorage.getItem("auth_token") ||
+			sessionStorage.getItem("auth_token") ||
+			document.cookie
+				.split(";")
+				.find((c) => c.trim().startsWith("auth_token="))
+				?.split("=")[1];
+
+		if (!token) {
+			return {
+				error: {
+					message: "No authentication token found",
+				},
+			};
+		}
+
+		const response = await fetch(
+			`${API_BASE_URL}/api/v1/auth/sessions/revoke`,
+			{
+				method: "POST",
+				credentials: "include",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({ session_id: sessionId }),
+			},
+		);
+
+		if (!response.ok) {
+			const errorData = await response.json();
+			return {
+				error: {
+					message: errorData.message || "Failed to revoke session",
+				},
+			};
+		}
+
+		return { data: undefined };
+	} catch (error) {
+		console.error("Revoke session error:", error);
+		return {
+			error: {
+				message:
+					error instanceof Error ? error.message : "Failed to revoke session",
+			},
+		};
+	}
+}
+
+async function revokeAllSessions(): Promise<ApiResponse<void>> {
+	try {
+		const token =
+			localStorage.getItem("auth_token") ||
+			sessionStorage.getItem("auth_token") ||
+			document.cookie
+				.split(";")
+				.find((c) => c.trim().startsWith("auth_token="))
+				?.split("=")[1];
+
+		if (!token) {
+			return {
+				error: {
+					message: "No authentication token found",
+				},
+			};
+		}
+
+		const response = await fetch(
+			`${API_BASE_URL}/api/v1/auth/sessions/revoke-all`,
+			{
+				method: "POST",
+				credentials: "include",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+			},
+		);
+
+		if (!response.ok) {
+			const errorData = await response.json();
+			return {
+				error: {
+					message: errorData.message || "Failed to revoke all sessions",
+				},
+			};
+		}
+
+		return { data: undefined };
+	} catch (error) {
+		console.error("Revoke all sessions error:", error);
+		return {
+			error: {
+				message:
+					error instanceof Error
+						? error.message
+						: "Failed to revoke all sessions",
+			},
+		};
+	}
+}
+
+async function updateProfile(
+	data: UpdateProfileData,
+): Promise<ApiResponse<User>> {
+	try {
+		const token =
+			localStorage.getItem("auth_token") ||
+			sessionStorage.getItem("auth_token") ||
+			document.cookie
+				.split(";")
+				.find((c) => c.trim().startsWith("auth_token="))
+				?.split("=")[1];
+
+		if (!token) {
+			return {
+				error: {
+					message: "No authentication token found",
+				},
+			};
+		}
+
+		// Clean the token (remove Bearer if present)
+		const cleanToken = token.replace(/^Bearer\s+/i, "");
+
+		// Get the current user's ID from the token
+		let userId: string;
+		try {
+			const tokenPayload = JSON.parse(atob(cleanToken.split(".")[1]));
+			userId = tokenPayload.user_id;
+		} catch (error) {
+			return {
+				error: {
+					message: "Invalid authentication token",
+				},
+			};
+		}
+
+		console.log("Updating profile:", { userId, data });
+
+		const response = await fetch(`/api/users/${userId}`, {
+			method: "PATCH",
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${cleanToken}`,
+			},
+			body: JSON.stringify(data),
+		});
+
+		if (!response.ok) {
+			const errorData = await response.json();
+			return {
+				error: {
+					message: errorData.message || "Failed to update profile",
+				},
+			};
+		}
+
+		const responseData = await response.json();
+		const userData = responseData.data || responseData;
+
+		if (!userData || !userData.id || !userData.email) {
+			return {
+				error: {
+					message: "Invalid response format from server",
+				},
+			};
+		}
+
+		return { data: userData };
+	} catch (error) {
+		console.error("Update profile error:", error);
+		return {
+			error: {
+				message:
+					error instanceof Error ? error.message : "Failed to update profile",
+			},
+		};
+	}
+}
+
+export {
+	signIn,
+	signUp,
+	checkEmail,
+	getProfile,
+	updateProfile,
+	listSessions,
+	revokeSession,
+	revokeAllSessions,
+};

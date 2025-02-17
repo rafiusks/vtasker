@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,11 +9,42 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/hooks/use-auth";
+import { getProfile, updateProfile } from "@/lib/api/auth";
 
 export default function ProfilePage() {
 	const router = useRouter();
 	const { toast } = useToast();
+	const { user, updateAuthState } = useAuth();
 	const [isLoading, setIsLoading] = useState(false);
+	const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+	const [profileData, setProfileData] = useState(user);
+
+	useEffect(() => {
+		const loadProfile = async () => {
+			try {
+				const response = await getProfile();
+				if (response.error) {
+					throw new Error(response.error.message);
+				}
+				if (response.data) {
+					setProfileData(response.data);
+					updateAuthState(response.data);
+				}
+			} catch (error) {
+				toast({
+					variant: "destructive",
+					title: "Error",
+					description:
+						error instanceof Error ? error.message : "Failed to load profile",
+				});
+			} finally {
+				setIsLoadingProfile(false);
+			}
+		};
+
+		loadProfile();
+	}, [toast, updateAuthState]);
 
 	const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
@@ -24,21 +55,90 @@ export default function ProfilePage() {
 			const name = formData.get("name") as string;
 			const email = formData.get("email") as string;
 
-			// TODO: Implement profile update
+			const token =
+				localStorage.getItem("auth_token") ||
+				sessionStorage.getItem("auth_token") ||
+				document.cookie
+					.split(";")
+					.find((c) => c.trim().startsWith("auth_token="))
+					?.split("=")[1];
+
+			if (!token) {
+				throw new Error("No authentication token found");
+			}
+
+			console.log("Profile Page - Submitting update:", {
+				name,
+				email,
+				hasToken: !!token,
+			});
+
+			const response = await updateProfile({
+				name,
+				email,
+			});
+
+			console.log("Profile Page - Update response:", {
+				error: response.error,
+				data: response.data,
+				status: response.error?.status,
+				endpoint: response.error?.endpoint,
+			});
+
+			if (response.error) {
+				throw new Error(response.error.message || "Failed to update profile");
+			}
+
+			if (!response.data) {
+				throw new Error("No data received from server");
+			}
+
+			setProfileData(response.data);
+			updateAuthState(response.data);
 			toast({
 				title: "Profile updated",
 				description: "Your profile has been updated successfully.",
 			});
 		} catch (error) {
+			console.error("Profile Page - Update failed:", {
+				error,
+				message: error instanceof Error ? error.message : "Unknown error",
+				stack: error instanceof Error ? error.stack : undefined,
+				type: error?.constructor?.name,
+			});
+
+			// Handle specific error cases
+			const errorMessage =
+				error instanceof Error ? error.message : "Failed to update profile";
+
+			if (errorMessage.includes("No authentication token")) {
+				router.push("/auth");
+				return;
+			}
+
 			toast({
 				variant: "destructive",
 				title: "Error",
-				description: "Failed to update profile. Please try again.",
+				description: errorMessage,
 			});
 		} finally {
 			setIsLoading(false);
 		}
 	};
+
+	if (isLoadingProfile) {
+		return (
+			<div className="space-y-6 p-6 lg:p-10">
+				<div className="flex items-center space-x-4">
+					<div className="h-24 w-24 rounded-full bg-muted animate-pulse" />
+					<div className="space-y-2">
+						<div className="h-4 w-48 bg-muted animate-pulse rounded" />
+						<div className="h-4 w-32 bg-muted animate-pulse rounded" />
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	return (
 		<div className="space-y-6 p-6 lg:p-10">
@@ -60,8 +160,17 @@ export default function ProfilePage() {
 								<Label htmlFor="avatar">Profile Picture</Label>
 								<div className="flex items-center space-x-4">
 									<Avatar className="h-24 w-24">
-										<AvatarImage src="/avatars/01.svg" alt="User avatar" />
-										<AvatarFallback>U</AvatarFallback>
+										<AvatarImage
+											src={
+												typeof profileData?.avatar_url === "string"
+													? profileData.avatar_url
+													: "/avatars/01.svg"
+											}
+											alt={profileData?.name || "User avatar"}
+										/>
+										<AvatarFallback>
+											{profileData?.name?.charAt(0).toUpperCase() || "U"}
+										</AvatarFallback>
 									</Avatar>
 									<Button type="button" variant="outline" disabled={isLoading}>
 										Change
@@ -73,7 +182,7 @@ export default function ProfilePage() {
 								<Input
 									id="name"
 									name="name"
-									defaultValue="User Name"
+									defaultValue={profileData?.name || ""}
 									disabled={isLoading}
 								/>
 							</div>
@@ -83,7 +192,7 @@ export default function ProfilePage() {
 									id="email"
 									name="email"
 									type="email"
-									defaultValue="user@example.com"
+									defaultValue={profileData?.email || ""}
 									disabled={isLoading}
 								/>
 							</div>

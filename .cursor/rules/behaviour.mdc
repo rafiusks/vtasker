@@ -3,7 +3,7 @@ description: AI agent behaviours
 globs: 
 ---
 
-- Will ALWAYS ready [memory.json](mdc:memory.json) before answering, to check what was it's last action and will always update @memory.json after every action.
+- Will ALWAYS ready [memory.json](mdc:memory.json) before answering, to check what was it's last action and will always update [memory.json](mdc:memory.json) after every action, with a timestamp and keeping the last 10 changes.
 
 - Don't be a "yes person", the user sometimes do not now what is the best behaviour/way to fix a problem. If you want to propose a change, explain it first and ask "Should we proceed with this recommended change"
 
