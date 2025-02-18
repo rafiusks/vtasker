@@ -1,18 +1,28 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTheme } from "next-themes";
-import { useEffect } from "react";
+"use client";
+
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { useEffect, useState } from "react";
+
+interface Notifications {
+	email: boolean;
+	taskReminders: boolean;
+	projectUpdates: boolean;
+}
 
 interface UserPreferences {
 	theme: "light" | "dark" | "system";
-	notifications: {
-		email: boolean;
-		taskReminders: boolean;
-		projectUpdates: boolean;
-	};
+	notifications: Notifications;
+}
+
+interface UserPreferencesState extends UserPreferences {
+	isAuthenticated: boolean;
+	updateTheme: (theme: "light" | "dark" | "system") => void;
+	updatePreferences: (preferences: Partial<UserPreferences>) => void;
 }
 
 const defaultPreferences: UserPreferences = {
-	theme: "light",
+	theme: "system",
 	notifications: {
 		email: false,
 		taskReminders: false,
@@ -20,76 +30,90 @@ const defaultPreferences: UserPreferences = {
 	},
 };
 
-export function useUserPreferences() {
-	const { theme, setTheme } = useTheme();
-	const queryClient = useQueryClient();
-
-	// Fetch user preferences from backend
-	const { data: preferences } = useQuery({
-		queryKey: ["user-preferences"],
-		queryFn: async (): Promise<UserPreferences> => {
-			try {
-				const response = await fetch("/api/user/preferences");
-				if (!response.ok) {
-					return defaultPreferences;
+const useUserPreferencesStore = create<UserPreferencesState>()(
+	persist(
+		(set) => ({
+			...defaultPreferences,
+			isAuthenticated: false,
+			updateTheme: (theme) => {
+				set({ theme });
+				// Update the document theme class
+				if (typeof window !== "undefined") {
+					const root = window.document.documentElement;
+					root.classList.remove("light", "dark");
+					if (theme === "system") {
+						const systemTheme = window.matchMedia(
+							"(prefers-color-scheme: dark)",
+						).matches
+							? "dark"
+							: "light";
+						root.classList.add(systemTheme);
+					} else {
+						root.classList.add(theme);
+					}
 				}
-				return response.json();
-			} catch (error) {
-				return defaultPreferences;
-			}
+			},
+			updatePreferences: (preferences) =>
+				set((state) => ({
+					...state,
+					...preferences,
+					notifications: {
+						...state.notifications,
+						...(preferences.notifications || {}),
+					},
+				})),
+		}),
+		{
+			name: "user-preferences",
+			storage: createJSONStorage(() => localStorage),
 		},
-		// Don't retry on error since we're returning defaults
-		retry: false,
-	});
+	),
+);
 
-	// Update preferences in backend
-	const { mutate: updatePreferences } = useMutation({
-		mutationFn: async (newPreferences: Partial<UserPreferences>) => {
-			const response = await fetch("/api/user/preferences", {
-				method: "PATCH",
-				headers: {
-					"Content-Type": "application/json",
-				},
-				body: JSON.stringify(newPreferences),
-			});
-			if (!response.ok) {
-				throw new Error("Failed to update preferences");
-			}
-			return response.json();
-		},
-		onSuccess: (data) => {
-			// Update the cached preferences
-			queryClient.setQueryData(
-				["user-preferences"],
-				(old: UserPreferences) => ({
-					...old,
-					...data,
-				}),
-			);
-		},
-	});
+// Custom hook to handle hydration
+export function useUserPreferences() {
+	const [isHydrated, setIsHydrated] = useState(false);
+	const store = useUserPreferencesStore();
 
-	// Set theme based on preferences
+	// Wait for hydration
 	useEffect(() => {
-		if (preferences?.theme) {
-			setTheme(preferences.theme);
-		} else {
-			setTheme("light");
-		}
-	}, [preferences?.theme, setTheme]);
+		setIsHydrated(true);
+	}, []);
 
-	const updateTheme = (newTheme: "light" | "dark" | "system") => {
-		// Update theme immediately for better UX
-		setTheme(newTheme);
-		// Update in backend and cache
-		updatePreferences({ theme: newTheme });
-	};
+	// Initialize theme on mount
+	useEffect(() => {
+		if (isHydrated) {
+			const root = window.document.documentElement;
+			root.classList.remove("light", "dark");
+			if (store.theme === "system") {
+				const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
+					.matches
+					? "dark"
+					: "light";
+				root.classList.add(systemTheme);
+
+				// Listen for system theme changes
+				const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+				const handleChange = (e: MediaQueryListEvent) => {
+					if (store.theme === "system") {
+						root.classList.remove("light", "dark");
+						root.classList.add(e.matches ? "dark" : "light");
+					}
+				};
+
+				mediaQuery.addEventListener("change", handleChange);
+				return () => mediaQuery.removeEventListener("change", handleChange);
+			} else {
+				root.classList.add(store.theme);
+			}
+		}
+	}, [isHydrated, store.theme]);
 
 	return {
-		preferences: preferences ?? defaultPreferences,
-		updatePreferences,
-		theme,
-		updateTheme,
-		isAuthenticated: true, // We'll handle auth state separately
+		theme: store.theme,
+		notifications: store.notifications,
+		updateTheme: store.updateTheme,
+		updatePreferences: store.updatePreferences,
+		isHydrated,
 	};
 }

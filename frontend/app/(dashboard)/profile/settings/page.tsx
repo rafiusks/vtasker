@@ -18,39 +18,106 @@ import {
 import { SessionManagement } from "@/components/session-management";
 import { useUserPreferences } from "@/lib/hooks/use-user-preferences";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Input } from "@/components/ui/input";
+import { useAuth } from "@/hooks/use-auth";
+import { updateProfile } from "@/lib/api/auth";
+
+interface SecuritySettings {
+	twoFactorEnabled: boolean;
+}
 
 export default function SettingsPage() {
 	const router = useRouter();
 	const { toast } = useToast();
-	const {
-		theme,
-		updateTheme,
-		preferences,
-		updatePreferences,
-		isAuthenticated,
-	} = useUserPreferences();
+	const { isAuthenticated } = useAuth();
+	const { theme, notifications, updateTheme, updatePreferences, isHydrated } =
+		useUserPreferences();
 	const [isLoading, setIsLoading] = useState(false);
 	const [showSessionDialog, setShowSessionDialog] = useState(false);
 	const [mounted, setMounted] = useState(false);
-
-	// Redirect to login if not authenticated
-	useEffect(() => {
-		if (!isAuthenticated) {
-			router.push("/auth");
-		}
-	}, [isAuthenticated, router]);
+	const [securitySettings, setSecuritySettings] = useState<SecuritySettings>({
+		twoFactorEnabled: false,
+	});
+	const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
 	// Prevent hydration mismatch
 	useEffect(() => {
 		setMounted(true);
 	}, []);
 
-	const handleSavePreferences = async () => {
-		if (!isAuthenticated) {
+	const handleThemeChange = (value: "light" | "dark" | "system") => {
+		updateTheme(value);
+		setHasUnsavedChanges(true);
+	};
+
+	const handleNotificationChange = (
+		type: keyof typeof notifications,
+		checked: boolean,
+	) => {
+		updatePreferences({
+			notifications: {
+				...notifications,
+				[type]: checked,
+			},
+		});
+		setHasUnsavedChanges(true);
+	};
+
+	const handleSecurityChange = (
+		setting: keyof SecuritySettings,
+		value: boolean,
+	) => {
+		setSecuritySettings((prev) => ({
+			...prev,
+			[setting]: value,
+		}));
+		setHasUnsavedChanges(true);
+	};
+
+	const handleSaveChanges = async () => {
+		setIsLoading(true);
+
+		try {
+			// Save all settings
+			updatePreferences({
+				theme,
+				notifications,
+			});
+
+			// TODO: Implement security settings update
+			if (securitySettings.twoFactorEnabled) {
+				console.log("Would enable 2FA");
+			}
+
+			// Add a small delay to show the saving state
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
+			setHasUnsavedChanges(false);
+			toast({
+				title: "Settings saved",
+				description: "Your settings have been updated successfully.",
+			});
+		} catch (error) {
+			console.error("Failed to save settings:", error);
 			toast({
 				variant: "destructive",
 				title: "Error",
-				description: "You must be logged in to save preferences.",
+				description: "Failed to save settings. Please try again.",
+			});
+			// Keep hasUnsavedChanges true if save failed
+			setHasUnsavedChanges(true);
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
+		e.preventDefault();
+		if (!isAuthenticated || !user) {
+			toast({
+				variant: "destructive",
+				title: "Error",
+				description: "You must be logged in to update your profile.",
 			});
 			return;
 		}
@@ -58,41 +125,118 @@ export default function SettingsPage() {
 		setIsLoading(true);
 
 		try {
-			await updatePreferences({
-				notifications: {
-					email: preferences?.notifications.email ?? false,
-					taskReminders: preferences?.notifications.taskReminders ?? false,
-					projectUpdates: preferences?.notifications.projectUpdates ?? false,
-				},
+			const formData = new FormData(e.currentTarget);
+			const name = formData.get("name") as string;
+			const email = formData.get("email") as string;
+
+			console.log("Settings - Submitting profile update:", {
+				name,
+				email,
 			});
 
-			toast({
-				title: "Preferences updated",
-				description: "Your preferences have been updated successfully.",
+			const response = await updateProfile({
+				name,
+				email,
 			});
+
+			console.log("Settings - Update response:", {
+				error: response.error,
+				data: response.data,
+			});
+
+			if (response.error) {
+				throw new Error(response.error.message);
+			}
+
+			if (response.data) {
+				updateAuthState(response.data);
+				toast({
+					title: "Profile updated",
+					description: "Your profile has been updated successfully.",
+				});
+			} else {
+				throw new Error("No data received from server");
+			}
 		} catch (error) {
+			console.error("Settings - Profile update failed:", {
+				error,
+				message: error instanceof Error ? error.message : "Unknown error",
+			});
 			toast({
 				variant: "destructive",
 				title: "Error",
-				description: "Failed to update preferences. Please try again.",
+				description:
+					error instanceof Error
+						? error.message
+						: "Failed to update profile. Please try again.",
 			});
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
-	if (!mounted || !isAuthenticated) {
-		return null;
+	// Don't render anything until mounted and hydrated
+	if (!mounted || !isHydrated) {
+		return (
+			<div className="space-y-6 p-6 lg:p-10">
+				<div className="flex items-center space-x-4">
+					<div className="h-24 w-24 rounded-full bg-muted animate-pulse" />
+					<div className="space-y-2">
+						<div className="h-4 w-48 bg-muted animate-pulse rounded" />
+						<div className="h-4 w-32 bg-muted animate-pulse rounded" />
+					</div>
+				</div>
+			</div>
+		);
 	}
 
 	return (
 		<>
 			<div className="space-y-6 p-6 lg:p-10">
-				<div>
-					<h2 className="text-2xl font-bold tracking-tight">Settings</h2>
-					<p className="text-muted-foreground">
-						Manage your application preferences
-					</p>
+				<div className="flex items-center justify-between">
+					<div>
+						<h2 className="text-2xl font-bold tracking-tight">
+							Application Settings
+						</h2>
+						<p className="text-muted-foreground">
+							Manage your application preferences and security settings
+						</p>
+					</div>
+					<Button
+						onClick={handleSaveChanges}
+						disabled={isLoading || !hasUnsavedChanges}
+						className="min-w-[100px]"
+					>
+						{isLoading ? (
+							<>
+								<svg
+									className="mr-2 h-4 w-4 animate-spin"
+									xmlns="http://www.w3.org/2000/svg"
+									fill="none"
+									viewBox="0 0 24 24"
+								>
+									<circle
+										className="opacity-25"
+										cx="12"
+										cy="12"
+										r="10"
+										stroke="currentColor"
+										strokeWidth="4"
+									></circle>
+									<path
+										className="opacity-75"
+										fill="currentColor"
+										d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+									></path>
+								</svg>
+								Saving...
+							</>
+						) : hasUnsavedChanges ? (
+							"Save Changes"
+						) : (
+							"Saved"
+						)}
+					</Button>
 				</div>
 				<Separator />
 				<div className="grid gap-6">
@@ -106,11 +250,9 @@ export default function SettingsPage() {
 								<RadioGroup
 									defaultValue={theme}
 									value={theme}
-									onValueChange={(value) =>
-										updateTheme(value as "light" | "dark" | "system")
-									}
+									onValueChange={handleThemeChange}
 									className="space-y-2"
-									disabled={isLoading || !isAuthenticated}
+									disabled={isLoading}
 								>
 									<div className="flex items-center space-x-2">
 										<RadioGroupItem value="light" id="theme-light" />
@@ -159,19 +301,11 @@ export default function SettingsPage() {
 									</p>
 								</div>
 								<Switch
-									checked={preferences?.notifications.email}
+									checked={notifications.email}
 									onCheckedChange={(checked) =>
-										updatePreferences({
-											notifications: {
-												email: checked,
-												taskReminders:
-													preferences?.notifications.taskReminders ?? false,
-												projectUpdates:
-													preferences?.notifications.projectUpdates ?? false,
-											},
-										})
+										handleNotificationChange("email", checked)
 									}
-									disabled={isLoading || !isAuthenticated}
+									disabled={isLoading}
 								/>
 							</div>
 							<div className="flex items-center justify-between">
@@ -182,18 +316,11 @@ export default function SettingsPage() {
 									</p>
 								</div>
 								<Switch
-									checked={preferences?.notifications.taskReminders}
+									checked={notifications.taskReminders}
 									onCheckedChange={(checked) =>
-										updatePreferences({
-											notifications: {
-												email: preferences?.notifications.email ?? false,
-												taskReminders: checked,
-												projectUpdates:
-													preferences?.notifications.projectUpdates ?? false,
-											},
-										})
+										handleNotificationChange("taskReminders", checked)
 									}
-									disabled={isLoading || !isAuthenticated}
+									disabled={isLoading}
 								/>
 							</div>
 							<div className="flex items-center justify-between">
@@ -204,18 +331,11 @@ export default function SettingsPage() {
 									</p>
 								</div>
 								<Switch
-									checked={preferences?.notifications.projectUpdates}
+									checked={notifications.projectUpdates}
 									onCheckedChange={(checked) =>
-										updatePreferences({
-											notifications: {
-												email: preferences?.notifications.email ?? false,
-												taskReminders:
-													preferences?.notifications.taskReminders ?? false,
-												projectUpdates: checked,
-											},
-										})
+										handleNotificationChange("projectUpdates", checked)
 									}
-									disabled={isLoading || !isAuthenticated}
+									disabled={isLoading}
 								/>
 							</div>
 						</CardContent>
@@ -232,7 +352,13 @@ export default function SettingsPage() {
 										Enable 2FA for enhanced account security
 									</p>
 								</div>
-								<Switch disabled={isLoading || !isAuthenticated} />
+								<Switch
+									checked={securitySettings.twoFactorEnabled}
+									onCheckedChange={(checked) =>
+										handleSecurityChange("twoFactorEnabled", checked)
+									}
+									disabled={isLoading}
+								/>
 							</div>
 							<div className="flex items-center justify-between">
 								<div className="space-y-0.5">
@@ -243,7 +369,7 @@ export default function SettingsPage() {
 								</div>
 								<Button
 									variant="outline"
-									disabled={isLoading || !isAuthenticated}
+									disabled={isLoading}
 									onClick={() => setShowSessionDialog(true)}
 								>
 									Manage Sessions
@@ -251,27 +377,18 @@ export default function SettingsPage() {
 							</div>
 						</CardContent>
 					</Card>
-					<div className="flex justify-end">
-						<Button
-							onClick={handleSavePreferences}
-							disabled={isLoading || !isAuthenticated}
-						>
-							{isLoading ? "Saving..." : "Save Changes"}
-						</Button>
-					</div>
 				</div>
 			</div>
 
 			<Dialog open={showSessionDialog} onOpenChange={setShowSessionDialog}>
-				<DialogContent className="max-w-3xl">
+				<DialogContent className="max-w-2xl">
 					<DialogHeader>
 						<DialogTitle>Session Management</DialogTitle>
 						<DialogDescription>
-							View and manage your active sessions across different devices. You
-							can revoke access to individual devices or all devices at once.
+							View and manage your active sessions across different devices.
 						</DialogDescription>
 					</DialogHeader>
-					<SessionManagement />
+					<SessionManagement onClose={() => setShowSessionDialog(false)} />
 				</DialogContent>
 			</Dialog>
 		</>
