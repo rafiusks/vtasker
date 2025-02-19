@@ -16,15 +16,17 @@ import (
 
 // ProjectHandler handles HTTP requests for projects
 type ProjectHandler struct {
-	service *service.ProjectService
-	config  *config.Config
+	service     *service.ProjectService
+	issueService *service.IssueService
+	config      *config.Config
 }
 
 // NewProjectHandler creates a new project handler
-func NewProjectHandler(service *service.ProjectService, cfg *config.Config) *ProjectHandler {
+func NewProjectHandler(service *service.ProjectService, issueService *service.IssueService, cfg *config.Config) *ProjectHandler {
 	return &ProjectHandler{
-		service: service,
-		config:  cfg,
+		service:      service,
+		issueService: issueService,
+		config:      cfg,
 	}
 }
 
@@ -37,6 +39,7 @@ func (h *ProjectHandler) RegisterRoutes(r chi.Router) {
 		r.Get("/{id}", h.GetProject)
 		r.Put("/{id}", h.UpdateProject)
 		r.Delete("/{id}", h.DeleteProject)
+		r.Get("/{id}/issues", h.ListProjectIssues)
 	})
 }
 
@@ -49,16 +52,9 @@ func (h *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from context
-	userIDStr, ok := r.Context().Value(middleware.UserIDKey).(string)
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	userID, err := uuid.Parse(userIDStr)
-	if err != nil {
-		logger.Error("Invalid user ID format", err, nil)
-		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
@@ -157,4 +153,53 @@ func (h *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// ListProjectIssues handles retrieving a list of issues for a project
+func (h *ProjectHandler) ListProjectIssues(w http.ResponseWriter, r *http.Request) {
+	projectID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		http.Error(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	pageSize, _ := strconv.Atoi(r.URL.Query().Get("page_size"))
+
+	filter := &models.IssueFilter{
+		ProjectID: &projectID,
+	}
+
+	if status := r.URL.Query().Get("status"); status != "" {
+		filter.Status = &status
+	}
+
+	if priority := r.URL.Query().Get("priority"); priority != "" {
+		filter.Priority = &priority
+	}
+
+	if assigneeID := r.URL.Query().Get("assignee_id"); assigneeID != "" {
+		id, err := uuid.Parse(assigneeID)
+		if err != nil {
+			http.Error(w, "Invalid assignee ID", http.StatusBadRequest)
+			return
+		}
+		filter.AssigneeID = &id
+	}
+
+	if search := r.URL.Query().Get("search"); search != "" {
+		filter.Search = &search
+	}
+
+	issues, err := h.issueService.ListIssues(r.Context(), page, pageSize, filter)
+	if err != nil {
+		logger.Error("Failed to list project issues", err, map[string]interface{}{
+			"project_id": projectID,
+		})
+		http.Error(w, "Failed to list project issues", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(issues)
 } 

@@ -13,7 +13,14 @@ export async function GET(
 		const queryParams = new URLSearchParams();
 
 		// Add project_id filter
-		queryParams.append("project_id", params.id);
+		const { id: projectId } = await params;
+		if (!projectId) {
+			return NextResponse.json(
+				{ error: "Project ID is required" },
+				{ status: 400 },
+			);
+		}
+		queryParams.append("project_id", projectId);
 
 		// Add pagination
 		const page = searchParams.get("page") || "1";
@@ -31,14 +38,45 @@ export async function GET(
 		const search = searchParams.get("search");
 		if (search) queryParams.append("search", search);
 
-		const response = await fetch(
-			`${baseUrl}/api/v1/issues?${queryParams.toString()}`,
-		);
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
+		const authHeader = request.headers.get("Authorization");
+		if (!authHeader) {
+			return NextResponse.json(
+				{ error: "Authorization header is required" },
+				{ status: 401 },
+			);
 		}
-		const data = await response.json();
-		return NextResponse.json(data);
+
+		try {
+			const response = await fetch(
+				`${baseUrl}/api/v1/issues?${queryParams.toString()}`,
+				{
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: authHeader,
+					},
+					cache: "no-store",
+				},
+			);
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(
+					errorData.error || `HTTP error! status: ${response.status}`,
+				);
+			}
+
+			const data = await response.json();
+			return NextResponse.json(data);
+		} catch (fetchError) {
+			console.error("Error connecting to backend:", fetchError);
+			return NextResponse.json(
+				{
+					error:
+						"Unable to connect to the backend service. Please ensure the backend is running.",
+				},
+				{ status: 503 },
+			);
+		}
 	} catch (error) {
 		console.error("Error fetching issues:", error);
 		return NextResponse.json(
@@ -53,24 +91,56 @@ export async function POST(
 	{ params }: { params: { id: string } },
 ) {
 	try {
-		const body = await request.json();
-		const response = await fetch(`${baseUrl}/api/v1/issues`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				...body,
-				project_id: params.id,
-			}),
-		});
-
-		if (!response.ok) {
-			throw new Error(`HTTP error! status: ${response.status}`);
+		const projectId = params?.id;
+		if (!projectId) {
+			return NextResponse.json(
+				{ error: "Project ID is required" },
+				{ status: 400 },
+			);
 		}
 
-		const data = await response.json();
-		return NextResponse.json(data, { status: 201 });
+		const body = await request.json();
+		const authHeader = request.headers.get("Authorization");
+
+		if (!authHeader) {
+			return NextResponse.json(
+				{ error: "Authorization header is required" },
+				{ status: 401 },
+			);
+		}
+
+		try {
+			const response = await fetch(`${baseUrl}/api/v1/issues`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: authHeader,
+				},
+				body: JSON.stringify({
+					...body,
+					project_id: projectId,
+				}),
+			});
+
+			if (!response.ok) {
+				const errorData = await response.json().catch(() => ({}));
+				throw new Error(
+					errorData.error || `HTTP error! status: ${response.status}`,
+				);
+			}
+
+			const data = await response.json();
+			return NextResponse.json(data, { status: 201 });
+		} catch (fetchError) {
+			console.error("Error connecting to backend:", fetchError);
+			return NextResponse.json(
+				{
+					error:
+						"Unable to connect to the backend service. Please ensure the backend is running.",
+				},
+				{ status: 503 },
+			);
+		}
 	} catch (error) {
 		console.error("Error creating issue:", error);
 		return NextResponse.json(

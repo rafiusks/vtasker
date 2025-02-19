@@ -15,7 +15,9 @@ import (
 	"github.com/vtasker/internal/auth"
 	"github.com/vtasker/internal/config"
 	"github.com/vtasker/internal/handler"
+	"github.com/vtasker/internal/middleware"
 	"github.com/vtasker/internal/repository"
+	"github.com/vtasker/internal/service"
 )
 
 func main() {
@@ -74,13 +76,37 @@ func main() {
 
 	// Initialize repositories and services
 	userRepo := repository.NewUserRepository(db)
+	projectRepo := repository.NewProjectRepository(db)
+	issueRepo := repository.NewIssueRepository(db)
 	sessionStore := auth.NewRedisSessionStore(rdb)
 
+	// Initialize services
+	projectService := service.NewProjectService(projectRepo, cfg)
+	issueService := service.NewIssueService(issueRepo, projectRepo, userRepo)
+
 	// Initialize handlers
-	h := handler.NewHandler(userRepo, sessionStore, db, cfg)
-	
-	// Mount routes
-	r.Mount("/", h.Routes())
+	projectHandler := handler.NewProjectHandler(projectService, issueService, cfg)
+	issueHandler := handler.NewIssueHandler(issueService)
+	userHandler := handler.NewUserHandler(userRepo)
+	authHandler := handler.NewAuthHandler(userRepo, sessionStore)
+
+	// Mount auth routes
+	r.Post(cfg.GetAPIPath("/auth/check-email"), authHandler.CheckEmail)
+	r.Post(cfg.GetAPIPath("/auth/sign-up"), authHandler.SignUp)
+	r.Post(cfg.GetAPIPath("/auth/sign-in"), authHandler.SignIn)
+
+	// Session management routes (protected by auth middleware)
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.RequireAuth)
+		r.Get(cfg.GetAPIPath("/auth/sessions"), authHandler.ListSessions)
+		r.Post(cfg.GetAPIPath("/auth/sessions/revoke"), authHandler.RevokeSession)
+		r.Post(cfg.GetAPIPath("/auth/sessions/revoke-all"), authHandler.RevokeAllSessions)
+	})
+
+	// Mount other routes
+	projectHandler.RegisterRoutes(r)
+	issueHandler.RegisterRoutes(r)
+	userHandler.RegisterRoutes(r)
 
 	// Start server
 	log.Printf("Server starting on port %s", cfg.Port)

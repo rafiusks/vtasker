@@ -4,14 +4,23 @@ import { useQuery } from "@tanstack/react-query";
 import type { Project, Issue, IssueListResponse } from "@/types";
 import { IssuesList } from "@/components/issues/issues-list";
 import { Skeleton } from "@/components/ui/skeleton";
+import { getSession } from "@/lib/session";
 
 async function getProjectIssues(projectId: string): Promise<Issue[]> {
 	if (!projectId) {
 		throw new Error("Project ID is required");
 	}
 
+	const session = await getSession();
+	if (!session?.accessToken) {
+		throw new Error("Not authenticated");
+	}
+
 	const res = await fetch(`/api/projects/${projectId}/issues`, {
 		method: "GET",
+		headers: {
+			Authorization: `Bearer ${session.accessToken}`,
+		},
 		cache: "no-store",
 	});
 

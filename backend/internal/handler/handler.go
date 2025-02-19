@@ -33,7 +33,7 @@ func NewHandler(userRepo repository.UserRepository, sessionStore auth.SessionSto
 		auth:    NewAuthHandler(userRepo, sessionStore),
 		user:    NewUserHandler(userRepo),
 		issue:   NewIssueHandler(issueService),
-		project: NewProjectHandler(projectService, cfg),
+		project: NewProjectHandler(projectService, issueService, cfg),
 		config:  cfg,
 	}
 }

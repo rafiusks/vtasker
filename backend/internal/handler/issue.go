@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/vtasker/internal/middleware"
 	"github.com/vtasker/internal/models"
 	"github.com/vtasker/internal/service"
 	"github.com/vtasker/pkg/logger"
@@ -27,6 +28,7 @@ func NewIssueHandler(service *service.IssueService) *IssueHandler {
 // RegisterRoutes registers the issue routes
 func (h *IssueHandler) RegisterRoutes(r chi.Router) {
 	r.Route("/api/v1/issues", func(r chi.Router) {
+		r.Use(middleware.RequireAuth)
 		r.Post("/", h.CreateIssue)
 		r.Get("/", h.ListIssues)
 		r.Get("/{id}", h.GetIssue)
@@ -43,8 +45,12 @@ func (h *IssueHandler) CreateIssue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Get user ID from context after auth middleware is implemented
-	userID := uuid.New() // Temporary placeholder
+	// Get user ID from context
+	userID, ok := r.Context().Value(middleware.UserIDKey).(uuid.UUID)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
 
 	issue, err := h.service.CreateIssue(r.Context(), &req, userID)
 	if err != nil {

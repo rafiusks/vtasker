@@ -45,14 +45,14 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get authenticated user from context
-	ctxUserID := r.Context().Value(auth.UserIDKey).(string)
-	if ctxUserID == "" {
+	ctxUserID, ok := r.Context().Value(auth.UserIDKey).(uuid.UUID)
+	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	// Users can only access their own profile
-	if ctxUserID != userID {
+	if ctxUserID != parsedID {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
@@ -92,14 +92,14 @@ func (h *UserHandler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get authenticated user from context
-	ctxUserID := r.Context().Value(auth.UserIDKey).(string)
-	if ctxUserID == "" {
+	ctxUserID, ok := r.Context().Value(auth.UserIDKey).(uuid.UUID)
+	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	// Users can only update their own profile
-	if ctxUserID != userID {
+	if ctxUserID != parsedID {
 		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}

@@ -6,7 +6,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/vtasker/internal/auth"
+	"github.com/vtasker/pkg/logger"
 )
 
 type contextKey string
@@ -48,11 +50,21 @@ func RequireAuth(next http.Handler) http.Handler {
 			return
 		}
 
+		// Validate user ID format
+		userID, err := uuid.Parse(claims.UserID)
+		if err != nil {
+			logger.Error("Invalid user ID format in token", err, map[string]interface{}{
+				"user_id": claims.UserID,
+			})
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
 		// Add user information to request context
-		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
+		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		ctx = context.WithValue(ctx, EmailKey, claims.Email)
 
 		// Call the next handler with the updated context
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
-} 
+}
